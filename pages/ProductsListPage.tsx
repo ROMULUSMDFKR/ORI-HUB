@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -99,16 +101,17 @@ const ProductsListPage: React.FC = () => {
             </div>
 
             <div className="px-6 py-4 border-b border-border">
-                <div className="relative w-full max-w-xs">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <span className="material-symbols-outlined text-on-surface-secondary">search</span>
-                    </div>
+                <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-secondary pointer-events-none">
+                        search
+                    </span>
                     <input
+                        id="product-search"
                         type="text"
                         placeholder="Buscar por nombre o SKU..."
                         value={filter}
                         onChange={e => setFilter(e.target.value)}
-                        className="block w-full pl-10 pr-4 py-2 text-sm bg-surface-inset text-on-surface placeholder:text-on-surface-secondary border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="block w-80 pl-10 pr-4 py-2 text-sm bg-surface-inset text-on-surface placeholder:text-on-surface-secondary border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                 </div>
             </div>

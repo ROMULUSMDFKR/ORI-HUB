@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -86,14 +88,17 @@ const CrmSuppliersListPage: React.FC = () => {
             </div>
 
             <div className="bg-white p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4">
-                <div className="relative flex-grow">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+                <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-secondary pointer-events-none">
+                        search
+                    </span>
                     <input
+                        id="supplier-search"
                         type="text"
                         placeholder="Buscar por nombre..."
                         value={filter}
                         onChange={e => setFilter(e.target.value)}
-                        className="w-full bg-white pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-dark/50"
+                        className="w-80 bg-surface pl-10 pr-4 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                 </div>
                 <div className="flex items-center space-x-2">

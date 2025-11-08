@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -64,13 +65,16 @@ const CrmClientsListPage: React.FC = () => {
             </div>
 
             <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-secondary pointer-events-none">
+                    search
+                </span>
                 <input
+                    id="client-search"
                     type="text"
                     placeholder="Buscar por nombre..."
                     value={filter}
                     onChange={e => setFilter(e.target.value)}
-                    className="w-full max-w-sm pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-dark/50"
+                    className="w-80 pl-10 pr-4 py-2 text-sm bg-surface text-on-surface border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
             </div>
             

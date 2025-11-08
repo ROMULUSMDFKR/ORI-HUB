@@ -87,11 +87,14 @@ const Header: React.FC = () => {
     <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-6 flex-shrink-0">
       <div className="flex items-center space-x-4">
         <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-secondary">search</span>
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-secondary pointer-events-none">
+            search
+          </span>
           <input
+            id="header-search"
             type="text"
             placeholder="Buscar prospectos, clientes..."
-            className="w-full md:w-64 lg:w-96 pl-10 pr-4 py-2 text-sm bg-background text-on-surface placeholder-on-surface-secondary border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-80 lg:w-96 pl-10 pr-4 py-2 text-sm bg-background text-on-surface placeholder-on-surface-secondary border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
       </div>

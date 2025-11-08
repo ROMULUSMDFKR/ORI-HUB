@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -230,13 +232,16 @@ const CrmPage: React.FC = () => {
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="relative">
-                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-secondary">search</span>
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-secondary pointer-events-none">
+                            search
+                        </span>
                         <input
+                            id="crm-search"
                             type="text"
-                            placeholder="buscar por nombre..."
+                            placeholder="Buscar por nombre..."
                             value={filter}
                             onChange={e => setFilter(e.target.value)}
-                            className="w-full sm:w-64 bg-surface pl-10 pr-4 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                            className="w-80 bg-surface pl-10 pr-4 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                     </div>
                     {(activeView === 'companies' || activeView === 'prospects') && (

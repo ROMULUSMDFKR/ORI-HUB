@@ -10,40 +10,84 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Lato:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
       :root {
+        /* Global & Typography */
         --color-primary: #D7FE03;
         --color-accent: #83AF3B;
-        --color-on-primary: #1F2937;
         --color-background: #F5F5F8;
         --color-surface: #FFFFFF;
-        --color-surface-dark: #1F2937;
-        --color-surface-inset: #F3F4F6;
         --color-on-surface: #1F2937;
         --color-on-surface-secondary: #6B7280;
-        --color-on-dark: #F9FAFB;
-        --color-on-dark-secondary: #9CA3AF;
         --color-border: #E5E7EB;
-        --color-border-dark: #374151;
-
         --font-sans: 'Inter', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif';
         --font-size-base: 16px;
+
+        /* Borders & Shadows */
         --border-radius: 0.5rem;
+        --card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+
+        /* Buttons */
+        --color-button-primary-bg: #D7FE03;
+        --color-button-primary-text: #1F2937;
+        --color-button-accent-bg: #83AF3B;
+        --color-button-accent-text: #FFFFFF;
+        --color-button-default-bg: #FFFFFF;
+        --color-button-default-text: #1F2937;
+        --color-button-default-border: #E5E7EB;
         --button-border-radius: 0.5rem;
+        
+        /* Cards */
+        --card-bg: #FFFFFF;
+        --card-border-color: #E5E7EB;
+        --card-border-width: 1px;
+
+        /* Forms */
+        --form-input-bg: #F3F4F6;
+        --form-input-border-color: #E5E7EB;
+        --form-input-focus-ring-color: #D7FE03;
       }
       html {
         font-size: var(--font-size-base);
       }
       body {
         font-family: var(--font-sans);
+        background-color: var(--color-background);
+        color: var(--color-on-surface);
       }
       .rounded-lg { border-radius: var(--border-radius); }
       .rounded-xl { border-radius: calc(var(--border-radius) * 1.5); }
       .rounded-full { border-radius: 9999px; }
       
-      button.rounded-lg {
+      /* --- NEW THEME OVERRIDE STYLES --- */
+
+      /* Buttons */
+      button.bg-primary, a.bg-primary {
+        background-color: var(--color-button-primary-bg);
+        color: var(--color-button-primary-text);
         border-radius: var(--button-border-radius);
       }
-
-      /* NEW GLOBAL FORM STYLES */
+      button.bg-accent, a.bg-accent {
+        background-color: var(--color-button-accent-bg);
+        color: var(--color-button-accent-text);
+        border-radius: var(--button-border-radius);
+      }
+      button.bg-surface.border, button.bg-white.border {
+        background-color: var(--color-button-default-bg);
+        color: var(--color-button-default-text);
+        border-color: var(--color-button-default-border);
+        border-radius: var(--button-border-radius);
+      }
+      
+      /* Cards & Surfaces */
+      .bg-surface, .bg-white {
+        background-color: var(--card-bg);
+        border-color: var(--card-border-color);
+        border-width: var(--card-border-width);
+        box-shadow: var(--card-shadow);
+        border-style: solid;
+        border-radius: var(--border-radius);
+      }
+      
+      /* Form Inputs */
       input[type='text'],
       input[type='number'],
       input[type='email'],
@@ -51,12 +95,11 @@
       input[type='date'],
       select,
       textarea {
-        background-color: var(--color-surface-inset);
-        border-width: 1px;
-        border-color: var(--color-border);
+        background-color: var(--form-input-bg);
+        border-color: var(--form-input-border-color);
         border-radius: var(--border-radius);
         padding: 0.5rem 0.75rem;
-        font-size: 0.875rem; /* text-sm */
+        font-size: 0.875rem;
         line-height: 1.25rem;
         width: 100%;
         display: block;
@@ -70,16 +113,16 @@
       select:focus,
       textarea:focus {
         outline: none;
-        box-shadow: 0 0 0 2px var(--color-primary);
+        box-shadow: 0 0 0 2px var(--form-input-focus-ring-color);
         border-color: var(--color-accent);
       }
        input:disabled, select:disabled, textarea:disabled {
-        background-color: #F3F4F6; /* gray-100 */
+        background-color: #F3F4F6;
         cursor: not-allowed;
-        color: #9CA3AF; /* gray-400 */
+        color: #9CA3AF;
         opacity: 0.7;
       }
-      /* END NEW STYLES */
+      /* --- END NEW STYLES --- */
 
       @keyframes gradient-animation {
         0% { background-position: 0% 50%; }
@@ -98,11 +141,11 @@
             colors: {
               'primary': 'var(--color-primary)',
               'accent': 'var(--color-accent)',
-              'on-primary': 'var(--color-on-primary)',
+              'on-primary': 'var(--color-button-primary-text)', // Use button text color for consistency
               'background': 'var(--color-background)',
               'surface': 'var(--color-surface)',
               'surface-dark': 'var(--color-surface-dark)',
-              'surface-inset': 'var(--color-surface-inset)',
+              'surface-inset': 'var(--form-input-bg)',
               'on-surface': 'var(--color-on-surface)',
               'on-surface-secondary': 'var(--color-on-surface-secondary)',
               'on-dark': 'var(--color-on-dark)',

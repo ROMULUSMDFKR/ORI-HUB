@@ -9,11 +9,16 @@ import {
 } from '../types';
 
 export const MOCK_USERS: { [key: string]: User } = {
+  'user-1': { id: 'user-1', name: 'Natalia', avatarUrl: 'https://i.pravatar.cc/150?u=natalia', email: 'natalia.v@crmstudio.com', role: 'Admin', teamId: 'team-1', isActive: true },
+  'user-2': { id: 'user-2', name: 'David', avatarUrl: 'https://i.pravatar.cc/150?u=david', email: 'david.r@crmstudio.com', role: 'Ventas', teamId: 'team-1', isActive: true },
+  'user-3': { id: 'user-3', name: 'Admin User', avatarUrl: 'https://i.pravatar.cc/150?u=admin', email: 'admin@crmstudio.com', role: 'Admin', teamId: 'team-2', isActive: true },
+  'user-4': { id: 'user-4', name: 'Laura', avatarUrl: 'https://i.pravatar.cc/150?u=laura', email: 'laura.m@crmstudio.com', role: 'Logística', teamId: 'team-2', isActive: true },
   natalia: { id: 'user-1', name: 'Natalia', avatarUrl: 'https://i.pravatar.cc/150?u=natalia', email: 'natalia.v@crmstudio.com', role: 'Admin', teamId: 'team-1', isActive: true },
   david: { id: 'user-2', name: 'David', avatarUrl: 'https://i.pravatar.cc/150?u=david', email: 'david.r@crmstudio.com', role: 'Ventas', teamId: 'team-1', isActive: true },
   admin: { id: 'user-3', name: 'Admin User', avatarUrl: 'https://i.pravatar.cc/150?u=admin', email: 'admin@crmstudio.com', role: 'Admin', teamId: 'team-2', isActive: true },
   laura: { id: 'user-4', name: 'Laura', avatarUrl: 'https://i.pravatar.cc/150?u=laura', email: 'laura.m@crmstudio.com', role: 'Logística', teamId: 'team-2', isActive: true },
 };
+
 
 export const MOCK_TEAMS: Team[] = [
     { id: 'team-1', name: 'Equipo de Ventas Alpha', description: 'Enfocados en clientes industriales y de alto valor.', members: ['user-1', 'user-2'] },
@@ -28,7 +33,7 @@ export const MOCK_CATEGORIES: Category[] = [
 
 export const MOCK_LOCATIONS = [
     { id: 'loc-1', name: 'Almacén Principal (Veracruz)' },
-    { id: 'loc-2', name: 'Bodega CDMX' },
+    { id: 'loc-2', name: 'Bodega CDMX (Ecatepec)' },
     { id: 'loc-3', name: 'Bodega de Líquidos (Monterrey)' },
 ];
 const now = new Date();
@@ -121,6 +126,8 @@ export const MOCK_PRODUCTS: Product[] = [
     { id: 'prod-2', sku: 'SUL-AMM', name: 'Sulfato de Amonio', unitDefault: 'ton', isActive: true, categoryId: 'cat-1', pricing: { min: 350 }, reorderPoint: 100 },
     { id: 'prod-3', sku: 'GLI-FOS', name: 'Glifosato 360', unitDefault: 'L', isActive: true, categoryId: 'cat-2', pricing: { min: 5.5 }, reorderPoint: 2000 },
     { id: 'prod-4', sku: 'ACE-LUB', name: 'Aceite Lubricante HD-50', unitDefault: 'L', isActive: false, categoryId: 'cat-3', pricing: { min: 4.2 }, reorderPoint: 500 },
+    { id: 'prod-5', sku: 'UREA-IND', name: 'UREA-IND', unitDefault: 'ton', isActive: true, categoryId: 'cat-3', pricing: { min: 500 }, reorderPoint: 50 },
+    { id: 'prod-6', sku: 'UREA-LIQ', name: 'UREA-LIQ', unitDefault: 'L', isActive: true, categoryId: 'cat-3', pricing: { min: 2.5 }, reorderPoint: 10000 },
 ];
 
 export const MOCK_LOTS: { [productId: string]: ProductLot[] } = {
@@ -315,8 +322,10 @@ export const MOCK_FREIGHT_PRICING: FreightPricingRule[] = [
 ];
 
 export const MOCK_INVENTORY_MOVES: InventoryMove[] = [
-    { id: 'im-1', type: 'in', productId: 'prod-1', lotId: 'lot-1b', qty: 310, unit: 'ton', toLocationId: 'loc-1', createdAt: daysAgo(15) },
-    { id: 'im-2', type: 'out', productId: 'prod-1', lotId: 'lot-1a', qty: 20, unit: 'ton', fromLocationId: 'loc-1', note: 'Venta SO-2024-005', createdAt: daysAgo(14) },
+    { id: 'im-1', type: 'in', productId: 'prod-5', lotId: 'lot-5a', qty: 100, unit: 'ton', fromLocationId: undefined, toLocationId: 'loc-1', note: 'OC-12345', createdAt: new Date('2024-11-08T10:00:00Z').toISOString(), userId: 'user-1' },
+    { id: 'im-2', type: 'out', productId: 'prod-6', lotId: 'lot-6a', qty: 5000, unit: 'L', fromLocationId: 'loc-3', toLocationId: undefined, note: 'Venta-5678', createdAt: new Date('2024-11-08T09:00:00Z').toISOString(), userId: 'user-2' },
+    { id: 'im-3', type: 'transfer', productId: 'prod-1', lotId: 'lot-1a', qty: 50, unit: 'ton', fromLocationId: 'loc-2', toLocationId: 'loc-1', note: 'Rebalanceo', createdAt: new Date('2024-11-08T08:00:00Z').toISOString(), userId: 'user-3' },
+    { id: 'im-4', type: 'adjust', productId: 'prod-5', lotId: 'lot-5a', qty: -5, unit: 'ton', fromLocationId: 'loc-1', toLocationId: undefined, note: 'Merma', createdAt: new Date('2024-11-07T15:00:00Z').toISOString(), userId: 'user-1' },
 ];
 
 export const MOCK_MESSAGES: ChatMessage[] = [

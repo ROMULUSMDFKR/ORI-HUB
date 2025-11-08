@@ -42,6 +42,54 @@
       button.rounded-lg {
         border-radius: var(--button-border-radius);
       }
+
+      /* NEW GLOBAL FORM STYLES */
+      input[type='text'],
+      input[type='number'],
+      input[type='email'],
+      input[type='password'],
+      input[type='date'],
+      select,
+      textarea {
+        background-color: var(--color-surface-inset);
+        border-width: 1px;
+        border-color: var(--color-border);
+        border-radius: var(--border-radius);
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem; /* text-sm */
+        line-height: 1.25rem;
+        width: 100%;
+        display: block;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+      input[type='text']:focus,
+      input[type='number']:focus,
+      input[type='email']:focus,
+      input[type='password']:focus,
+      input[type='date']:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px var(--color-primary);
+        border-color: var(--color-accent);
+      }
+       input:disabled, select:disabled, textarea:disabled {
+        background-color: #F3F4F6; /* gray-100 */
+        cursor: not-allowed;
+        color: #9CA3AF; /* gray-400 */
+        opacity: 0.7;
+      }
+      /* END NEW STYLES */
+
+      @keyframes gradient-animation {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      .animate-gradient {
+        background-size: 200% 200%;
+        animation: gradient-animation 15s ease infinite;
+      }
     </style>
     <script>
       tailwind.config = {

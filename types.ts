@@ -361,7 +361,7 @@ export interface PurchaseOrder {
 }
 
 export interface InventoryMove {
-  id:string;
+  id: string;
   type: "in" | "out" | "transfer" | "adjust";
   productId: string;
   lotId: string;
@@ -371,6 +371,7 @@ export interface InventoryMove {
   toLocationId?: string;
   note?: string;
   createdAt: string; // ISO Date string
+  userId: string;
 }
 
 export interface LogisticsDelivery {

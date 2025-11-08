@@ -31,6 +31,51 @@ const FONT_OPTIONS = [
 
 // --- Sub-Pages ---
 
+const SecuritySettings = () => {
+    const [maxAttempts, setMaxAttempts] = useState(5);
+    const [lockoutTime, setLockoutTime] = useState(15);
+
+    return (
+        <div className="space-y-8">
+            <div>
+                <h2 className="text-2xl font-bold text-on-surface">Política de Inicio de Sesión</h2>
+                <p className="text-on-surface-secondary mt-1">Define los parámetros de seguridad para el inicio de sesión de todos los usuarios.</p>
+            </div>
+            <div className="bg-surface p-6 rounded-xl shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label htmlFor="max-attempts" className="block text-sm font-medium text-on-surface-secondary">Número máximo de intentos fallidos</label>
+                        <input
+                            type="number"
+                            id="max-attempts"
+                            value={maxAttempts}
+                            onChange={e => setMaxAttempts(Number(e.target.value))}
+                            className="mt-1 block w-full bg-surface-inset border-border rounded-lg p-2 focus:ring-2 focus:ring-primary focus:outline-none"
+                        />
+                        <p className="mt-2 text-xs text-on-surface-secondary">Después de este número de intentos, la cuenta se bloqueará.</p>
+                    </div>
+                    <div>
+                        <label htmlFor="lockout-time" className="block text-sm font-medium text-on-surface-secondary">Tiempo de bloqueo de la cuenta (minutos)</label>
+                        <input
+                            type="number"
+                            id="lockout-time"
+                            value={lockoutTime}
+                            onChange={e => setLockoutTime(Number(e.target.value))}
+                            className="mt-1 block w-full bg-surface-inset border-border rounded-lg p-2 focus:ring-2 focus:ring-primary focus:outline-none"
+                        />
+                         <p className="mt-2 text-xs text-on-surface-secondary">La cuenta permanecerá bloqueada durante este tiempo.</p>
+                    </div>
+                </div>
+                 <div className="border-t mt-6 pt-4 flex justify-end">
+                    <button className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg shadow-sm hover:opacity-90">
+                        Guardar Política de Seguridad
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const ColorInput: React.FC<{ label: string; color: string; onChange: (color: string) => void; }> = ({ label, color, onChange }) => {
     const id = `color-picker-${label.replace(' ', '-')}`;
     return (
@@ -248,6 +293,7 @@ const SETTINGS_NAV = [
         links: [
             { id: 'usuarios', name: 'Usuarios y Permisos', icon: 'manage_accounts' },
             { id: 'equipos', name: 'Equipos', icon: 'groups' },
+            { id: 'seguridad', name: 'Seguridad', icon: 'security' },
             { id: 'industrias', name: 'Industrias', icon: 'factory' },
             { id: 'pipelines', name: 'Etapas de Venta', icon: 'mediation' },
             { id: 'integraciones', name: 'Integraciones', icon: 'integration_instructions' },
@@ -266,6 +312,8 @@ const SettingsPage: React.FC = () => {
                 return <UserManagement />;
             case 'equipos':
                 return <TeamManagement />;
+            case 'seguridad':
+                return <SecuritySettings />;
             case 'industrias':
                 return <IndustryManagement />;
             case 'pipelines':

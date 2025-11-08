@@ -1,8 +1,5 @@
 
-
-
-
-import React, { useLayoutEffect } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
@@ -45,6 +42,10 @@ import AiAssistantPage from './pages/AiAssistantPage';
 import EmailsPage from './pages/EmailsPage';
 import SettingsPage from './pages/SettingsPage';
 import ProfilePage from './pages/ProfilePage';
+import EditProductPage from './pages/EditProductPage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+
 
 const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="flex h-screen bg-background text-on-surface">
@@ -58,93 +59,116 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
-const App: React.FC = () => {
-  useLayoutEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem('crm-theme');
-      if (savedTheme) {
-        const theme = JSON.parse(savedTheme);
-        for (const key in theme) {
-            document.documentElement.style.setProperty(key, theme[key]);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to apply theme from localStorage", error);
-    }
-  }, []);
+const AppRoutes: React.FC = () => {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+    // This is a mock authentication. In a real app, you'd have a context or state management.
+    const handleLogin = () => setIsAuthenticated(true);
+    const handleSignup = () => setIsAuthenticated(true);
+
+    useLayoutEffect(() => {
+        try {
+            const savedTheme = localStorage.getItem('crm-theme');
+            if (savedTheme) {
+                const theme = JSON.parse(savedTheme);
+                for (const key in theme) {
+                    document.documentElement.style.setProperty(key, theme[key]);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to apply theme from localStorage", error);
+        }
+    }, []);
+
+    if (!isAuthenticated) {
+        return (
+            <Routes>
+                <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+                <Route path="/signup" element={<SignupPage onSignup={handleSignup} />} />
+                <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+        );
+    }
+    
+    return (
+        <AppShell>
+            <Routes>
+                <Route path="/" element={<Navigate to="/today" replace />} />
+                <Route path="/today" element={<DashboardPage />} />
+                
+                {/* CRM / Ventas */}
+                <Route path="/crm" element={<Navigate to="/crm/lists" replace />} />
+                <Route path="/crm/pipeline" element={<Navigate to="/hubs/prospects" replace />} />
+                <Route path="/crm/lists" element={<CrmPage />} />
+                <Route path="/crm/clients" element={<Navigate to="/crm/lists?view=companies" replace />} />
+                <Route path="/crm/clients/:id" element={<ClientDetailPage />} />
+                <Route path="/crm/clients/:id/edit" element={<EditClientPage />} />
+                <Route path="/crm/contacts" element={<Navigate to="/crm/lists?view=contacts" replace />} />
+                <Route path="/crm/contacts/:id" element={<ContactDetailPage />} />
+                
+                <Route path="/crm/suppliers/:id" element={<SupplierDetailPage />} />
+                <Route path="/crm/suppliers/:id/edit" element={<EditSupplierPage />} />
+                <Route path="/crm/prospects/new" element={<NewProspectPage />} />
+                <Route path="/crm/prospects/:id" element={<ProspectDetailPage />} />
+                <Route path="/crm/prospects/:id/edit" element={<EditProspectPage />} />
+
+                {/* Hubs */}
+                <Route path="/hubs/prospects" element={<CrmPipelinePage />} />
+                <Route path="/hubs/samples" element={<SamplesPipelinePage />} />
+                <Route path="/hubs/quotes" element={<QuotesPipelinePage />} />
+                <Route path="/hubs/quotes/new" element={<NewQuotePage />} />
+                <Route path="/hubs/sales-orders" element={<SalesOrdersPipelinePage />} />
+                <Route path="/hubs/companies" element={<CompaniesPipelinePage />} />
+
+                {/* Products */}
+                <Route path="/products/list" element={<ProductsListPage />} />
+                <Route path="/products/categories" element={<ProductCategoriesPage />} />
+                <Route path="/products/new" element={<NewProductPage />} />
+                <Route path="/products/:id" element={<ProductDetailPage />} />
+                <Route path="/products/:id/edit" element={<EditProductPage />} />
+
+                {/* Purchase */}
+                <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
+                <Route path="/purchase/suppliers" element={<CrmSuppliersListPage />} />
+
+                {/* Inventory */}
+                <Route path="/inventory/stock" element={<InventoryStockPage />} />
+                <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
+                <Route path="/inventory/alerts" element={<InventoryAlertsPage />} />
+                <Route path="/inventory/locations" element={<InventoryLocationsPage />} />
+
+                {/* Logistics */}
+                <Route path="/logistics/deliveries" element={<LogisticsDeliveriesPage />} />
+                <Route path="/logistics/providers" element={<LogisticsProvidersPage />} />
+                <Route path="/logistics/pricing" element={<LogisticsPricingPage />} />
+
+                {/* Other */}
+                <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/tasks/projects" element={<ProjectsPage />} />
+                <Route path="/archives" element={<ArchivesPage />} />
+
+                {/* New Routes */}
+                <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/communication/chat" element={<InternalChatPage />} />
+                <Route path="/communication/emails" element={<EmailsPage />} />
+                <Route path="/communication/ai-assistant" element={<AiAssistantPage />} />
+                
+                {/* FIX: Corrected typo from 'Path' to 'Route' for proper routing. */}
+                <Route path="/insights/audit" element={<AuditPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+
+
+                <Route path="*" element={<div className="text-center p-12">Página no encontrada</div>} />
+            </Routes>
+        </AppShell>
+    );
+}
+
+const App: React.FC = () => {
   return (
     <HashRouter>
-      <AppShell>
-        <Routes>
-          <Route path="/" element={<Navigate to="/today" replace />} />
-          <Route path="/today" element={<DashboardPage />} />
-          
-          {/* CRM / Ventas */}
-          <Route path="/crm" element={<Navigate to="/crm/lists" replace />} />
-          <Route path="/crm/pipeline" element={<Navigate to="/hubs/prospects" replace />} />
-          <Route path="/crm/lists" element={<CrmPage />} />
-          <Route path="/crm/clients" element={<Navigate to="/crm/lists?view=companies" replace />} />
-          <Route path="/crm/clients/:id" element={<ClientDetailPage />} />
-          <Route path="/crm/clients/:id/edit" element={<EditClientPage />} />
-          <Route path="/crm/contacts" element={<Navigate to="/crm/lists?view=contacts" replace />} />
-          <Route path="/crm/contacts/:id" element={<ContactDetailPage />} />
-          
-          <Route path="/crm/suppliers/:id" element={<SupplierDetailPage />} />
-          <Route path="/crm/suppliers/:id/edit" element={<EditSupplierPage />} />
-          <Route path="/crm/prospects/new" element={<NewProspectPage />} />
-          <Route path="/crm/prospects/:id" element={<ProspectDetailPage />} />
-          <Route path="/crm/prospects/:id/edit" element={<EditProspectPage />} />
-
-          {/* Hubs */}
-          <Route path="/hubs/prospects" element={<CrmPipelinePage />} />
-          <Route path="/hubs/samples" element={<SamplesPipelinePage />} />
-          <Route path="/hubs/quotes" element={<QuotesPipelinePage />} />
-          <Route path="/hubs/quotes/new" element={<NewQuotePage />} />
-          <Route path="/hubs/sales-orders" element={<SalesOrdersPipelinePage />} />
-          <Route path="/hubs/companies" element={<CompaniesPipelinePage />} />
-
-          {/* Products */}
-          <Route path="/products/list" element={<ProductsListPage />} />
-          <Route path="/products/categories" element={<ProductCategoriesPage />} />
-          <Route path="/products/new" element={<NewProductPage />} />
-          <Route path="/products/:id" element={<ProductDetailPage />} />
-
-          {/* Purchase */}
-          <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
-          <Route path="/purchase/suppliers" element={<CrmSuppliersListPage />} />
-
-          {/* Inventory */}
-          <Route path="/inventory/stock" element={<InventoryStockPage />} />
-          <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
-          <Route path="/inventory/alerts" element={<InventoryAlertsPage />} />
-          <Route path="/inventory/locations" element={<InventoryLocationsPage />} />
-
-          {/* Logistics */}
-          <Route path="/logistics/deliveries" element={<LogisticsDeliveriesPage />} />
-          <Route path="/logistics/providers" element={<LogisticsProvidersPage />} />
-          <Route path="/logistics/pricing" element={<LogisticsPricingPage />} />
-
-          {/* Other */}
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/tasks/projects" element={<ProjectsPage />} />
-          <Route path="/archives" element={<ArchivesPage />} />
-
-          {/* New Routes */}
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/communication/chat" element={<InternalChatPage />} />
-          <Route path="/communication/emails" element={<EmailsPage />} />
-          <Route path="/communication/ai-assistant" element={<AiAssistantPage />} />
-          
-          {/* FIX: Corrected typo from 'Path' to 'Route' for proper routing. */}
-          <Route path="/insights/audit" element={<AuditPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-
-
-          <Route path="*" element={<div className="text-center p-12">Página no encontrada</div>} />
-        </Routes>
-      </AppShell>
+      <AppRoutes />
     </HashRouter>
   );
 };

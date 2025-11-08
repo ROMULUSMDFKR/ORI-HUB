@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { Product, ProductLot, Category, Note } from '../types';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
@@ -129,11 +129,11 @@ const NotesSection: React.FC<{ productId: string }> = ({ productId }) => {
                         rows={3}
                         value={newNote}
                         onChange={(e) => setNewNote(e.target.value)}
-                        className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-container-bg text-text-main"
+                        className="text-on-surface"
                         placeholder="Escribe una nueva nota..."
                     />
                     <div className="text-right mt-2">
-                        <button onClick={handleAddNote} className="bg-primary text-white font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:bg-primary-dark">
+                        <button onClick={handleAddNote} className="bg-primary text-on-primary font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:opacity-90">
                             Agregar Nota
                         </button>
                     </div>
@@ -200,14 +200,10 @@ const ProductDetailPage: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex space-x-2 mt-4 md:mt-0">
-                    <button className="bg-white border border-gray-300 text-text-main font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-gray-50 transition-colors">
+                    <Link to={`/products/${product.id}/edit`} className="bg-white border border-gray-300 text-text-main font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-gray-50 transition-colors">
                         <span className="material-symbols-outlined mr-2 text-base">edit</span>
                         Editar Producto
-                    </button>
-                     <button className="bg-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-primary-dark transition-colors">
-                        <span className="material-symbols-outlined mr-2 text-base">add</span>
-                        Nueva Acción
-                    </button>
+                    </Link>
                 </div>
             </div>
 

@@ -1,4 +1,5 @@
 
+
 import React, { useLayoutEffect, useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
@@ -60,7 +61,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const AppRoutes: React.FC = () => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(true);
 
     // This is a mock authentication. In a real app, you'd have a context or state management.
     const handleLogin = () => setIsAuthenticated(true);

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CRM Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Lato:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --color-primary: #D7FE03;
+        --color-accent: #83AF3B;
+        --color-on-primary: #1F2937;
+        --color-background: #F5F5F8;
+        --color-surface: #FFFFFF;
+        --color-surface-dark: #1F2937;
+        --color-surface-inset: #F3F4F6;
+        --color-on-surface: #1F2937;
+        --color-on-surface-secondary: #6B7280;
+        --color-on-dark: #F9FAFB;
+        --color-on-dark-secondary: #9CA3AF;
+        --color-border: #E5E7EB;
+        --color-border-dark: #374151;
+
+        --font-sans: 'Inter', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif';
+        --font-size-base: 16px;
+        --border-radius: 0.5rem;
+        --button-border-radius: 0.5rem;
+      }
+      html {
+        font-size: var(--font-size-base);
+      }
+      body {
+        font-family: var(--font-sans);
+      }
+      .rounded-lg { border-radius: var(--border-radius); }
+      .rounded-xl { border-radius: calc(var(--border-radius) * 1.5); }
+      .rounded-full { border-radius: 9999px; }
+      
+      button.rounded-lg {
+        border-radius: var(--button-border-radius);
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'primary': 'var(--color-primary)',
+              'accent': 'var(--color-accent)',
+              'on-primary': 'var(--color-on-primary)',
+              'background': 'var(--color-background)',
+              'surface': 'var(--color-surface)',
+              'surface-dark': 'var(--color-surface-dark)',
+              'surface-inset': 'var(--color-surface-inset)',
+              'on-surface': 'var(--color-on-surface)',
+              'on-surface-secondary': 'var(--color-on-surface-secondary)',
+              'on-dark': 'var(--color-on-dark)',
+              'on-dark-secondary': 'var(--color-on-dark-secondary)',
+              'border': 'var(--color-border)',
+              'border-dark': 'var(--color-border-dark)'
+            },
+            fontFamily: {
+                sans: ['var(--font-sans)', 'sans-serif'],
+            },
+            borderRadius: {
+              'lg': 'var(--border-radius)',
+              'xl': 'calc(var(--border-radius) * 1.5)',
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+<style>
+  .material-symbols-outlined {
+    font-variation-settings:
+    'FILL' 0,
+    'wght' 300,
+    'GRAD' 0,
+    'opsz' 24;
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.5",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0"
+  }
+}
+</script>
+</head>
+<body class="bg-background font-sans">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>

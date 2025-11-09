@@ -1,10 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
 import { useCollection } from '../../hooks/useCollection';
-import { User, Team, AuditLog } from '../../types';
+import { User, Team, AuditLog, Company } from '../../types';
 import Table from '../../components/ui/Table';
 import Spinner from '../../components/ui/Spinner';
 import Badge from '../../components/ui/Badge';
 import Drawer from '../../components/ui/Drawer';
+import Radio from '../../components/ui/Radio';
+import Checkbox from '../../components/ui/Checkbox';
 
 const PERMISSIONS_CONFIG = {
     'Prospectos': ['view', 'create', 'edit', 'delete'],
@@ -56,11 +59,13 @@ const EditUserDrawer: React.FC<{
     onClose: () => void;
     user: User | null;
     teams: Team[];
+    companies: Company[];
     onSave: (user: User) => void;
-}> = ({ isOpen, onClose, user, teams, onSave }) => {
+}> = ({ isOpen, onClose, user, teams, companies, onSave }) => {
     const [editedUser, setEditedUser] = useState<User | null>(null);
     const [activeTab, setActiveTab] = useState('general');
     const {data: auditLogs} = useCollection<AuditLog>('auditLogs');
+    const [scope, setScope] = useState('team');
 
     useEffect(() => {
         if (user) {
@@ -76,6 +81,8 @@ const EditUserDrawer: React.FC<{
     };
 
     const userActivity = (auditLogs || []).filter(log => log.by === editedUser.id).sort((a,b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+
+    const sharedInputClass = "mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary";
 
     return (
         <Drawer isOpen={isOpen} onClose={onClose} title={`Editar Usuario: ${user?.name}`}>
@@ -96,15 +103,15 @@ const EditUserDrawer: React.FC<{
                         <>
                            <div>
                                 <label className="block text-sm font-medium text-gray-700">Nombre</label>
-                                <input type="text" value={editedUser.name} onChange={e => handleFieldChange('name', e.target.value)} className="mt-1 block w-full border-border rounded-md shadow-sm"/>
+                                <input type="text" value={editedUser.name} onChange={e => handleFieldChange('name', e.target.value)} className={sharedInputClass}/>
                             </div>
                              <div>
                                 <label className="block text-sm font-medium text-gray-700">Email</label>
-                                <input type="email" value={editedUser.email} onChange={e => handleFieldChange('email', e.target.value)} className="mt-1 block w-full border-border rounded-md shadow-sm"/>
+                                <input type="email" value={editedUser.email} onChange={e => handleFieldChange('email', e.target.value)} className={sharedInputClass}/>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Rol</label>
-                                <select value={editedUser.role} onChange={e => handleFieldChange('role', e.target.value)} className="mt-1 block w-full border-border rounded-md shadow-sm">
+                                <select value={editedUser.role} onChange={e => handleFieldChange('role', e.target.value)} className={sharedInputClass}>
                                     <option>Admin</option>
                                     <option>Ventas</option>
                                     <option>Logística</option>
@@ -112,9 +119,16 @@ const EditUserDrawer: React.FC<{
                             </div>
                              <div>
                                 <label className="block text-sm font-medium text-gray-700">Equipo</label>
-                                <select value={editedUser.teamId || ''} onChange={e => handleFieldChange('teamId', e.target.value)} className="mt-1 block w-full border-border rounded-md shadow-sm">
+                                <select value={editedUser.teamId || ''} onChange={e => handleFieldChange('teamId', e.target.value)} className={sharedInputClass}>
                                     <option value="">Sin equipo</option>
                                     {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Empresa</label>
+                                <select value={editedUser.companyId || ''} onChange={e => handleFieldChange('companyId', e.target.value)} className={sharedInputClass}>
+                                    <option value="">Sin empresa</option>
+                                    {companies.map(c => <option key={c.id} value={c.id}>{c.shortName || c.name}</option>)}
                                 </select>
                             </div>
                             <div className="flex items-center justify-between">
@@ -132,9 +146,9 @@ const EditUserDrawer: React.FC<{
                             <div>
                                 <h4 className="font-semibold text-on-surface">Alcance de Datos</h4>
                                 <fieldset className="mt-2 space-y-2">
-                                    <div className="flex items-center"><input type="radio" name="scope" className="h-4 w-4 text-accent border-border" /><label className="ml-2 text-sm">Ver solo datos propios</label></div>
-                                    <div className="flex items-center"><input type="radio" name="scope" className="h-4 w-4 text-accent border-border" defaultChecked /><label className="ml-2 text-sm">Ver datos del equipo</label></div>
-                                    <div className="flex items-center"><input type="radio" name="scope" className="h-4 w-4 text-accent border-border" /><label className="ml-2 text-sm">Ver todos los datos</label></div>
+                                    <Radio id="scope-own" name="scope" value="own" checked={scope === 'own'} onChange={setScope}>Ver solo datos propios</Radio>
+                                    <Radio id="scope-team" name="scope" value="team" checked={scope === 'team'} onChange={setScope}>Ver datos del equipo</Radio>
+                                    <Radio id="scope-all" name="scope" value="all" checked={scope === 'all'} onChange={setScope}>Ver todos los datos</Radio>
                                 </fieldset>
                             </div>
                             <div>
@@ -145,7 +159,11 @@ const EditUserDrawer: React.FC<{
                                             <p className="font-medium text-sm">{module}</p>
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
                                                 {actions.map(action => (
-                                                     <div key={action} className="flex items-center"><input type="checkbox" defaultChecked className="h-4 w-4 text-accent border-border rounded" /><label className="ml-2 text-sm capitalize">{action}</label></div>
+                                                     <div key={action}>
+                                                        <Checkbox id={`${module}-${action}`} checked={true} onChange={() => {}}>
+                                                          <span className="text-sm capitalize">{action}</span>
+                                                        </Checkbox>
+                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
@@ -177,18 +195,20 @@ const EditUserDrawer: React.FC<{
     );
 };
 
-const InviteUserDrawer: React.FC<{ isOpen: boolean; onClose: () => void; teams: Team[], onInvite: (newUser: Omit<User, 'id' | 'isActive' | 'avatarUrl'>) => void }> = ({ isOpen, onClose, teams, onInvite }) => {
-    const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Ventas' as User['role'], teamId: ''});
+const InviteUserDrawer: React.FC<{ isOpen: boolean; onClose: () => void; teams: Team[]; companies: Company[]; onInvite: (newUser: Omit<User, 'id' | 'isActive' | 'avatarUrl'>) => void }> = ({ isOpen, onClose, teams, companies, onInvite }) => {
+    const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Ventas' as User['role'], teamId: '', companyId: ''});
 
     const handleInvite = () => {
         if (newUser.email && newUser.name) {
             onInvite(newUser);
             onClose();
-            setNewUser({ name: '', email: '', role: 'Ventas', teamId: '' });
+            setNewUser({ name: '', email: '', role: 'Ventas', teamId: '', companyId: '' });
         } else {
             alert('Por favor, completa el nombre y el email.');
         }
     };
+    
+    const sharedInputClass = "mt-1 block w-full border-border rounded-md shadow-sm";
 
     return (
         <Drawer isOpen={isOpen} onClose={onClose} title="Invitar Nuevo Usuario">
@@ -196,15 +216,15 @@ const InviteUserDrawer: React.FC<{ isOpen: boolean; onClose: () => void; teams: 
                 <div className="flex-1 p-6 space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Email</label>
-                        <input type="email" value={newUser.email} onChange={e => setNewUser(p => ({...p, email: e.target.value}))} className="mt-1 block w-full border-border rounded-md shadow-sm" placeholder="nombre@empresa.com" />
+                        <input type="email" value={newUser.email} onChange={e => setNewUser(p => ({...p, email: e.target.value}))} className={sharedInputClass} placeholder="nombre@empresa.com" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Nombre</label>
-                        <input type="text" value={newUser.name} onChange={e => setNewUser(p => ({...p, name: e.target.value}))} className="mt-1 block w-full border-border rounded-md shadow-sm" />
+                        <input type="text" value={newUser.name} onChange={e => setNewUser(p => ({...p, name: e.target.value}))} className={sharedInputClass} />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Rol</label>
-                        <select value={newUser.role} onChange={e => setNewUser(p => ({...p, role: e.target.value as User['role']}))} className="mt-1 block w-full border-border rounded-md shadow-sm">
+                        <select value={newUser.role} onChange={e => setNewUser(p => ({...p, role: e.target.value as User['role']}))} className={sharedInputClass}>
                             <option>Ventas</option>
                             <option>Logística</option>
                             <option>Admin</option>
@@ -212,9 +232,16 @@ const InviteUserDrawer: React.FC<{ isOpen: boolean; onClose: () => void; teams: 
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Equipo</label>
-                        <select value={newUser.teamId} onChange={e => setNewUser(p => ({...p, teamId: e.target.value}))} className="mt-1 block w-full border-border rounded-md shadow-sm">
+                        <select value={newUser.teamId} onChange={e => setNewUser(p => ({...p, teamId: e.target.value}))} className={sharedInputClass}>
                             <option value="">Asignar después</option>
                             {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Empresa</label>
+                        <select value={newUser.companyId} onChange={e => setNewUser(p => ({...p, companyId: e.target.value}))} className={sharedInputClass}>
+                            <option value="">Asignar después</option>
+                            {companies.map(c => <option key={c.id} value={c.id}>{c.shortName || c.name}</option>)}
                         </select>
                     </div>
                 </div>
@@ -231,6 +258,7 @@ const InviteUserDrawer: React.FC<{ isOpen: boolean; onClose: () => void; teams: 
 const UserManagement: React.FC = () => {
     const { data: initialUsers, loading: usersLoading } = useCollection<User>('users');
     const { data: teams, loading: teamsLoading } = useCollection<Team>('teams');
+    const { data: companies, loading: companiesLoading } = useCollection<Company>('companies');
     const [users, setUsers] = useState<User[] | null>(null);
 
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
@@ -334,6 +362,8 @@ const UserManagement: React.FC = () => {
             className: 'text-right'
         }
     ];
+    
+    const loading = usersLoading || teamsLoading || companiesLoading || !users;
 
     return (
         <div className="space-y-6">
@@ -348,7 +378,7 @@ const UserManagement: React.FC = () => {
                 </button>
             </div>
             
-            {usersLoading || teamsLoading || !users ? (
+            {loading ? (
                 <div className="flex justify-center py-12"><Spinner /></div>
             ) : (
                 <Table columns={columns} data={users || []} />
@@ -359,12 +389,14 @@ const UserManagement: React.FC = () => {
                 onClose={() => setIsEditDrawerOpen(false)}
                 user={selectedUser}
                 teams={teams || []}
+                companies={companies || []}
                 onSave={handleSaveUser}
             />
             <InviteUserDrawer
                 isOpen={isInviteDrawerOpen}
                 onClose={() => setIsInviteDrawerOpen(false)}
                 teams={teams || []}
+                companies={companies || []}
                 onInvite={handleInviteUser}
             />
         </div>

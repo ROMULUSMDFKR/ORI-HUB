@@ -263,16 +263,37 @@ export const MOCK_PROJECTS: Project[] = [
 ];
 
 export const MOCK_TASKS: Task[] = [
-    { id: 'task-1', title: 'Revisar contrato de LogiTrans', dueAt: daysAgo(-2), status: TaskStatus.EnProgreso, assignees: ['natalia'], watchers:[], links: { companyId: 'comp-2' }, projectId: 'proj-1', priority: Priority.Alta },
+    { 
+      id: 'task-1', 
+      title: 'Revisar contrato de LogiTrans', 
+      dueAt: daysAgo(-2), 
+      status: TaskStatus.EnProgreso, 
+      assignees: ['natalia'], 
+      watchers:['david'], 
+      links: { companyId: 'comp-2' }, 
+      projectId: 'proj-1', 
+      priority: Priority.Alta,
+      tags: ['Legal', 'Contrato'],
+      startDate: daysAgo(5),
+      subtasks: [
+        { id: 'sub-1', text: 'Leer borrador inicial', isCompleted: true },
+        { id: 'sub-2', text: 'Enviar a equipo legal para revisión', isCompleted: true },
+        { id: 'sub-3', text: 'Agendar llamada con abogado de LogiTrans', isCompleted: false },
+      ],
+      comments: [
+        { id: 'comment-1', text: 'Ya envié la primera revisión. Esperando feedback de legal.', userId: 'natalia', createdAt: daysAgo(1) },
+        { id: 'comment-2', text: '¿Alguna novedad sobre esto? El cliente está preguntando.', userId: 'david', createdAt: new Date().toISOString() },
+      ]
+    },
     { id: 'task-2', title: 'Llamar a Roberto Ortega para seguimiento de OC', dueAt: daysAgo(0), status: TaskStatus.PorHacer, assignees: ['natalia'], watchers:[], links: { companyId: 'comp-1' }, priority: Priority.Alta },
-    { id: 'task-3', title: 'Enviar cotización a Constructora Rápida', dueAt: daysAgo(1), status: TaskStatus.PorHacer, assignees: ['natalia'], watchers:[], links: { companyId: 'comp-5' }, projectId: 'proj-1' },
-    { id: 'task-4', title: 'Confirmar especificaciones técnicas con Carlos Lima', dueAt: daysAgo(-5), status: TaskStatus.Hecho, assignees: ['david'], watchers:[], links: { companyId: 'comp-1' }, projectId: 'proj-2', priority: Priority.Media },
-    { id: 'task-5', title: 'Definir KPIs para el portal de clientes', dueAt: daysAgo(-1), status: TaskStatus.EnProgreso, assignees: ['david'], watchers:[], projectId: 'proj-2', priority: Priority.Media },
+    { id: 'task-3', title: 'Enviar cotización a Constructora Rápida', dueAt: daysAgo(1), status: TaskStatus.PorHacer, assignees: ['natalia'], watchers:[], links: { companyId: 'comp-5' }, projectId: 'proj-1', tags: ['Cotización'] },
+    { id: 'task-4', title: 'Confirmar especificaciones técnicas con Carlos Lima', dueAt: daysAgo(-5), status: TaskStatus.Hecho, assignees: ['david'], watchers:['natalia'], links: { companyId: 'comp-1' }, projectId: 'proj-2', priority: Priority.Media },
+    { id: 'task-5', title: 'Definir KPIs para el portal de clientes', dueAt: daysAgo(-1), status: TaskStatus.EnProgreso, assignees: ['david'], watchers:[], projectId: 'proj-2', priority: Priority.Media, subtasks: [{id: 's1', text: 'Borrador inicial', isCompleted: true}, {id: 's2', text: 'Revisión con Natalia', isCompleted: false}] },
     { id: 'task-6', title: 'Preparar lista de clientes para campaña de reactivación', dueAt: daysAgo(40), status: TaskStatus.Hecho, assignees: ['natalia'], watchers:[], projectId: 'proj-3', priority: Priority.Baja },
-    { id: 'task-7', title: 'Agendar reunión de QBR con Molelub', dueAt: daysAgo(-3), status: TaskStatus.PorHacer, assignees: ['natalia'], watchers:[], links: { companyId: 'comp-1' }, priority: Priority.Alta },
+    { id: 'task-7', title: 'Agendar reunión de QBR con Molelub', dueAt: daysAgo(-3), status: TaskStatus.PorHacer, assignees: ['natalia'], watchers:[], links: { companyId: 'comp-1' }, priority: Priority.Alta, tags: ['QBR', 'Reunión'] },
     { id: 'task-8', title: 'Validar stock de Glifosato para cotización', dueAt: daysAgo(0), status: TaskStatus.PorHacer, assignees: ['david'], watchers:[], links: { prospectId: 'prospect-1' }, priority: Priority.Alta },
     { id: 'task-9', title: 'Investigar nuevo proveedor de transporte para el Bajío', dueAt: daysAgo(-15), status: TaskStatus.EnProgreso, assignees: ['david'], watchers:[], projectId: 'proj-1', priority: Priority.Media },
-    { id: 'task-10', title: 'Preparar reporte de ventas mensual', status: TaskStatus.EnProgreso, assignees: ['natalia'], watchers:[], priority: Priority.Media, dueAt: daysAgo(-1) },
+    { id: 'task-10', title: 'Preparar reporte de ventas mensual', status: TaskStatus.EnProgreso, assignees: ['natalia'], watchers:[], priority: Priority.Media, dueAt: daysAgo(-1), tags: ['Reporte', 'Finanzas'] },
     { id: 'task-11', title: 'Diseñar borrador de email para campaña de reactivación', status: TaskStatus.Hecho, assignees: ['natalia'], watchers:[], projectId: 'proj-3', priority: Priority.Baja, dueAt: daysAgo(35) },
 ];
 
@@ -417,10 +438,10 @@ export const api = {
       setTimeout(() => {
         const collection = COLLECTIONS[name];
         if (Array.isArray(collection)) {
-            resolve(collection);
+            resolve(JSON.parse(JSON.stringify(collection)));
         } else if (typeof collection === 'object' && collection !== null) {
             // This is for collections like 'lots' which are objects
-            resolve([collection]);
+            resolve(JSON.parse(JSON.stringify([collection])));
         } else {
             resolve([]);
         }
@@ -433,7 +454,7 @@ export const api = {
               const coll = COLLECTIONS[collection];
               if(Array.isArray(coll)) {
                 const doc = coll.find(item => item.id === id);
-                resolve(doc || null);
+                resolve(doc ? JSON.parse(JSON.stringify(doc)) : null);
               }
               resolve(null);
           }, 300);
@@ -443,7 +464,7 @@ export const api = {
       return new Promise(resolve => {
           setTimeout(() => {
               const lotsByProduct = COLLECTIONS.lots as { [key: string]: any[] };
-              resolve(lotsByProduct[productId] || []);
+              resolve(lotsByProduct[productId] ? JSON.parse(JSON.stringify(lotsByProduct[productId])) : []);
           }, 400);
       })
   }

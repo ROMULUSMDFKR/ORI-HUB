@@ -39,6 +39,35 @@ const initialTheme = {
   '--form-input-bg': '#F3F4F6',
   '--form-input-border-color': '#E5E7EB',
   '--form-input-focus-ring-color': '#D7FE03',
+
+  // Menus & Navigation
+  '--menu-bg': '#FFFFFF',
+  '--menu-text-color': '#6B7280',
+  '--menu-icon-color': '#6B7280',
+  '--menu-item-hover-bg': '#F5F5F8',
+  '--menu-item-active-bg': '#D7FE03',
+  '--menu-item-active-text': '#1F2937',
+
+  // Tables
+  '--table-header-bg': '#F9FAFB',
+  '--table-header-text-color': '#6B7280',
+  '--table-row-bg': '#FFFFFF',
+  '--table-row-hover-bg': '#F9FAFB',
+  '--table-border-color': '#E5E7EB',
+  
+  // Dropdowns & Popups
+  '--dropdown-bg': '#FFFFFF',
+  '--dropdown-border-color': '#E5E7EB',
+  '--dropdown-text-color': '#6B7280',
+  '--dropdown-item-hover-bg': '#F5F5F8',
+  '--dropdown-separator-color': '#E5E7EB',
+
+  // Tabs Navigation
+  '--tabs-text-color': '#6B7280',
+  '--tabs-hover-text-color': '#1F2937',
+  '--tabs-hover-border-color': '#E5E7EB',
+  '--tabs-active-text-color': '#83AF3B',
+  '--tabs-active-border-color': '#83AF3B',
 };
 
 
@@ -93,12 +122,59 @@ const ThemePreview: React.FC = () => {
                     />
                 </div>
             </div>
+
+            <div className="p-2 space-y-1" style={{ backgroundColor: 'var(--menu-bg)', borderRadius: 'var(--border-radius)'}}>
+                 <h4 className="font-bold text-on-surface text-base mb-2 px-2">Barra Lateral</h4>
+                <div className="flex items-center p-2 rounded-lg" style={{ color: 'var(--menu-text-color)', backgroundColor: 'var(--menu-item-hover-bg)' }}>
+                    <span className="material-symbols-outlined w-5 h-5 mr-3" style={{ color: 'var(--menu-icon-color)' }}>home</span>
+                    <span>Item Hover</span>
+                </div>
+                <div className="flex items-center p-2 rounded-lg font-semibold" style={{ color: 'var(--menu-item-active-text)', backgroundColor: 'var(--menu-item-active-bg)' }}>
+                    <span className="material-symbols-outlined w-5 h-5 mr-3" style={{ color: 'var(--menu-item-active-text)' }}>hub</span>
+                    <span>Item Activo</span>
+                </div>
+            </div>
+
+            <div className="rounded-lg overflow-hidden border" style={{ borderColor: 'var(--table-border-color)' }}>
+                <table className="w-full text-sm">
+                    <thead style={{ backgroundColor: 'var(--table-header-bg)'}}>
+                        <tr>
+                            <th className="px-4 py-2 text-left font-semibold" style={{ color: 'var(--table-header-text-color)' }}>Encabezado Tabla</th>
+                            <th className="px-4 py-2 text-left font-semibold" style={{ color: 'var(--table-header-text-color)' }}>Encabezado 2</th>
+                        </tr>
+                    </thead>
+                    <tbody style={{ backgroundColor: 'var(--table-row-bg)'}}>
+                        <tr className="border-t" style={{ backgroundColor: 'var(--table-row-hover-bg)', borderColor: 'var(--table-border-color)' }}>
+                            <td className="px-4 py-2 text-on-surface">Fila Hover</td>
+                            <td className="px-4 py-2 text-on-surface">Dato B2</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
             
-            <div>
-                <h1 className="text-xl font-bold text-on-surface">Tipografía Principal</h1>
-                <p className="text-on-surface-secondary mt-1">
-                    Este es un párrafo de ejemplo para mostrar la fuente y el color del texto.
-                </p>
+             {/* Tabs Example */}
+            <div className="mt-4">
+                <h4 className="font-bold text-on-surface text-base mb-2">Pestañas (Tabs)</h4>
+                <div className="border-b" style={{ borderColor: 'var(--tabs-hover-border-color)'}}>
+                    <nav className="-mb-px flex space-x-4">
+                        <button className="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm" style={{ borderColor: 'var(--tabs-active-border-color)', color: 'var(--tabs-active-text-color)'}}>Activa</button>
+                        <button className="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm" style={{ borderColor: 'transparent', color: 'var(--tabs-text-color)'}}>Inactiva</button>
+                        <button className="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm" style={{ borderColor: 'var(--tabs-hover-border-color)', color: 'var(--tabs-hover-text-color)'}}>Hover</button>
+                    </nav>
+                </div>
+            </div>
+
+            {/* Dropdown Example */}
+            <div className="mt-4">
+                <h4 className="font-bold text-on-surface text-base mb-2">Menú Desplegable</h4>
+                <div className="relative">
+                    <div className="p-2 rounded-lg border" style={{ backgroundColor: 'var(--dropdown-bg)', borderColor: 'var(--dropdown-border-color)' }}>
+                        <div className="p-2 rounded" style={{ color: 'var(--dropdown-text-color)', backgroundColor: 'var(--dropdown-item-hover-bg)' }}>Item Hover</div>
+                        <div className="p-2 rounded" style={{ color: 'var(--dropdown-text-color)' }}>Item Normal</div>
+                        <div className="my-1 h-px" style={{ backgroundColor: 'var(--dropdown-separator-color)' }}></div>
+                        <div className="p-2 rounded" style={{ color: 'var(--dropdown-text-color)' }}>Otro Item</div>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -348,6 +424,47 @@ const AppearanceSettings = () => {
                             <ColorControl label="Fondo de Input" color={theme['--form-input-bg']} onChange={c => handleThemeChange('--form-input-bg', c)} />
                             <ColorControl label="Borde de Input" color={theme['--form-input-border-color']} onChange={c => handleThemeChange('--form-input-border-color', c)} />
                             <ColorControl label="Anillo de Foco" color={theme['--form-input-focus-ring-color']} onChange={c => handleThemeChange('--form-input-focus-ring-color', c)} />
+                        </div>
+                    </AccordionItem>
+                    <AccordionItem title="Navegación y Menús" isOpen={openAccordion === 'menus'} onToggle={() => setOpenAccordion(openAccordion === 'menus' ? null : 'menus')}>
+                        <div className="pb-4">
+                            <h4 className="font-semibold text-on-surface mb-3">Barra Lateral</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <ColorControl label="Fondo Menú" color={theme['--menu-bg']} onChange={c => handleThemeChange('--menu-bg', c)} />
+                                <ColorControl label="Texto Menú" color={theme['--menu-text-color']} onChange={c => handleThemeChange('--menu-text-color', c)} />
+                                <ColorControl label="Iconos Menú" color={theme['--menu-icon-color']} onChange={c => handleThemeChange('--menu-icon-color', c)} />
+                                <ColorControl label="Hover Item" color={theme['--menu-item-hover-bg']} onChange={c => handleThemeChange('--menu-item-hover-bg', c)} />
+                                <ColorControl label="Activo (Fondo)" color={theme['--menu-item-active-bg']} onChange={c => handleThemeChange('--menu-item-active-bg', c)} />
+                                <ColorControl label="Activo (Texto)" color={theme['--menu-item-active-text']} onChange={c => handleThemeChange('--menu-item-active-text', c)} />
+                            </div>
+                        </div>
+                        <div className="py-4 border-t border-border">
+                            <h4 className="font-semibold text-on-surface mb-3">Menús Desplegables (Dropdowns)</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <ColorControl label="Fondo" color={theme['--dropdown-bg']} onChange={c => handleThemeChange('--dropdown-bg', c)} />
+                                <ColorControl label="Borde" color={theme['--dropdown-border-color']} onChange={c => handleThemeChange('--dropdown-border-color', c)} />
+                                <ColorControl label="Texto" color={theme['--dropdown-text-color']} onChange={c => handleThemeChange('--dropdown-text-color', c)} />
+                                <ColorControl label="Hover Item" color={theme['--dropdown-item-hover-bg']} onChange={c => handleThemeChange('--dropdown-item-hover-bg', c)} />
+                                <ColorControl label="Separador" color={theme['--dropdown-separator-color']} onChange={c => handleThemeChange('--dropdown-separator-color', c)} />
+                            </div>
+                        </div>
+                        <div className="pt-4 border-t border-border">
+                            <h4 className="font-semibold text-on-surface mb-3">Pestañas de Navegación (Tabs)</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <ColorControl label="Texto Inactivo" color={theme['--tabs-text-color']} onChange={c => handleThemeChange('--tabs-text-color', c)} />
+                                <ColorControl label="Texto Hover" color={theme['--tabs-hover-text-color']} onChange={c => handleThemeChange('--tabs-hover-text-color', c)} />
+                                <ColorControl label="Borde Hover" color={theme['--tabs-hover-border-color']} onChange={c => handleThemeChange('--tabs-hover-border-color', c)} />
+                                <ColorControl label="Texto Activo" color={theme['--tabs-active-text-color']} onChange={c => handleThemeChange('--tabs-active-text-color', c)} />
+                                <ColorControl label="Borde Activo" color={theme['--tabs-active-border-color']} onChange={c => handleThemeChange('--tabs-active-border-color', c)} />
+                            </div>
+                        </div>
+                    </AccordionItem>
+                    <AccordionItem title="Tablas" isOpen={openAccordion === 'tables'} onToggle={() => setOpenAccordion(openAccordion === 'tables' ? null : 'tables')}>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <ColorControl label="Encabezado (Fondo)" color={theme['--table-header-bg']} onChange={c => handleThemeChange('--table-header-bg', c)} />
+                            <ColorControl label="Encabezado (Texto)" color={theme['--table-header-text-color']} onChange={c => handleThemeChange('--table-header-text-color', c)} />
+                            <ColorControl label="Fila (Hover)" color={theme['--table-row-hover-bg']} onChange={c => handleThemeChange('--table-row-hover-bg', c)} />
+                            <ColorControl label="Bordes" color={theme['--table-border-color']} onChange={c => handleThemeChange('--table-border-color', c)} />
                         </div>
                     </AccordionItem>
                 </div>

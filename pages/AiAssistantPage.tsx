@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { useCollection } from '../hooks/useCollection';
-import { SalesOrder, Prospect } from '../types';
+import { SalesOrder, Prospect, Task } from '../types';
 import { MOCK_USERS } from '../data/mockData';
 
 interface Message {
@@ -14,7 +14,7 @@ const AiAssistantPage: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 0,
-            text: "¡Hola! Soy tu asistente de IA. Puedes preguntarme cosas como 'resume las ventas del último mes' o '¿cuáles son nuestros prospectos más valiosos?'",
+            text: "¡Hola! Soy tu asistente de IA. Puedes preguntarme cosas como 'resume las ventas del último mes', '¿cuáles son nuestros prospectos más valiosos?' o '¿qué tareas tengo vencidas?'",
             sender: 'ai'
         }
     ]);
@@ -25,6 +25,8 @@ const AiAssistantPage: React.FC = () => {
 
     const { data: salesOrders } = useCollection<SalesOrder>('salesOrders');
     const { data: prospects } = useCollection<Prospect>('prospects');
+    const { data: tasks } = useCollection<Task>('tasks');
+    const currentUser = MOCK_USERS.natalia;
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,18 +43,28 @@ const AiAssistantPage: React.FC = () => {
 
         try {
             // Prepare context from CRM data
+            const userTasks = (tasks || []).filter(t => t.assignees.includes(currentUser.id));
+            const overdueTasks = userTasks.filter(t => t.dueAt && new Date(t.dueAt) < new Date());
+            const todayTasks = userTasks.filter(t => t.dueAt && new Date(t.dueAt).toDateString() === new Date().toDateString());
+
             const context = `
                 Datos de Ventas Recientes:
                 ${(salesOrders || []).slice(0, 5).map(o => `- Orden ${o.id}: $${o.total.toFixed(2)} el ${new Date(o.createdAt).toLocaleDateString()}`).join('\n')}
 
                 Prospectos Clave:
                 ${(prospects || []).slice(0, 5).map(p => `- ${p.name} (Valor: $${p.estValue}, Etapa: ${p.stage})`).join('\n')}
+                
+                Resumen de Tareas para ${currentUser.name}:
+                - Tienes ${overdueTasks.length} tareas vencidas.
+                - Tienes ${todayTasks.length} tareas para hoy.
+                - Tareas Vencidas: ${overdueTasks.map(t => t.title).join(', ') || 'Ninguna'}
             `;
 
             const prompt = `
                 Eres un asistente de IA experto en análisis de datos para un CRM.
                 Responde a la pregunta del usuario utilizando el siguiente contexto de la empresa.
                 Sé conciso y directo en tus respuestas. Usa markdown para formatear tu respuesta si es necesario (listas, negritas, etc.).
+                El usuario que pregunta es ${currentUser.name}.
                 
                 Contexto:
                 ${context}
@@ -79,8 +91,6 @@ const AiAssistantPage: React.FC = () => {
             setIsLoading(false);
         }
     };
-
-    const currentUser = MOCK_USERS.natalia;
 
     return (
         <div className="flex flex-col h-[calc(100vh-120px)] bg-white rounded-lg shadow-sm border">
@@ -119,7 +129,7 @@ const AiAssistantPage: React.FC = () => {
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Pregunta sobre ventas, prospectos, etc."
+                        placeholder="Pregunta sobre ventas, prospectos, tareas..."
                         className="w-full pr-12 pl-4 py-2 border rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
                         disabled={isLoading}
                     />

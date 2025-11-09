@@ -43,10 +43,13 @@ const NavItem: React.FC<{ item: NavItem }> = ({ item }) => {
   const activeLinkClasses = "bg-primary text-on-primary font-semibold";
   
   if (!hasSublinks && item.path) {
+    // For top-level links, NavLink's default `isActive` is usually sufficient
+    // unless they also have query params that need exact matching.
+    const isTopLevelActive = location.pathname + location.search === item.path;
     return (
       <NavLink
         to={item.path}
-        className={({ isActive }) => `${commonClasses} ${isActive ? activeLinkClasses : ''}`}
+        className={`${commonClasses} ${isTopLevelActive ? activeLinkClasses : ''}`}
       >
         <span className="material-symbols-outlined w-5 h-5 mr-3">{item.icon}</span>
         {item.name}
@@ -64,6 +67,7 @@ const NavItem: React.FC<{ item: NavItem }> = ({ item }) => {
       <div className={`pl-4 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96' : 'max-h-0'}`}>
         <div className="py-2 flex flex-col space-y-1">
           {item.sublinks?.map((sublink) => {
+            // Strict check including search parameters for sublinks
             const isSublinkActive = location.pathname + location.search === sublink.path;
             
             return (

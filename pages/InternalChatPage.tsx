@@ -1,14 +1,19 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useCollection } from '../hooks/useCollection';
-import { ChatMessage, User } from '../types';
-import { MOCK_USERS } from '../data/mockData';
+import { ChatMessage, User, Task } from '../types';
+import { MOCK_USERS } from '../../data/mockData';
 import Spinner from '../components/ui/Spinner';
+import { Link } from 'react-router-dom';
 
 const InternalChatPage: React.FC = () => {
     const { data: messagesData, loading: messagesLoading } = useCollection<ChatMessage>('messages');
+    const { data: tasks } = useCollection<Task>('tasks');
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
     const [newMessage, setNewMessage] = useState('');
+    const [taskSuggestions, setTaskSuggestions] = useState<Task[]>([]);
+    const [showTaskSuggestions, setShowTaskSuggestions] = useState(false);
     const currentUser = MOCK_USERS.natalia; // Assume current user
     const chatEndRef = useRef<null | HTMLDivElement>(null);
 
@@ -18,11 +23,7 @@ const InternalChatPage: React.FC = () => {
       }
     }, [messagesData]);
 
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-
-    const users = Object.values(MOCK_USERS).filter(u => u.id !== currentUser.id);
+    const users = Object.values(MOCK_USERS).filter(u => u.id !== currentUser.id && !u.name.includes(' ')); // Filter out users with spaces for simplicity
 
     const conversation = useMemo(() => {
         if (!selectedUserId || !messages) return [];
@@ -33,6 +34,10 @@ const InternalChatPage: React.FC = () => {
             )
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     }, [messages, selectedUserId, currentUser.id]);
+
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, conversation]);
     
     const handleSendMessage = (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,6 +52,58 @@ const InternalChatPage: React.FC = () => {
         };
         setMessages(prev => [...prev, message]);
         setNewMessage('');
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setNewMessage(value);
+
+        if (value.includes('/task ')) {
+            const searchTerm = value.split('/task ')[1];
+            if (searchTerm && tasks) {
+                const suggestions = tasks.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 5);
+                setTaskSuggestions(suggestions);
+                setShowTaskSuggestions(true);
+            } else {
+                setShowTaskSuggestions(false);
+            }
+        } else {
+            setShowTaskSuggestions(false);
+        }
+    };
+    
+    const handleSuggestionClick = (task: Task) => {
+        const linkText = `[Task: ${task.title}]`;
+        const taskLink = `/tasks/${task.id}`;
+        const messageTextWithLink = newMessage.replace(/\/task .*/, `${linkText}(${taskLink})`);
+        setNewMessage(messageTextWithLink);
+        setShowTaskSuggestions(false);
+    };
+
+    const renderMessageText = (text: string): React.ReactNode => {
+        const regex = /\[Task: (.*?)\]\(\/tasks\/(.*?)\)/g;
+        let lastIndex = 0;
+        const parts: (string | React.ReactNode)[] = [];
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+            if (match.index > lastIndex) {
+                parts.push(text.substring(lastIndex, match.index));
+            }
+            const [, title, id] = match;
+            parts.push(
+                <Link key={id} to={`/tasks/${id}`} className="text-blue-600 font-semibold hover:underline bg-blue-100 px-1 rounded">
+                    {`Tarea: ${title}`}
+                </Link>
+            );
+            lastIndex = regex.lastIndex;
+        }
+
+        if (lastIndex < text.length) {
+            parts.push(text.substring(lastIndex));
+        }
+
+        return <p>{parts}</p>;
     };
 
     const selectedUser = selectedUserId ? MOCK_USERS[selectedUserId] || Object.values(MOCK_USERS).find(u => u.id === selectedUserId) : null;
@@ -83,7 +140,7 @@ const InternalChatPage: React.FC = () => {
                             {messagesLoading ? <Spinner /> : conversation.map(msg => (
                                 <div key={msg.id} className={`flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-xs lg:max-w-md p-3 rounded-lg ${msg.senderId === currentUser.id ? 'bg-primary text-on-primary' : 'bg-gray-200'}`}>
-                                        <p>{msg.text}</p>
+                                        {renderMessageText(msg.text)}
                                         <p className="text-xs mt-1 opacity-70 text-right">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                     </div>
                                 </div>
@@ -91,20 +148,34 @@ const InternalChatPage: React.FC = () => {
                              <div ref={chatEndRef} />
                         </div>
 
-                        <form onSubmit={handleSendMessage} className="p-4 border-t bg-white">
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    placeholder="Escribe un mensaje..."
-                                    className="w-full pr-12 pl-4 py-2 border rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
-                                />
-                                <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-primary text-on-primary hover:opacity-90">
-                                    <span className="material-symbols-outlined">send</span>
-                                </button>
-                            </div>
-                        </form>
+                        <div className="p-4 border-t bg-white relative">
+                             {showTaskSuggestions && (
+                                <div className="absolute bottom-full left-4 mb-2 w-3/4 bg-white border rounded-lg shadow-lg z-10">
+                                    <p className="text-xs font-semibold p-2 bg-gray-50 border-b">Sugerencias de Tareas</p>
+                                    <ul>
+                                        {taskSuggestions.map(task => (
+                                            <li key={task.id} onClick={() => handleSuggestionClick(task)} className="p-2 text-sm hover:bg-gray-100 cursor-pointer truncate">
+                                                {task.title}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            <form onSubmit={handleSendMessage}>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={newMessage}
+                                        onChange={handleInputChange}
+                                        placeholder="Escribe un mensaje o '/task' para buscar una tarea..."
+                                        className="w-full pr-12 pl-4 py-2 border rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                                    />
+                                    <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-primary text-on-primary hover:opacity-90">
+                                        <span className="material-symbols-outlined">send</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </>
                 ) : (
                     <div className="flex-1 flex items-center justify-center text-gray-500">

@@ -1,6 +1,6 @@
 
 
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useLayoutEffect, useState, useCallback, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
@@ -46,6 +46,9 @@ import ProfilePage from './pages/ProfilePage';
 import EditProductPage from './pages/EditProductPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import QuickTaskModal from './components/layout/QuickTaskModal';
+import NewTaskPage from './pages/NewTaskPage';
+import TaskDetailPage from './pages/TaskDetailPage';
 
 
 const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -62,8 +65,9 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const AppRoutes: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(true);
+    const [isQuickTaskOpen, setIsQuickTaskOpen] = useState(false);
 
-    // This is a mock authentication. In a real app, you'd have a context or state management.
+
     const handleLogin = () => setIsAuthenticated(true);
     const handleSignup = () => setIsAuthenticated(true);
 
@@ -81,6 +85,20 @@ const AppRoutes: React.FC = () => {
         }
     }, []);
 
+    const handleKeyDown = useCallback((event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault();
+        setIsQuickTaskOpen(true);
+      }
+    }, []);
+
+    useEffect(() => {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }, [handleKeyDown]);
+
     if (!isAuthenticated) {
         return (
             <Routes>
@@ -93,6 +111,15 @@ const AppRoutes: React.FC = () => {
     
     return (
         <AppShell>
+            <QuickTaskModal 
+                isOpen={isQuickTaskOpen} 
+                onClose={() => setIsQuickTaskOpen(false)} 
+                onSave={(task) => {
+                    console.log('Quick task created:', task);
+                    alert(`Tarea Rápida Creada: "${task.title}" (simulación). Revisa la consola.`);
+                    setIsQuickTaskOpen(false);
+                }}
+            />
             <Routes>
                 <Route path="/" element={<Navigate to="/today" replace />} />
                 <Route path="/today" element={<DashboardPage />} />
@@ -145,6 +172,8 @@ const AppRoutes: React.FC = () => {
 
                 {/* Other */}
                 <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/tasks/new" element={<NewTaskPage />} />
+                <Route path="/tasks/:id" element={<TaskDetailPage />} />
                 <Route path="/tasks/projects" element={<ProjectsPage />} />
                 <Route path="/archives" element={<ArchivesPage />} />
 

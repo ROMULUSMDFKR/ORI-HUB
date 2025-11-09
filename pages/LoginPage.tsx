@@ -1,12 +1,15 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import Checkbox from '../components/ui/Checkbox';
 
 interface LoginPageProps {
     onLogin: () => void;
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+  const [rememberMe, setRememberMe] = useState(false);
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="max-w-md w-full bg-surface p-8 rounded-xl shadow-lg">
@@ -52,10 +55,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
             <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center">
-                    <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-accent border-border rounded focus:ring-accent" />
-                    <label htmlFor="remember-me" className="ml-2 block text-on-surface-secondary">
-                        Recordarme
-                    </label>
+                    <Checkbox id="remember-me" checked={rememberMe} onChange={setRememberMe}>
+                        <span className="text-sm text-on-surface-secondary">Recordarme</span>
+                    </Checkbox>
                 </div>
                 <a href="#" className="font-medium text-accent hover:text-accent/80">
                     ¿Olvidaste tu contraseña?

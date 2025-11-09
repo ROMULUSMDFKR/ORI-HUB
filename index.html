@@ -44,6 +44,35 @@
         --form-input-bg: #F3F4F6;
         --form-input-border-color: #E5E7EB;
         --form-input-focus-ring-color: #D7FE03;
+
+        /* Menus & Navigation */
+        --menu-bg: #FFFFFF;
+        --menu-text-color: #6B7280;
+        --menu-icon-color: #6B7280;
+        --menu-item-hover-bg: #F5F5F8;
+        --menu-item-active-bg: #D7FE03;
+        --menu-item-active-text: #1F2937;
+
+        /* Tables */
+        --table-header-bg: #F9FAFB;
+        --table-header-text-color: #6B7280;
+        --table-row-bg: #FFFFFF;
+        --table-row-hover-bg: #F9FAFB;
+        --table-border-color: #E5E7EB;
+
+        /* Dropdowns & Popups */
+        --dropdown-bg: var(--color-surface);
+        --dropdown-border-color: var(--color-border);
+        --dropdown-text-color: var(--color-on-surface-secondary);
+        --dropdown-item-hover-bg: var(--color-background);
+        --dropdown-separator-color: var(--color-border);
+
+        /* Tabs Navigation */
+        --tabs-text-color: var(--color-on-surface-secondary);
+        --tabs-hover-text-color: var(--color-on-surface);
+        --tabs-hover-border-color: var(--color-border);
+        --tabs-active-text-color: var(--color-accent);
+        --tabs-active-border-color: var(--color-accent);
       }
       html {
         font-size: var(--font-size-base);
@@ -122,6 +151,77 @@
         color: #9CA3AF;
         opacity: 0.7;
       }
+
+      /* Menus & Navigation (Sidebar) */
+      .w-64.bg-surface {
+        background-color: var(--menu-bg);
+      }
+      .w-64.bg-surface a, .w-64.bg-surface button {
+        color: var(--menu-text-color);
+      }
+      .w-64.bg-surface .material-symbols-outlined {
+        color: var(--menu-icon-color);
+      }
+      .w-64.bg-surface a:hover, .w-64.bg-surface button:hover {
+        background-color: var(--menu-item-hover-bg);
+      }
+      .w-64.bg-surface a.active {
+        background-color: var(--menu-item-active-bg);
+        color: var(--menu-item-active-text);
+      }
+       .w-64.bg-surface a.active .material-symbols-outlined {
+        color: var(--menu-item-active-text);
+      }
+
+      /* Tables */
+      table thead.bg-gray-50 {
+        background-color: var(--table-header-bg);
+      }
+      table thead.bg-gray-50 th {
+        color: var(--table-header-text-color);
+      }
+      table tbody.bg-white {
+        background-color: var(--table-row-bg);
+      }
+      table tbody.bg-white tr.hover\\:bg-gray-50:hover {
+        background-color: var(--table-row-hover-bg);
+      }
+      table.divide-y > :not([hidden]) ~ :not([hidden]),
+      table tbody.divide-y > :not([hidden]) ~ :not([hidden]) {
+          border-color: var(--table-border-color);
+      }
+      
+      /* Dropdowns */
+      .absolute.right-0.mt-2 { /* Targets user and action dropdowns */
+          background-color: var(--dropdown-bg);
+          border-color: var(--dropdown-border-color);
+      }
+      .absolute.right-0.mt-2 a,
+      .absolute.right-0.mt-2 button {
+          color: var(--dropdown-text-color);
+      }
+      .absolute.right-0.mt-2 a:hover,
+      .absolute.right-0.mt-2 button:hover {
+          background-color: var(--dropdown-item-hover-bg);
+      }
+      .absolute.right-0.mt-2 .h-px.bg-border {
+          background-color: var(--dropdown-separator-color);
+      }
+
+      /* Tabs */
+      nav.-mb-px button.border-transparent {
+          color: var(--tabs-text-color);
+          border-color: transparent;
+      }
+      nav.-mb-px button.border-transparent:hover {
+          color: var(--tabs-hover-text-color);
+          border-color: var(--tabs-hover-border-color);
+      }
+      nav.-mb-px button:not(.border-transparent) {
+          color: var(--tabs-active-text-color);
+          border-color: var(--tabs-active-border-color);
+      }
+
       /* --- END NEW STYLES --- */
 
       @keyframes gradient-animation {

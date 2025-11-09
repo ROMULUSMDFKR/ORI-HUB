@@ -7,6 +7,7 @@ export interface User {
   role: 'Admin' | 'Ventas' | 'Logística';
   teamId?: string;
   isActive: boolean;
+  companyId?: string;
 }
 
 export interface Team {
@@ -385,6 +386,19 @@ export interface LogisticsDelivery {
     note?: string;
 }
 
+export interface Comment {
+  id: string;
+  text: string;
+  userId: string;
+  createdAt: string; // ISO Date string
+}
+
+export interface Subtask {
+  id: string;
+  text: string;
+  isCompleted: boolean;
+}
+
 export interface Task {
     id: string;
     title: string;
@@ -396,11 +410,14 @@ export interface Task {
         companyId?: string;
         quoteId?: string;
         salesOrderId?: string;
-        // FIX: Added `prospectId` to allow linking tasks to prospects, resolving type errors in mock data.
         prospectId?: string;
     };
     projectId?: string;
     priority?: Priority;
+    comments?: Comment[];
+    subtasks?: Subtask[];
+    tags?: string[];
+    startDate?: string;
 }
 
 export interface Project {
@@ -435,7 +452,6 @@ export interface ActivityLog {
     id: string;
     companyId?: string;
     prospectId?: string;
-    // FIX: Added contactId to associate activities with a specific contact.
     contactId?: string;
     type: 'Llamada' | 'Email' | 'Reunión' | 'Cotización' | 'Nota' | 'Email Sincronizado' | 'Reunión Sincronizada';
     description: string;
@@ -447,7 +463,6 @@ export interface Note {
     id: string;
     companyId?: string;
     prospectId?: string;
-    // FIX: Added contactId to associate notes with a specific contact.
     contactId?: string;
     productId?: string;
     supplierId?: string;

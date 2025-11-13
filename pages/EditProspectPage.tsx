@@ -1,11 +1,10 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Prospect, ProspectStage, Priority, User } from '../types';
 import { MOCK_USERS } from '../data/mockData';
 import { useDoc } from '../hooks/useDoc';
 import Spinner from '../components/ui/Spinner';
+import CustomSelect from '../components/ui/CustomSelect';
 
 const EditProspectPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -61,6 +60,10 @@ const EditProspectPage: React.FC = () => {
     );
     
     const creator = Object.values(MOCK_USERS).find(u => u.id === prospect.createdById);
+    
+    const userOptions = Object.values(MOCK_USERS).filter((v,i,a)=>a.findIndex(t=>(t.id === v.id))===i).map(u => ({ value: u.id, name: u.name }));
+    const stageOptions = Object.values(ProspectStage).map(s => ({ value: s, name: s }));
+    const priorityOptions = Object.values(Priority).map(p => ({ value: p, name: p }));
 
     return (
         <div>
@@ -89,15 +92,10 @@ const EditProspectPage: React.FC = () => {
                             <input type="number" value={prospect.estValue || ''} onChange={(e) => handleChange('estValue', parseFloat(e.target.value) || 0)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />
                             {errors.estValue && <p className="text-red-500 text-xs mt-1">{errors.estValue}</p>}
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Responsable</label>
-                            <select value={prospect.ownerId || ''} onChange={(e) => handleChange('ownerId', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main">
-                                {Object.values(MOCK_USERS).map((user: User) => (
-                                    <option key={user.id} value={user.id}>{user.name}</option>
-                                ))}
-                            </select>
-                            {errors.ownerId && <p className="text-red-500 text-xs mt-1">{errors.ownerId}</p>}
-                        </div>
+                        
+                        <CustomSelect label="Responsable" options={userOptions} value={prospect.ownerId || ''} onChange={val => handleChange('ownerId', val)} />
+                        {errors.ownerId && <p className="text-red-500 text-xs mt-1">{errors.ownerId}</p>}
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Creador</label>
                              <input 
@@ -107,18 +105,11 @@ const EditProspectPage: React.FC = () => {
                                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none bg-gray-100 text-gray-500 cursor-not-allowed" 
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Etapa</label>
-                            <select value={prospect.stage || ''} onChange={(e) => handleChange('stage', e.target.value as ProspectStage)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main">
-                                {Object.values(ProspectStage).map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Prioridad</label>
-                            <select value={prospect.priority || ''} onChange={(e) => handleChange('priority', e.target.value as Priority)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main">
-                                {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
-                            </select>
-                        </div>
+                        
+                        <CustomSelect label="Etapa" options={stageOptions} value={prospect.stage || ''} onChange={val => handleChange('stage', val as ProspectStage)} />
+                        
+                        <CustomSelect label="Prioridad" options={priorityOptions} value={prospect.priority || ''} onChange={val => handleChange('priority', val as Priority)} />
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Origen</label>
                             <input type="text" value={prospect.origin || ''} onChange={(e) => handleChange('origin', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />

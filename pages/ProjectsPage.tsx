@@ -4,9 +4,11 @@ import { Project } from '../types';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import ProjectCard from '../components/tasks/ProjectCard';
+import { Link, useNavigate } from 'react-router-dom';
 
 const ProjectsPage: React.FC = () => {
   const { data: projects, loading, error } = useCollection<Project>('projects');
+  const navigate = useNavigate();
   
   const renderContent = () => {
     if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
@@ -18,7 +20,7 @@ const ProjectsPage: React.FC = () => {
                 title="No hay proyectos"
                 message="Crea tu primer proyecto para agrupar tareas y colaborar con tu equipo."
                 actionText="Crear Proyecto"
-                onAction={() => alert('Abrir modal para nuevo proyecto')}
+                onAction={() => navigate('/tasks/projects/new')}
             />
         );
     }
@@ -33,15 +35,15 @@ const ProjectsPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-text-main">Proyectos</h2>
-          <p className="text-sm text-text-secondary mt-1">Supervisa las iniciativas y el progreso del equipo.</p>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Proyectos</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Supervisa las iniciativas y el progreso del equipo.</p>
         </div>
-        <button 
-          onClick={() => alert('Abrir modal para nuevo proyecto')}
-          className="bg-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-primary-dark transition-colors">
+        <Link 
+          to="/tasks/projects/new"
+          className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
             <span className="material-symbols-outlined mr-2">add</span>
             Nuevo Proyecto
-        </button>
+        </Link>
       </div>
 
       {renderContent()}

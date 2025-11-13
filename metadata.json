@@ -1,5 +1,7 @@
 {
-  "name": "CRM Studio",
+  "name": "ORI",
   "description": "A complete business management system for a distribution company, covering the entire business cycle from lead capture to billing and logistics, including inventory management and internal communication.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

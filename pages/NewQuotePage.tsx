@@ -1,328 +1,397 @@
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Company, Product, ProductLot, Quote, QuoteItem, QuotePipelineStage, Unit, Prospect } from '../types';
 import { useCollection } from '../hooks/useCollection';
+import { Company, Prospect, Product, ProductLot, User, Unit, CommissionType, ManeuverType } from '../types';
+import { MOCK_MY_COMPANIES } from '../data/mockData';
 import { api } from '../data/mockData';
-import { UNITS, TAX_RATE } from '../constants';
-import { convertPrice } from '../utils/calculations';
 
-type RecipientType = 'prospect' | 'company';
+// --- Reusable UI Components ---
 
-const initialQuoteState: Omit<Quote, 'id'> = {
-  status: QuotePipelineStage.Borrador,
-  currency: 'USD',
-  items: [],
-  fees: { handling: 0, insurance: 0, storage: 0, freight: 0 },
-  commissions: { type: 'porcentaje', value: 0 },
-  deliveries: [],
-  totals: { base: 0, extras: 0, tax: 0, grandTotal: 0 },
-};
-
-// --- UI Components ---
-
-const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="bg-surface p-6 rounded-lg shadow-sm">
-    <h3 className="text-lg font-semibold border-b pb-3 mb-4">{title}</h3>
-    {children}
-  </div>
-);
-
-const Combobox: React.FC<{ label: string; options: {id: string; name: string}[]; value: string; onChange: (value: string) => void; loading?: boolean; placeholder?: string; }> = 
-({ label, options, value, onChange, loading, placeholder }) => (
-    <div>
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
-        <select
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-border focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
-            disabled={loading || !options.length}
-        >
-            <option value="">{loading ? 'Cargando...' : placeholder || `Seleccionar...`}</option>
-            {options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
-        </select>
-    </div>
-);
-
-const Input: React.FC<{ label: string; type?: string; value: string | number; onChange: (value: any) => void; }> = 
-({ label, type = 'text', value, onChange }) => (
-    <div>
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
-        <input
-            type={type}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="mt-1 block w-full pl-3 pr-3 py-2 text-base border-border focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
-        />
-    </div>
-);
-
-const FeeSwitch: React.FC<{ label: string; enabled: boolean; onToggle: () => void; value: number; onValueChange: (val: number) => void; }> =
-({label, enabled, onToggle, value, onValueChange}) => (
-    <div className="flex items-center justify-between">
-        <div className="flex items-center">
-            <button type="button" onClick={onToggle} className={`${enabled ? 'bg-primary' : 'bg-gray-200'} relative inline-flex items-center h-6 rounded-full w-11 transition-colors`}>
-                <span className={`${enabled ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}/>
-            </button>
-            <span className="ml-3 text-sm font-medium">{label}</span>
+const QuoteSectionCard: React.FC<{ title: string; children: React.ReactNode; }> = ({ title, children }) => (
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 pb-3 mb-4">{title}</h3>
+        <div className="space-y-4">
+            {children}
         </div>
-        {enabled && (
-             <input
-                type="number"
-                value={value}
-                onChange={(e) => onValueChange(parseFloat(e.target.value) || 0)}
-                className="w-32 text-right border-border rounded-md shadow-sm sm:text-sm"
-                placeholder="Costo"
-            />
-        )}
     </div>
 );
+
+const FormRow: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className }) => (
+    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 items-start ${className}`}>
+        {children}
+    </div>
+);
+
+const InputGroup: React.FC<{ label: string; children: React.ReactNode; error?: string }> = ({ label, children, error }) => (
+    <div>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{label}</label>
+        {children}
+        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+);
+
+const Switch: React.FC<{ enabled: boolean; onToggle: (enabled: boolean) => void; }> = ({ enabled, onToggle }) => (
+    <button
+        type="button"
+        onClick={() => onToggle(!enabled)}
+        className={`${enabled ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-600'} relative inline-flex items-center h-6 rounded-full w-11 transition-colors flex-shrink-0`}
+    >
+        <span className={`${enabled ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`} />
+    </button>
+);
+
 
 // --- Main Page Component ---
 
 const NewQuotePage: React.FC = () => {
-  const navigate = useNavigate();
-  const [quote, setQuote] = useState<Omit<Quote, 'id'>>(initialQuoteState);
-  const [itemErrors, setItemErrors] = useState<Record<number, string>>({});
-  const [recipientType, setRecipientType] = useState<RecipientType | ''>('');
+    const navigate = useNavigate();
+    
+    // Data fetching
+    const { data: companies } = useCollection<Company>('companies');
+    const { data: prospects } = useCollection<Prospect>('prospects');
+    const { data: products } = useCollection<Product>('products');
+    const { data: users } = useCollection<User>('users');
 
-  const { data: companies, loading: companiesLoading } = useCollection<Company>('companies');
-  const { data: prospects, loading: prospectsLoading } = useCollection<Prospect>('prospects');
-  const { data: products, loading: productsLoading } = useCollection<Product>('products');
-  const [lotsByProduct, setLotsByProduct] = useState<Record<string, {data: ProductLot[], loading: boolean}>>({});
+    // Form State
+    const [attendingCompany, setAttendingCompany] = useState('');
+    const [recipientType, setRecipientType] = useState<'client' | 'prospect'>('client');
+    const [selectedRecipient, setSelectedRecipient] = useState('');
+    const [selectedContact, setSelectedContact] = useState('');
+    const [validityDate, setValidityDate] = useState<string>('');
+    
+    const [quoteProducts, setQuoteProducts] = useState<any[]>([]);
+    const [availableLots, setAvailableLots] = useState<{[key: string]: ProductLot[]}>({});
 
-  // --- Handlers ---
-  const handleRecipientTypeChange = (type: RecipientType) => {
-    setRecipientType(type);
-    setQuote(prev => ({ ...prev, companyId: undefined, prospectId: undefined }));
-  }
+    const [deliveryInfoEnabled, setDeliveryInfoEnabled] = useState(false);
+    const [deliveryLocations, setDeliveryLocations] = useState<any[]>([]);
+    
+    const [deliverySchedule, setDeliverySchedule] = useState<any[]>([]);
 
-  const handleRecipientChange = (id: string) => {
-    if (recipientType === 'company') {
-        setQuote(prev => ({...prev, companyId: id, prospectId: undefined }));
-    } else if (recipientType === 'prospect') {
-        setQuote(prev => ({...prev, prospectId: id, companyId: undefined }));
-    }
-  }
+    const [commissions, setCommissions] = useState<any[]>([]);
+    
+    const [handling, setHandling] = useState<any[]>([]);
+    
+    const [freightEnabled, setFreightEnabled] = useState(false);
+    const [freights, setFreights] = useState<any[]>([]);
+    
+    const [insuranceEnabled, setInsuranceEnabled] = useState(false);
+    const [insuranceCost, setInsuranceCost] = useState(0);
 
-  const handleItemChange = (index: number, field: keyof QuoteItem, value: any) => {
-    const newItems = [...quote.items];
-    const currentItem = { ...newItems[index] };
-    (currentItem[field] as any) = value;
+    const [storageEnabled, setStorageEnabled] = useState(false);
+    const [storage, setStorage] = useState({ period: 1, unit: 'mes', cost: 0 });
 
-    if (field === 'productId') {
-        currentItem.lotId = ''; // Reset lot when product changes
-        const selectedProduct = products?.find(p => p.id === value);
-        if (selectedProduct) {
-            currentItem.unit = selectedProduct.unitDefault;
-            fetchLots(value);
+    const [additionalItems, setAdditionalItems] = useState<any[]>([]);
+    
+    const [internalNotes, setInternalNotes] = useState('');
+    const [terms, setTerms] = useState('');
+
+    const [approver, setApprover] = useState('');
+    const [responsible, setResponsible] = useState('');
+    
+    const [exchangeRate, setExchangeRate] = useState({ official: 20.0, commission: 0.3 });
+    const [applyVat, setApplyVat] = useState(true);
+
+    // Dynamic handlers
+    const addQuoteProduct = () => {
+        setQuoteProducts([...quoteProducts, { id: Date.now(), productId: '', lotId: '', quantity: 0, unit: 'ton', minPrice: 0 }]);
+    };
+    
+    const handleProductChange = async (index: number, productId: string) => {
+        const newProducts = [...quoteProducts];
+        newProducts[index].productId = productId;
+        newProducts[index].lotId = '';
+        setQuoteProducts(newProducts);
+        
+        if (productId) {
+            const lots = await api.getLotsForProduct(productId);
+            setAvailableLots(prev => ({ ...prev, [productId]: lots }));
         }
-    }
-
-    if (field === 'qty' || field === 'unitPrice') {
-        currentItem.subtotal = (currentItem.qty || 0) * (currentItem.unitPrice || 0);
-    }
-
-    newItems[index] = currentItem;
-    setQuote(prev => ({ ...prev, items: newItems }));
-    validateItemPrice(index, currentItem);
-  };
-
-  const fetchLots = async (productId: string) => {
-    if (!productId || lotsByProduct[productId]) return;
-    setLotsByProduct(prev => ({...prev, [productId]: {data: [], loading: true}}));
-    const lots = await api.getLotsForProduct(productId);
-    setLotsByProduct(prev => ({...prev, [productId]: {data: lots, loading: false}}));
-  };
-  
-  const addItem = () => {
-    const newItem: QuoteItem = { productId: '', lotId: '', qty: 0, unit: 'ton', unitPrice: 0, subtotal: 0 };
-    setQuote(prev => ({ ...prev, items: [...prev.items, newItem] }));
-  };
-
-  const removeItem = (index: number) => {
-    setQuote(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
-    setItemErrors(prev => {
-        const newErrors = {...prev};
-        delete newErrors[index];
-        return newErrors;
-    })
-  };
-
-  const handleFeeChange = (fee: keyof Quote['fees'], value: number) => {
-      setQuote(prev => ({...prev, fees: {...prev.fees, [fee]: value}}));
-  };
-
-  const toggleFee = (fee: keyof Quote['fees']) => {
-      const currentValue = quote.fees[fee] || 0;
-      handleFeeChange(fee, currentValue > 0 ? 0 : 1); // Set to 1 as placeholder, user will change
-  }
-
-  // --- Validation ---
-  const validateItemPrice = (index: number, item: QuoteItem) => {
-    const product = products?.find(p => p.id === item.productId);
-    const lot = lotsByProduct[item.productId]?.data.find(l => l.id === item.lotId);
-
-    if (!product) return;
-
-    const baseMinPrice = lot?.pricing.min ?? product.pricing.min;
-    const priceUnit = product.unitDefault;
-
-    // Convert min price to the unit selected in the line item
-    const adjustedMinPrice = convertPrice(baseMinPrice, priceUnit, item.unit);
-
-    if (item.unitPrice < adjustedMinPrice) {
-        setItemErrors(prev => ({ ...prev, [index]: `El precio debe ser ≥ $${adjustedMinPrice.toFixed(2)}`}));
-    } else {
-        setItemErrors(prev => {
-            const newErrors = {...prev};
-            delete newErrors[index];
-            return newErrors;
-        });
-    }
-  };
-
-  // --- Calculations ---
-  useEffect(() => {
-    const base = quote.items.reduce((sum, item) => sum + item.subtotal, 0);
-    const extras = (quote.fees.handling || 0) + (quote.fees.insurance || 0) + (quote.fees.storage || 0) + (quote.fees.freight || 0);
-    const commissionCost = quote.commissions.type === 'fijo' 
-        ? (quote.commissions.value || 0) 
-        : base * ((quote.commissions.value || 0) / 100);
-    const totalExtras = extras + commissionCost;
+    };
     
-    const taxableBase = base + totalExtras;
-    const tax = taxableBase * TAX_RATE;
-    const grandTotal = taxableBase + tax;
+    const handleLotChange = (index: number, lotId: string) => {
+        const newProducts = [...quoteProducts];
+        const product = newProducts[index];
+        const lots = availableLots[product.productId] || [];
+        const selectedLot = lots.find(l => l.id === lotId);
+        newProducts[index].lotId = lotId;
+        newProducts[index].minPrice = selectedLot?.pricing.min || 0;
+        setQuoteProducts(newProducts);
+    };
+
+    const updateProductField = (index: number, field: string, value: any) => {
+        const newProducts = [...quoteProducts];
+        newProducts[index][field] = value;
+        setQuoteProducts(newProducts);
+    };
+
+    const removeProduct = (index: number) => {
+        setQuoteProducts(quoteProducts.filter((_, i) => i !== index));
+    };
     
-    setQuote(prev => ({ ...prev, totals: { base, extras: totalExtras, tax, grandTotal }}));
-  }, [quote.items, quote.fees, quote.commissions]);
+    const addCommission = () => {
+        setCommissions([...commissions, { id: Date.now(), user: '', type: 'porcentaje', value: 0 }]);
+    };
+    
+    const addFreight = () => {
+        setFreights([...freights, {id: Date.now(), origin: '', destination: '', cost: 0}]);
+    };
+    
+    const addDeliveryLocation = () => {
+        setDeliveryLocations([...deliveryLocations, {id: Date.now(), name: '', email: '', street: '', phone: '', city: '', state: '', zip: ''}]);
+    };
+    
+    const addDeliveryScheduleItem = () => {
+        setDeliverySchedule([...deliverySchedule, {id: Date.now(), address: '', zip: '', tons: 0, date: ''}]);
+    }
+    
+    const addAdditionalItem = () => {
+        setAdditionalItems([...additionalItems, {id: Date.now(), name: '', quantity: 1, unitPrice: 0}]);
+    };
+    
+    const addHandling = () => {
+        setHandling([...handling, {id: Date.now(), type: 'ninguna', cost: 0}]);
+    };
 
+    const setValidityDays = (days: number) => {
+        const date = new Date();
+        date.setDate(date.getDate() + days);
+        setValidityDate(date.toISOString().split('T')[0]);
+    };
 
-  const isFormValid = useMemo(() => {
-    const hasRecipient = !!quote.companyId || !!quote.prospectId;
-    return hasRecipient && Object.keys(itemErrors).length === 0 && quote.items.length > 0 && quote.items.every(i => i.qty > 0 && i.productId)
-  }, [itemErrors, quote]);
-
-  const handleSubmit = () => {
-      if (!isFormValid) {
-          alert("Por favor completa la información y corrige los errores antes de guardar.");
-          return;
-      }
-      const finalQuote: Quote = {
-          id: `QT-${Date.now()}`,
-          ...quote
-      }
-      console.log("Quote Submitted:", finalQuote);
-      alert("Cotización guardada (ver consola).");
-      navigate('/hubs/quotes');
-  };
-
-  return (
-    <div>
-        <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-on-surface">Nueva Cotización</h2>
-            <div>
-                <button type="button" className="bg-surface border border-border text-on-surface font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-gray-50 mr-2">
-                    Guardar Borrador
-                </button>
-                <button onClick={handleSubmit} disabled={!isFormValid} className="bg-primary text-on-primary font-semibold py-2 px-4 rounded-lg shadow-sm hover:opacity-90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
-                    Crear Cotización
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Nueva Cotización</h2>
+                <button className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:opacity-90">
+                    Guardar Cotización
                 </button>
             </div>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-            {/* --- Main Info --- */}
-            <FormBlock title="Destinatario">
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">¿Para quién es esta cotización?</label>
-                        <div className="flex space-x-4">
-                           <button type="button" onClick={() => handleRecipientTypeChange('prospect')} className={`px-4 py-2 rounded-md border ${recipientType === 'prospect' ? 'bg-primary text-on-primary border-primary' : 'bg-surface'}`}>Prospecto</button>
-                           <button type="button" onClick={() => handleRecipientTypeChange('company')} className={`px-4 py-2 rounded-md border ${recipientType === 'company' ? 'bg-primary text-on-primary border-primary' : 'bg-surface'}`}>Empresa (Cliente)</button>
-                        </div>
-                    </div>
-                    {recipientType && (
-                        <Combobox 
-                            label={recipientType === 'prospect' ? 'Seleccionar Prospecto' : 'Seleccionar Empresa'}
-                            options={
-                                recipientType === 'prospect' 
-                                ? (prospects || []).map(p => ({id: p.id, name: p.name}))
-                                : (companies || []).map(c => ({id: c.id, name: c.shortName || c.name}))
-                            } 
-                            value={recipientType === 'prospect' ? quote.prospectId || '' : quote.companyId || ''}
-                            onChange={handleRecipientChange} 
-                            loading={recipientType === 'prospect' ? prospectsLoading : companiesLoading} />
-                    )}
-                </div>
-            </FormBlock>
-            {/* --- Items Table --- */}
-            <FormBlock title="Productos">
-                 <div className="space-y-4">
-                    {quote.items.map((item, index) => (
-                        <div key={index} className="grid grid-cols-12 gap-3 p-3 bg-gray-50 rounded-md relative">
-                           <div className="col-span-12 md:col-span-3">
-                               <Combobox label="Producto" options={products || []} value={item.productId} onChange={val => handleItemChange(index, 'productId', val)} loading={productsLoading} />
-                           </div>
-                           <div className="col-span-6 md:col-span-2">
-                                <Combobox label="Lote" options={(lotsByProduct[item.productId]?.data || []).map(lot => ({ id: lot.id, name: lot.code }))} value={item.lotId} onChange={val => handleItemChange(index, 'lotId', val)} loading={lotsByProduct[item.productId]?.loading}/>
-                           </div>
-                           <div className="col-span-6 md:col-span-2">
-                               <Input label="Cantidad" type="number" value={item.qty} onChange={val => handleItemChange(index, 'qty', parseFloat(val))} />
-                           </div>
-                           <div className="col-span-6 md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700">Unidad</label>
-                                <select value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value as Unit)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-border focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md">
-                                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Tarjeta de Empresa y Cliente */}
+                    <QuoteSectionCard title="Información General">
+                        <FormRow>
+                             <InputGroup label="Empresa que Atiende">
+                                <select value={attendingCompany} onChange={e => setAttendingCompany(e.target.value)}>
+                                    <option value="">Seleccionar...</option>
+                                    {MOCK_MY_COMPANIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
-                           </div>
-                           <div className="col-span-6 md:col-span-3">
-                                <Input label="Precio Unitario" type="number" value={item.unitPrice} onChange={val => handleItemChange(index, 'unitPrice', parseFloat(val))} />
-                                {itemErrors[index] && <p className="text-red-500 text-xs mt-1">{itemErrors[index]}</p>}
-                           </div>
-                           <div className="absolute top-2 right-2">
-                                <button type="button" onClick={() => removeItem(index)} className="text-gray-400 hover:text-red-600 p-1 rounded-full">
-                                    <span className="material-symbols-outlined">close</span>
-                                </button>
-                           </div>
-                           <div className="col-span-12 text-right font-semibold">
-                                Subtotal: ${item.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                           </div>
+                            </InputGroup>
+                        </FormRow>
+                        <FormRow>
+                             <InputGroup label="Tipo de Destinatario">
+                                 <div className="flex border border-slate-300 dark:border-slate-600 rounded-lg p-1 bg-slate-100 dark:bg-slate-900 mt-1">
+                                    <button type="button" onClick={() => setRecipientType('client')} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${recipientType === 'client' ? 'bg-white dark:bg-slate-700 shadow-sm' : ''}`}>Cliente Existente</button>
+                                    <button type="button" onClick={() => setRecipientType('prospect')} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${recipientType === 'prospect' ? 'bg-white dark:bg-slate-700 shadow-sm' : ''}`}>Prospecto</button>
+                                </div>
+                             </InputGroup>
+                            <InputGroup label={`Seleccionar ${recipientType === 'client' ? 'Cliente' : 'Prospecto'}`}>
+                                <select value={selectedRecipient} onChange={e => setSelectedRecipient(e.target.value)}>
+                                    <option value="">Seleccionar...</option>
+                                    {(recipientType === 'client' ? companies : prospects)?.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                </select>
+                            </InputGroup>
+                        </FormRow>
+                        <FormRow>
+                            <InputGroup label="Contacto">
+                                <select value={selectedContact} onChange={e => setSelectedContact(e.target.value)} disabled={!selectedRecipient}>
+                                    <option value="">Seleccionar contacto...</option>
+                                    {/* Dummy options */}
+                                    <option value="contact-1">Roberto Ortega</option>
+                                    <option value="contact-2">Ana Méndez</option>
+                                </select>
+                            </InputGroup>
+                             <InputGroup label="Validez de la cotización">
+                                <input type="date" value={validityDate} onChange={e => setValidityDate(e.target.value)} />
+                                 <div className="flex gap-2 mt-2">
+                                    {[7, 15, 30, 60].map(d => (
+                                        <button key={d} type="button" onClick={() => setValidityDays(d)} className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded-md">{d} días</button>
+                                    ))}
+                                </div>
+                            </InputGroup>
+                        </FormRow>
+                    </QuoteSectionCard>
+
+                    {/* Tarjeta de Productos */}
+                    <QuoteSectionCard title="Productos">
+                        <div className="space-y-4">
+                            {quoteProducts.map((p, index) => (
+                                <div key={p.id} className="p-4 border rounded-lg space-y-3 relative">
+                                    <button type="button" onClick={() => removeProduct(index)} className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-500"><span className="material-symbols-outlined">delete</span></button>
+                                    <FormRow>
+                                        <InputGroup label="Producto">
+                                            <select value={p.productId} onChange={e => handleProductChange(index, e.target.value)}>
+                                                <option value="">Seleccionar...</option>
+                                                {products?.map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
+                                            </select>
+                                        </InputGroup>
+                                        <InputGroup label="Lote">
+                                            <select value={p.lotId} onChange={e => handleLotChange(index, e.target.value)} disabled={!p.productId}>
+                                                <option value="">Seleccionar...</option>
+                                                {(availableLots[p.productId] || []).map(l => <option key={l.id} value={l.id}>{l.code} ({l.stock.reduce((a, s) => a+s.qty, 0)} disp.)</option>)}
+                                            </select>
+                                        </InputGroup>
+                                    </FormRow>
+                                    <FormRow>
+                                        <InputGroup label="Cantidad"><input type="number" value={p.quantity} onChange={e => updateProductField(index, 'quantity', e.target.value)} /></InputGroup>
+                                        <InputGroup label="Unidad">
+                                            <select value={p.unit} onChange={e => updateProductField(index, 'unit', e.target.value)}>
+                                                <option value="ton">ton</option>
+                                                <option value="kg">kg</option>
+                                                <option value="L">L</option>
+                                            </select>
+                                        </InputGroup>
+                                        <InputGroup label="Precio Mín. Sugerido"><input type="text" value={`$${p.minPrice.toFixed(2)}`} disabled className="bg-slate-100"/></InputGroup>
+                                        <InputGroup label="Precio Unitario"><input type="number" /></InputGroup>
+                                    </FormRow>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                    <button type="button" onClick={addItem} className="text-accent font-semibold text-sm flex items-center">
-                        <span className="material-symbols-outlined mr-1">add_circle</span>
-                        Agregar Producto
-                    </button>
-                 </div>
-            </FormBlock>
-        </div>
-        <div className="lg:col-span-1 space-y-6">
-             {/* --- Fees --- */}
-            <FormBlock title="Costos Adicionales">
-                <div className="space-y-4">
-                    <FeeSwitch label="Maniobras" enabled={!!quote.fees.handling} onToggle={() => toggleFee('handling')} value={quote.fees.handling || 0} onValueChange={val => handleFeeChange('handling', val)} />
-                    <FeeSwitch label="Seguro" enabled={!!quote.fees.insurance} onToggle={() => toggleFee('insurance')} value={quote.fees.insurance || 0} onValueChange={val => handleFeeChange('insurance', val)} />
-                    <FeeSwitch label="Almacenaje" enabled={!!quote.fees.storage} onToggle={() => toggleFee('storage')} value={quote.fees.storage || 0} onValueChange={val => handleFeeChange('storage', val)} />
-                    <FeeSwitch label="Flete" enabled={!!quote.fees.freight} onToggle={() => toggleFee('freight')} value={quote.fees.freight || 0} onValueChange={val => handleFeeChange('freight', val)} />
+                        <button type="button" onClick={addQuoteProduct} className="text-sm font-semibold text-indigo-600 flex items-center mt-4">
+                            <span className="material-symbols-outlined mr-1">add_circle</span> Añadir Producto
+                        </button>
+                    </QuoteSectionCard>
+                    
+                    {/* Tarjeta de Información de Entrega */}
+                    <QuoteSectionCard title="Información de Entrega">
+                         <div className="flex items-center gap-4">
+                            <Switch enabled={deliveryInfoEnabled} onToggle={setDeliveryInfoEnabled} />
+                            <span className="text-sm font-medium">Usar dirección de entrega personalizada</span>
+                         </div>
+                         {deliveryInfoEnabled && deliveryLocations.map((loc, i) => (
+                             <div key={loc.id} className="p-4 border rounded-lg space-y-3 mt-4">
+                                <FormRow><InputGroup label="Nombre de quien recibe"><input type="text"/></InputGroup><InputGroup label="Email de contacto"><input type="email"/></InputGroup></FormRow>
+                                <FormRow><InputGroup label="Calle y número"><input type="text"/></InputGroup><InputGroup label="Teléfono de contacto"><input type="tel"/></InputGroup></FormRow>
+                                <FormRow><InputGroup label="Ciudad"><input type="text"/></InputGroup><InputGroup label="Estado"><input type="text"/></InputGroup><InputGroup label="Código Postal"><input type="text"/></InputGroup></FormRow>
+                             </div>
+                         ))}
+                         {deliveryInfoEnabled && <button type="button" onClick={addDeliveryLocation} className="text-sm font-semibold text-indigo-600 flex items-center mt-2"><span className="material-symbols-outlined mr-1">add_circle</span>Añadir múltiples locaciones</button>}
+                    </QuoteSectionCard>
+
+                    {/* Tarjeta de Programación de Entrega */}
+                    <QuoteSectionCard title="Programación de Entregas">
+                        {deliverySchedule.map((item, i) =>(
+                            <div key={item.id} className="p-4 border rounded-lg space-y-3 mt-4">
+                                <FormRow>
+                                    <InputGroup label="Dirección de Entrega"><select><option>Dirección Principal</option></select></InputGroup>
+                                    <InputGroup label="Código Postal"><input type="text" /></InputGroup>
+                                </FormRow>
+                                <FormRow>
+                                     <InputGroup label="Toneladas"><input type="number" /></InputGroup>
+                                     <InputGroup label="Fecha"><input type="date" /></InputGroup>
+                                </FormRow>
+                            </div>
+                        ))}
+                         <button type="button" onClick={addDeliveryScheduleItem} className="text-sm font-semibold text-indigo-600 flex items-center mt-2"><span className="material-symbols-outlined mr-1">add_circle</span>Añadir Entrega</button>
+                    </QuoteSectionCard>
+
+                     {/* Tarjeta de Comisiones */}
+                    <QuoteSectionCard title="Comisiones">
+                        {commissions.map((c, i) => (
+                             <FormRow key={c.id} className="p-2 border-b last:border-b-0">
+                                <InputGroup label="Vendedor"><select><option>Abigail</option><option>David</option></select></InputGroup>
+                                <InputGroup label="Tipo"><select><option value="porcentaje">%</option><option value="tonelada">Por Tonelada</option><option value="litro">Por Litro</option></select></InputGroup>
+                                <InputGroup label="Valor"><input type="number" /></InputGroup>
+                             </FormRow>
+                        ))}
+                         <button type="button" onClick={addCommission} className="text-sm font-semibold text-indigo-600 flex items-center mt-2"><span className="material-symbols-outlined mr-1">add_circle</span>Añadir Comisión</button>
+                    </QuoteSectionCard>
+                    
+                    {/* Tarjeta de Maniobras */}
+                     <QuoteSectionCard title="Maniobras">
+                        {handling.map(h => (
+                            <FormRow key={h.id} className="p-2 border-b last:border-b-0">
+                                <InputGroup label="Tipo de Maniobra"><select><option>Ninguna</option><option>Carga</option><option>Descarga</option><option>Carga y Descarga</option></select></InputGroup>
+                                <InputGroup label="Costo por ton/L"><input type="number" /></InputGroup>
+                            </FormRow>
+                        ))}
+                        <button type="button" onClick={addHandling} className="text-sm font-semibold text-indigo-600 flex items-center mt-2"><span className="material-symbols-outlined mr-1">add_circle</span>Añadir Maniobra</button>
+                    </QuoteSectionCard>
+
+                    {/* Costos con Switch */}
+                    <QuoteSectionCard title="Flete">
+                        <div className="flex items-center gap-4 mb-4"><Switch enabled={freightEnabled} onToggle={setFreightEnabled} /><span className="text-sm font-medium">Activar costos de flete</span></div>
+                        {freightEnabled && freights.map(f => (
+                             <FormRow key={f.id} className="p-2 border-b last:border-b-0">
+                                <InputGroup label="Origen"><input type="text"/></InputGroup>
+                                <InputGroup label="Destino"><input type="text"/></InputGroup>
+                                <InputGroup label="Costo"><input type="number"/></InputGroup>
+                            </FormRow>
+                        ))}
+                        {freightEnabled && <button type="button" onClick={addFreight} className="text-sm font-semibold text-indigo-600 flex items-center mt-2"><span className="material-symbols-outlined mr-1">add_circle</span>Añadir Ruta</button>}
+                    </QuoteSectionCard>
+
+                    <QuoteSectionCard title="Seguro">
+                        <div className="flex items-center gap-4 mb-4"><Switch enabled={insuranceEnabled} onToggle={setInsuranceEnabled} /><span className="text-sm font-medium">Activar costo de seguro</span></div>
+                        {insuranceEnabled && <InputGroup label="Costo por ton/L"><input type="number" value={insuranceCost} onChange={e=>setInsuranceCost(parseFloat(e.target.value))} /></InputGroup>}
+                    </QuoteSectionCard>
+                    
+                    <QuoteSectionCard title="Almacenaje">
+                        <div className="flex items-center gap-4 mb-4"><Switch enabled={storageEnabled} onToggle={setStorageEnabled} /><span className="text-sm font-medium">Activar costo de almacenaje</span></div>
+                        {storageEnabled && (
+                            <FormRow>
+                                <InputGroup label="Periodo"><input type="number" value={storage.period} onChange={e => setStorage(s=>({...s, period: parseInt(e.target.value)}))} /></InputGroup>
+                                <InputGroup label="Unidad"><select value={storage.unit} onChange={e => setStorage(s=>({...s, unit: e.target.value}))}><option>día</option><option>semana</option><option>mes</option></select></InputGroup>
+                                <InputGroup label="Costo por ton/L"><input type="number" value={storage.cost} onChange={e => setStorage(s=>({...s, cost: parseFloat(e.target.value)}))} /></InputGroup>
+                            </FormRow>
+                        )}
+                    </QuoteSectionCard>
+
+                    {/* Items Adicionales */}
+                    <QuoteSectionCard title="Items Adicionales">
+                        {additionalItems.map(item => (
+                             <FormRow key={item.id} className="p-2 border-b last:border-b-0">
+                                <InputGroup label="Nombre del Ítem"><input type="text"/></InputGroup>
+                                <InputGroup label="Cantidad"><input type="number"/></InputGroup>
+                                <InputGroup label="Precio Unitario"><input type="number"/></InputGroup>
+                            </FormRow>
+                        ))}
+                        <button type="button" onClick={addAdditionalItem} className="text-sm font-semibold text-indigo-600 flex items-center mt-2"><span className="material-symbols-outlined mr-1">add_circle</span>Añadir Ítem</button>
+                    </QuoteSectionCard>
+                    
+                     {/* Tarjeta de Información Adicional */}
+                    <QuoteSectionCard title="Información Adicional">
+                        <InputGroup label="Notas Internas (no visibles para el cliente)"><textarea rows={3} value={internalNotes} onChange={e => setInternalNotes(e.target.value)}/></InputGroup>
+                        <InputGroup label="Términos y Condiciones"><textarea rows={5} value={terms} onChange={e => setTerms(e.target.value)}/></InputGroup>
+                    </QuoteSectionCard>
+
                 </div>
-            </FormBlock>
-            {/* --- Totals --- */}
-             <FormBlock title="Resumen">
-                <div className="space-y-2">
-                    <div className="flex justify-between"><span>Subtotal Base:</span><span>${quote.totals.base.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                    <div className="flex justify-between"><span>Extras:</span><span>${quote.totals.extras.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                    <div className="flex justify-between border-t pt-2 mt-2"><span>Subtotal:</span><span>${(quote.totals.base + quote.totals.extras).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                    <div className="flex justify-between"><span>IVA (16%):</span><span>${quote.totals.tax.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                    <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Total:</span><span>${quote.totals.grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })} {quote.currency}</span></div>
+                
+                <div className="lg:col-span-1 space-y-6">
+                     {/* Tarjeta de Responsables */}
+                    <QuoteSectionCard title="Responsables">
+                        <InputGroup label="Responsable de la Cotización">
+                             <select value={responsible} onChange={e => setResponsible(e.target.value)}>
+                                <option value="">Seleccionar...</option>
+                                {users?.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            </select>
+                        </InputGroup>
+                        <InputGroup label="Aprobador">
+                             <select value={approver} onChange={e => setApprover(e.target.value)}>
+                                <option value="">Seleccionar...</option>
+                                {users?.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            </select>
+                        </InputGroup>
+                    </QuoteSectionCard>
+                    
+                    {/* Tarjeta de Finanzas */}
+                     <QuoteSectionCard title="Finanzas">
+                         <InputGroup label="Tipo de Cambio Oficial (MXN a USD)">
+                            <input type="number" step="0.01" value={exchangeRate.official} onChange={e => setExchangeRate(r => ({...r, official: parseFloat(e.target.value)}))}/>
+                         </InputGroup>
+                         <InputGroup label="Comisión sobre TC (%)">
+                            <input type="number" step="0.1" value={exchangeRate.commission} onChange={e => setExchangeRate(r => ({...r, commission: parseFloat(e.target.value)}))}/>
+                         </InputGroup>
+                         <div className="flex items-center gap-4 pt-4 border-t">
+                            <Switch enabled={applyVat} onToggle={setApplyVat} />
+                            <span className="text-sm font-medium">Aplicar IVA (16%)</span>
+                         </div>
+                     </QuoteSectionCard>
                 </div>
-            </FormBlock>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default NewQuotePage;

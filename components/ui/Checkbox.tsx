@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 
 interface CheckboxProps {
@@ -22,7 +23,7 @@ const Checkbox: React.FC<CheckboxProps> = ({ id, checked, onChange, className = 
         />
         <div
           className={`w-4 h-4 rounded flex-shrink-0 border-2 flex items-center justify-center transition-colors
-            ${checked ? 'bg-accent border-accent' : 'bg-surface border-border'}`}
+            ${checked ? 'bg-indigo-600 border-indigo-600' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}
         >
           {checked && (
             <span className="material-symbols-outlined text-white" style={{ fontSize: '12px', fontWeight: 900 }}>

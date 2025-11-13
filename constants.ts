@@ -2,61 +2,75 @@ import { ProspectStage, SampleStatus, QuotePipelineStage, SalesOrderStatus, Unit
 
 export const NAV_LINKS = [
   { name: 'Hoy', path: '/today', icon: 'home' },
-  { name: 'Ventas', path: '/crm/lists', icon: 'groups' },
+  
+  { name: 'OPERACIONES', isSeparator: true },
+  
+  { 
+    name: 'Prospección IA', 
+    icon: 'travel_explore', 
+    sublinks: [
+      { name: 'Candidatos', path: '/prospecting/candidates' },
+      { name: 'Importar Datos', path: '/prospecting/upload' },
+    ]
+  },
+  { name: 'Ventas', path: '/crm/lists', icon: 'point_of_sale' },
   { 
     name: 'Hubs', 
     icon: 'hub', 
     sublinks: [
-      { name: 'Prospectos', path: '/hubs/prospects', icon: 'person_search' },
-      { name: 'Muestras', path: '/hubs/samples', icon: 'science' },
-      { name: 'Cotizaciones', path: '/hubs/quotes', icon: 'request_quote' },
-      { name: 'Órdenes de Venta', path: '/hubs/sales-orders', icon: 'receipt_long' },
-      { name: 'Empresas', path: '/hubs/companies', icon: 'apartment' },
+      { name: 'Prospectos', path: '/hubs/prospects' },
+      { name: 'Muestras', path: '/hubs/samples' },
+      { name: 'Cotizaciones', path: '/hubs/quotes' },
+      { name: 'Órdenes de Venta', path: '/hubs/sales-orders' },
+      { name: 'Empresas', path: '/hubs/companies' },
     ]
   },
   { 
     name: 'Productos', 
     icon: 'inventory_2',
     sublinks: [
-        { name: 'Lista de Productos', path: '/products/list', icon: 'list' },
-        { name: 'Categorías', path: '/products/categories', icon: 'category' },
+        { name: 'Lista de Productos', path: '/products/list' },
+        { name: 'Categorías', path: '/products/categories' },
     ]
   },
   { 
     name: 'Compras', 
     icon: 'shopping_cart',
     sublinks: [
-        { name: 'Órdenes de Compra', path: '/purchase-orders', icon: 'receipt_long' },
-        { name: 'Proveedores', path: '/purchase/suppliers', icon: 'conveyor_belt' },
+        { name: 'Órdenes de Compra', path: '/purchase-orders' },
+        { name: 'Proveedores', path: '/purchase/suppliers' },
     ]
   },
   { 
     name: 'Inventario', 
     icon: 'warehouse',
     sublinks: [
-        { name: 'Stock Actual', path: '/inventory/stock', icon: 'inventory' },
-        { name: 'Movimientos', path: '/inventory/movements', icon: 'multiple_stop' },
-        { name: 'Alertas', path: '/inventory/alerts', icon: 'notifications_active' },
-        { name: 'Ubicaciones', path: '/inventory/locations', icon: 'pin_drop' },
+        { name: 'Stock Actual', path: '/inventory/stock' },
+        { name: 'Movimientos', path: '/inventory/movements' },
+        { name: 'Alertas', path: '/inventory/alerts' },
+        { name: 'Ubicaciones', path: '/inventory/locations' },
     ]
   },
   { 
     name: 'Logística', 
     icon: 'local_shipping',
     sublinks: [
-        { name: 'Entregas', path: '/logistics/deliveries', icon: 'local_shipping' },
-        { name: 'Transportistas', path: '/logistics/providers', icon: 'support_agent' },
-        { name: 'Precios de Flete', path: '/logistics/pricing', icon: 'price_change' },
+        { name: 'Entregas', path: '/logistics/deliveries' },
+        { name: 'Transportistas', path: '/logistics/providers' },
+        { name: 'Precios de Flete', path: '/logistics/pricing' },
     ]
   },
+
+  { name: 'PRODUCTIVIDAD', isSeparator: true },
+
   { 
     name: 'Tareas', 
     icon: 'task_alt',
     sublinks: [
-      { name: 'Mis Tareas', path: '/tasks?view=mine', icon: 'person' },
-      { name: 'Tablero', path: '/tasks?view=board', icon: 'dashboard' },
-      { name: 'Todas las Tareas', path: '/tasks?view=all', icon: 'list_alt' },
-      { name: 'Proyectos', path: '/tasks/projects', icon: 'workspaces' },
+      { name: 'Mis Tareas', path: '/tasks?view=mine' },
+      { name: 'Tablero', path: '/tasks?view=board' },
+      { name: 'Todas las Tareas', path: '/tasks?view=all' },
+      { name: 'Proyectos', path: '/tasks/projects' },
     ]
   },
   { name: 'Calendario', path: '/calendar', icon: 'calendar_month' },
@@ -64,11 +78,28 @@ export const NAV_LINKS = [
     name: 'Comunicación', 
     icon: 'chat', 
     sublinks: [
-      { name: 'Chat Interno', path: '/communication/chat', icon: 'forum' },
-      { name: 'Correos', path: '/communication/emails', icon: 'mail' },
-      { name: 'Asistente IA', path: '/communication/ai-assistant', icon: 'smart_toy' },
+      { name: 'Chat Interno', path: '/communication/chat' },
+      { name: 'Correos', path: '/communication/emails' },
+      { name: 'Asistente IA', path: '/communication/ai-assistant' },
     ]
   },
+  
+  { name: 'FINANZAS', isSeparator: true },
+  { name: 'Facturación', path: '/billing', icon: 'receipt_long' },
+  {
+    name: 'Finanzas',
+    icon: 'monitoring',
+    sublinks: [
+      { name: 'Pagos Pendientes', path: '/finance/pending-payments' },
+      { name: 'Pagos Recibidos', path: '/finance/payments-received' },
+      { name: 'Gastos', path: '/finance/expenses' },
+      { name: 'Flujo de Caja', path: '/finance/cash-flow' },
+      { name: 'Comisiones', path: '/finance/commissions' },
+    ]
+  },
+
+  { name: 'SISTEMA', isSeparator: true },
+
   { name: 'Archivos', path: '/archives', icon: 'archive' },
   { name: 'Auditoría', path: '/insights/audit', icon: 'history' },
   { name: 'Configuración', path: '/settings', icon: 'settings' },

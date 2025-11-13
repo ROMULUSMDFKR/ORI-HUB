@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Product, Category, Unit, LotStatus, Supplier } from '../types';
 import { useCollection } from '../hooks/useCollection';
 import { UNITS } from '../../constants';
+import CustomSelect from '../components/ui/CustomSelect';
 
 const initialProductState: Omit<Product, 'id'> = {
     sku: '',
@@ -35,6 +35,12 @@ const NewProductPage: React.FC = () => {
     const { data: categories, loading: categoriesLoading } = useCollection<Category>('categories');
     const { data: suppliers, loading: suppliersLoading } = useCollection<Supplier>('suppliers');
     const { data: locations, loading: locationsLoading } = useCollection<any>('locations');
+    
+    const categoryOptions = (categories || []).map(c => ({ value: c.id, name: c.name }));
+    const unitOptions = UNITS.map(u => ({ value: u, name: u }));
+    const supplierOptions = (suppliers || []).map(s => ({ value: s.id, name: s.name }));
+    const locationOptions = (locations || []).map(l => ({ value: l.id, name: l.name }));
+
 
     const validate = (): boolean => {
         const newErrors: Record<string, string> = {};
@@ -96,8 +102,8 @@ const NewProductPage: React.FC = () => {
     };
 
     const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-semibold border-b pb-3 mb-4">{title}</h3>
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4">{title}</h3>
           <div className="space-y-4">
             {children}
           </div>
@@ -107,12 +113,12 @@ const NewProductPage: React.FC = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-text-main">Crear Nuevo Producto</h2>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Crear Nuevo Producto</h2>
                 <div className="flex space-x-2">
-                    <button onClick={() => navigate('/products/list')} className="bg-white border border-gray-300 text-text-main font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-gray-50">
+                    <button onClick={() => navigate('/products/list')} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">
                         Cancelar
                     </button>
-                    <button onClick={handleSubmit} className="bg-primary text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-primary-dark">
+                    <button onClick={handleSubmit} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:opacity-90">
                         Guardar Producto
                     </button>
                 </div>
@@ -122,43 +128,34 @@ const NewProductPage: React.FC = () => {
                 <div className="space-y-6">
                     <FormBlock title="Información General del Producto">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Nombre del Producto</label>
-                            <input type="text" value={product.name} onChange={(e) => handleChange('product', 'name', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary" />
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre del Producto</label>
+                            <input type="text" value={product.name} onChange={(e) => handleChange('product', 'name', e.target.value)} className="mt-1 block w-full" />
                             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">SKU</label>
-                            <input type="text" value={product.sku} onChange={(e) => handleChange('product', 'sku', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary" />
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">SKU</label>
+                            <input type="text" value={product.sku} onChange={(e) => handleChange('product', 'sku', e.target.value)} className="mt-1 block w-full" />
                             {errors.sku && <p className="text-red-500 text-xs mt-1">{errors.sku}</p>}
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Categoría</label>
-                            <select value={product.categoryId} onChange={(e) => handleChange('product', 'categoryId', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary" disabled={categoriesLoading}>
-                                <option value="">{categoriesLoading ? 'Cargando...' : 'Seleccionar...'}</option>
-                                {categories?.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                            </select>
+                            <CustomSelect label="Categoría" options={categoryOptions} value={product.categoryId} onChange={val => handleChange('product', 'categoryId', val)} placeholder={categoriesLoading ? 'Cargando...' : 'Seleccionar...'} />
                             {errors.categoryId && <p className="text-red-500 text-xs mt-1">{errors.categoryId}</p>}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
+                            <CustomSelect label="Unidad Default" options={unitOptions} value={product.unitDefault} onChange={val => handleChange('product', 'unitDefault', val as Unit)} />
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Unidad Default</label>
-                                <select value={product.unitDefault} onChange={(e) => handleChange('product', 'unitDefault', e.target.value as Unit)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
-                                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Precio Mín. (Default)</label>
-                                <input type="number" value={product.pricing.min} onChange={(e) => handleChange('product', 'pricing.min', parseFloat(e.target.value) || 0)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary" />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Precio Mín. (Default)</label>
+                                <input type="number" value={product.pricing.min} onChange={(e) => handleChange('product', 'pricing.min', parseFloat(e.target.value) || 0)} className="mt-1 block w-full" />
                                 {errors.productPrice && <p className="text-red-500 text-xs mt-1">{errors.productPrice}</p>}
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-4 border-t">
-                            <span className="text-sm font-medium text-gray-700">Producto Activo</span>
-                            <button type="button" onClick={() => handleChange('product', 'isActive', !product.isActive)} className={`${product.isActive ? 'bg-primary' : 'bg-gray-200'} relative inline-flex items-center h-6 rounded-full w-11 transition-colors`}>
+                        <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Producto Activo</span>
+                            <button type="button" onClick={() => handleChange('product', 'isActive', !product.isActive)} className={`${product.isActive ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-slate-600'} relative inline-flex items-center h-6 rounded-full w-11 transition-colors`}>
                                 <span className={`${product.isActive ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}/>
                             </button>
                         </div>
@@ -168,54 +165,46 @@ const NewProductPage: React.FC = () => {
                     <FormBlock title="Lote Inicial y Stock">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Código de Lote</label>
-                                <input type="text" value={lot.code} onChange={e => handleChange('lot', 'code', e.target.value)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm py-2 px-3"/>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Código de Lote</label>
+                                <input type="text" value={lot.code} onChange={e => handleChange('lot', 'code', e.target.value)} className="mt-1 block w-full"/>
                                 {errors.lotCode && <p className="text-red-500 text-xs mt-1">{errors.lotCode}</p>}
                             </div>
                              <div>
-                                <label className="block text-sm font-medium text-gray-700">Fecha de Recepción</label>
-                                <input type="date" value={lot.receptionDate} onChange={e => handleChange('lot', 'receptionDate', e.target.value)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm py-2 px-3"/>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fecha de Recepción</label>
+                                <input type="date" value={lot.receptionDate} onChange={e => handleChange('lot', 'receptionDate', e.target.value)} className="mt-1 block w-full"/>
                             </div>
                         </div>
                          <div>
-                            <label className="block text-sm font-medium text-gray-700">Proveedor</label>
-                            <select value={lot.supplierId} onChange={e => handleChange('lot', 'supplierId', e.target.value)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm py-2 px-3" disabled={suppliersLoading}>
-                               <option value="">{suppliersLoading ? 'Cargando...' : 'Seleccionar...'}</option>
-                               {suppliers?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
+                            <CustomSelect label="Proveedor" options={supplierOptions} value={lot.supplierId} onChange={val => handleChange('lot', 'supplierId', val)} placeholder={suppliersLoading ? 'Cargando...' : 'Seleccionar...'} />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Cantidad Recibida</label>
-                                <input type="number" value={lot.initialQty} onChange={e => handleChange('lot', 'initialQty', parseFloat(e.target.value) || 0)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm py-2 px-3"/>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Cantidad Recibida</label>
+                                <input type="number" value={lot.initialQty} onChange={e => handleChange('lot', 'initialQty', parseFloat(e.target.value) || 0)} className="mt-1 block w-full"/>
                                 {errors.lotQty && <p className="text-red-500 text-xs mt-1">{errors.lotQty}</p>}
                             </div>
                              <div>
-                                <label className="block text-sm font-medium text-gray-700">Ubicación de Recepción</label>
-                                <select value={lot.initialLocationId} onChange={e => handleChange('lot', 'initialLocationId', e.target.value)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm py-2 px-3" disabled={locationsLoading}>
-                                    <option value="">{locationsLoading ? 'Cargando...' : 'Seleccionar...'}</option>
-                                    {locations?.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                                </select>
+                                <CustomSelect label="Ubicación de Recepción" options={locationOptions} value={lot.initialLocationId} onChange={val => handleChange('lot', 'initialLocationId', val)} placeholder={locationsLoading ? 'Cargando...' : 'Seleccionar...'} />
                                 {errors.lotLocation && <p className="text-red-500 text-xs mt-1">{errors.lotLocation}</p>}
                             </div>
                         </div>
-                        <div className="pt-4 border-t">
-                            <h4 className="text-md font-semibold text-gray-800">Costos y Precios del Lote</h4>
-                            <p className="text-xs text-gray-500 mb-2">Define la rentabilidad de este lote específico.</p>
+                        <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                            <h4 className="text-md font-semibold text-slate-800 dark:text-slate-200">Costos y Precios del Lote</h4>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Define la rentabilidad de este lote específico.</p>
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Costo Unitario (Compra)</label>
-                                    <input type="number" value={lot.unitCost} onChange={e => handleChange('lot', 'unitCost', parseFloat(e.target.value) || 0)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm py-2 px-3"/>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Costo Unitario (Compra)</label>
+                                    <input type="number" value={lot.unitCost} onChange={e => handleChange('lot', 'unitCost', parseFloat(e.target.value) || 0)} className="mt-1 block w-full"/>
                                     {errors.lotCost && <p className="text-red-500 text-xs mt-1">{errors.lotCost}</p>}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Precio Mín. (Venta)</label>
-                                    <input type="number" value={lot.minSellPrice} onChange={e => handleChange('lot', 'minSellPrice', parseFloat(e.target.value) || 0)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm py-2 px-3"/>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Precio Mín. (Venta)</label>
+                                    <input type="number" value={lot.minSellPrice} onChange={e => handleChange('lot', 'minSellPrice', parseFloat(e.target.value) || 0)} className="mt-1 block w-full"/>
                                     {errors.lotPrice && <p className="text-red-500 text-xs mt-1">{errors.lotPrice}</p>}
                                 </div>
                             </div>
-                             <div className="mt-3 text-center bg-blue-50 p-2 rounded-md">
-                                <p className="text-sm font-medium text-blue-800">Margen Mínimo por Unidad: <span className="font-bold">${(lot.minSellPrice - lot.unitCost > 0 ? lot.minSellPrice - lot.unitCost : 0).toFixed(2)}</span></p>
+                             <div className="mt-3 text-center bg-blue-50 dark:bg-blue-500/10 p-2 rounded-md">
+                                <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Margen Mínimo por Unidad: <span className="font-bold">${(lot.minSellPrice - lot.unitCost > 0 ? lot.minSellPrice - lot.unitCost : 0).toFixed(2)}</span></p>
                             </div>
                         </div>
                     </FormBlock>

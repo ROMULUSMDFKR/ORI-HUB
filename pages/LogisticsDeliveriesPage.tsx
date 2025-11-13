@@ -1,129 +1,104 @@
 import React, { useState, useMemo } from 'react';
 import { useCollection } from '../hooks/useCollection';
-import { LogisticsDelivery, SalesOrder, Company, Carrier } from '../types';
+import { Delivery, DeliveryStatus, Company, Carrier } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
 import { Link } from 'react-router-dom';
+import FilterButton from '../components/ui/FilterButton';
+import DeliveryDetailModal from '../components/logistics/DeliveryDetailModal';
 
 const LogisticsDeliveriesPage: React.FC = () => {
-    const { data: deliveries, loading, error } = useCollection<LogisticsDelivery>('deliveries');
-    const { data: salesOrders } = useCollection<SalesOrder>('salesOrders');
-    const { data: companies } = useCollection<Company>('companies');
-    const { data: carriers } = useCollection<Carrier>('carriers');
+    const { data: initialDeliveries, loading: deliveriesLoading } = useCollection<Delivery>('deliveries');
+    const { data: companies, loading: companiesLoading } = useCollection<Company>('companies');
+    const { data: carriers, loading: carriersLoading } = useCollection<Carrier>('carriers');
 
+    const [deliveries, setDeliveries] = useState<Delivery[] | null>(null);
     const [statusFilter, setStatusFilter] = useState('all');
     const [carrierFilter, setCarrierFilter] = useState('all');
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
+
+    React.useEffect(() => {
+        if(initialDeliveries) {
+            setDeliveries(initialDeliveries);
+        }
+    }, [initialDeliveries]);
 
     const companiesMap = useMemo(() => new Map(companies?.map(c => [c.id, c.shortName || c.name])), [companies]);
     const carriersMap = useMemo(() => new Map(carriers?.map(c => [c.id, c.name])), [carriers]);
-    const deliveryStatuses = useMemo(() => deliveries ? [...new Set(deliveries.map(d => d.status))] : [], [deliveries]);
+    
+    const statusOptions = useMemo(() => Object.values(DeliveryStatus).map(s => ({ value: s, label: s })), []);
+    const carrierOptions = useMemo(() => (carriers || []).map(c => ({ value: c.id, label: c.name })), [carriers]);
 
     const filteredData = useMemo(() => {
         if (!deliveries) return [];
         return deliveries.filter(delivery => {
             if (statusFilter !== 'all' && delivery.status !== statusFilter) return false;
             if (carrierFilter !== 'all' && delivery.carrierId !== carrierFilter) return false;
-            const scheduledDate = new Date(delivery.scheduledDate);
-            if (dateFrom && scheduledDate < new Date(dateFrom)) return false;
-            if (dateTo) {
-                const toDate = new Date(dateTo);
-                toDate.setHours(23, 59, 59, 999);
-                if (scheduledDate > toDate) return false;
-            }
             return true;
         });
-    }, [deliveries, statusFilter, carrierFilter, dateFrom, dateTo]);
+    }, [deliveries, statusFilter, carrierFilter]);
 
-    const getStatusColor = (status: LogisticsDelivery['status']) => {
+    const handleOpenModal = (delivery: Delivery) => {
+        setSelectedDelivery(delivery);
+        setIsModalOpen(true);
+    };
+
+    const handleUpdateDelivery = (updatedDelivery: Delivery) => {
+        setDeliveries(prev => prev!.map(d => d.id === updatedDelivery.id ? updatedDelivery : d));
+    };
+
+    const getStatusColor = (status: DeliveryStatus) => {
         switch (status) {
-            case 'Entregada': return 'green';
-            case 'En Tránsito': return 'blue';
-            case 'Programada': return 'yellow';
-            case 'Retrasada': return 'red';
+            case DeliveryStatus.Entregada: return 'green';
+            case DeliveryStatus.EnTransito: return 'blue';
+            case DeliveryStatus.Programada: return 'yellow';
+            case DeliveryStatus.Incidencia:
+            case DeliveryStatus.Cancelada:
+                 return 'red';
             default: return 'gray';
         }
     };
 
     const columns = [
-        {
-            header: 'Orden Venta',
-            accessor: (d: LogisticsDelivery) => <Link to={`/hubs/sales-orders/${d.salesOrderId}`} className="font-medium text-primary hover:underline">{d.salesOrderId}</Link>
-        },
-        {
-            header: 'Cliente',
-            accessor: (d: LogisticsDelivery) => <Link to={`/crm/clients/${d.companyId}`} className="font-medium hover:underline">{companiesMap.get(d.companyId) || 'N/A'}</Link>
-        },
-        { header: 'Destino', accessor: (d: LogisticsDelivery) => d.destination },
-        { header: 'Transportista', accessor: (d: LogisticsDelivery) => carriersMap.get(d.carrierId) || 'N/A' },
-        { header: 'Estado', accessor: (d: LogisticsDelivery) => <Badge text={d.status} color={getStatusColor(d.status)} /> },
-        {
-            header: 'Fecha Programada',
-            accessor: (d: LogisticsDelivery) => new Date(d.scheduledDate).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
-        },
+        { header: 'Entrega', accessor: (d: Delivery) => <span className="font-semibold">{d.salesOrderId} ({d.deliveryNumber})</span> },
+        { header: 'Cliente', accessor: (d: Delivery) => companiesMap.get(d.companyId) || 'N/A' },
+        { header: 'Destino', accessor: (d: Delivery) => d.destination },
+        { header: 'Transportista', accessor: (d: Delivery) => carriersMap.get(d.carrierId) || 'N/A' },
+        { header: 'Estado', accessor: (d: Delivery) => <Badge text={d.status} color={getStatusColor(d.status)} /> },
+        { header: 'Fecha Prog.', accessor: (d: Delivery) => new Date(d.scheduledDate).toLocaleDateString() },
+        { header: 'Acciones', accessor: (d: Delivery) => <button onClick={() => handleOpenModal(d)} className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">Ver/Actualizar</button> },
     ];
 
-    const renderContent = () => {
-        if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
-        if (error) return <p className="text-center text-red-500 py-12">Error al cargar las entregas.</p>;
-        if (!filteredData || filteredData.length === 0) {
-            return (
-                <EmptyState
-                    icon="local_shipping"
-                    title="No se encontraron entregas"
-                    message="Ajusta los filtros o programa una nueva entrega para comenzar."
-                    actionText="Programar Entrega"
-                    onAction={() => alert('Abrir modal para nueva entrega')}
-                />
-            );
-        }
-        return <Table columns={columns} data={filteredData} />;
-    };
+    const loading = deliveriesLoading || companiesLoading || carriersLoading;
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-2xl font-bold text-text-main">Entregas Programadas</h2>
-                    <p className="text-sm text-text-secondary mt-1">Supervisa y gestiona todas tus entregas.</p>
-                </div>
-                <button
-                    onClick={() => alert('Abrir modal para nueva entrega')}
-                    className="bg-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-primary-dark transition-colors">
-                    <span className="material-symbols-outlined mr-2">add</span>
-                    Programar Entrega
-                </button>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Seguimiento de Entregas</h2>
             </div>
 
-            <div className="bg-white p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4">
-                <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Estado:</label>
-                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-white text-gray-900 text-sm border-gray-300 rounded-md shadow-sm">
-                        <option value="all">Todos</option>
-                        {deliveryStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                </div>
-                <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Transportista:</label>
-                    <select value={carrierFilter} onChange={e => setCarrierFilter(e.target.value)} className="bg-white text-gray-900 text-sm border-gray-300 rounded-md shadow-sm">
-                        <option value="all">Todos</option>
-                        {carriers?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                </div>
-                <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Desde:</label>
-                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="bg-white text-gray-900 text-sm border-gray-300 rounded-md shadow-sm" />
-                </div>
-                <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Hasta:</label>
-                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="bg-white text-gray-900 text-sm border-gray-300 rounded-md shadow-sm" />
-                </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
+                <FilterButton label="Estado" options={statusOptions} selectedValue={statusFilter} onSelect={setStatusFilter} />
+                <FilterButton label="Transportista" options={carrierOptions} selectedValue={carrierFilter} onSelect={setCarrierFilter} />
             </div>
 
-            {renderContent()}
+            {loading ? (
+                 <div className="flex justify-center py-12"><Spinner /></div>
+            ) : !filteredData || filteredData.length === 0 ? (
+                 <EmptyState icon="local_shipping" title="No se encontraron entregas" message="Ajusta los filtros o crea una nueva orden de venta para ver entregas." />
+            ) : (
+                <Table columns={columns} data={filteredData} />
+            )}
+
+            <DeliveryDetailModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                delivery={selectedDelivery}
+                onUpdateDelivery={handleUpdateDelivery}
+            />
         </div>
     );
 };

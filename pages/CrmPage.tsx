@@ -1,21 +1,23 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { Contact, Company, CompanyPipelineStage, Priority, Prospect, ProspectStage, User } from '../types';
+import { Contact, Company, CompanyPipelineStage, Priority, Prospect, ProspectStage, User, Sample, Quote, SalesOrder, QuoteStatus, SampleStatus, SalesOrderStatus } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
 import { MOCK_USERS } from '../data/mockData';
+import FilterButton from '../components/ui/FilterButton';
 
-type CrmView = 'companies' | 'contacts' | 'prospects';
+type CrmView = 'prospects' | 'companies' | 'contacts' | 'samples' | 'quotes' | 'sales-orders';
 
-const CRM_VIEWS: { id: CrmView, name: string, icon: string, singular: string }[] = [
-    { id: 'prospects', name: 'Prospectos', icon: 'person_search', singular: 'Prospecto' },
-    { id: 'companies', name: 'Empresas', icon: 'apartment', singular: 'Empresa' },
-    { id: 'contacts', name: 'Contactos', icon: 'contacts', singular: 'Contacto' },
+const CRM_VIEWS: { id: CrmView, name: string, icon: string, singular: string, newLink: string }[] = [
+    { id: 'prospects', name: 'Prospectos', icon: 'person_search', singular: 'Prospecto', newLink: '/crm/prospects/new' },
+    { id: 'companies', name: 'Empresas', icon: 'apartment', singular: 'Empresa', newLink: '/crm/clients/new' },
+    { id: 'contacts', name: 'Contactos', icon: 'contacts', singular: 'Contacto', newLink: '#' }, // Contact creation could be a modal
+    { id: 'samples', name: 'Muestras', icon: 'science', singular: 'Muestra', newLink: '/hubs/samples/new' },
+    { id: 'quotes', name: 'Cotizaciones', icon: 'request_quote', singular: 'Cotización', newLink: '/hubs/quotes/new' },
+    { id: 'sales-orders', name: 'Órdenes de Venta', icon: 'receipt_long', singular: 'Orden', newLink: '/hubs/sales-orders/new' },
 ];
 
 const MasterList: React.FC<{ activeView: CrmView, setActiveView: (view: CrmView) => void, counts: Record<CrmView, number> }> = ({ activeView, setActiveView, counts }) => (
@@ -24,13 +26,13 @@ const MasterList: React.FC<{ activeView: CrmView, setActiveView: (view: CrmView)
             <button
                 key={view.id}
                 onClick={() => setActiveView(view.id)}
-                className={`flex items-center justify-between p-3 rounded-lg text-left transition-colors duration-200 ${activeView === view.id ? 'bg-primary text-on-primary font-semibold' : 'hover:bg-background text-on-surface'}`}
+                className={`flex items-center justify-between p-3 rounded-lg text-left transition-colors duration-200 ${activeView === view.id ? 'bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-semibold' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
             >
                 <div className="flex items-center">
                     <span className="material-symbols-outlined w-6 h-6 mr-3">{view.icon}</span>
                     <span>{view.name}</span>
                 </div>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${activeView === view.id ? 'bg-black/10' : 'bg-gray-200 text-on-surface-secondary'}`}>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${activeView === view.id ? 'bg-indigo-200 dark:bg-indigo-500/20 text-indigo-800 dark:text-indigo-200' : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'}`}>
                     {counts[view.id] || 0}
                 </span>
             </button>
@@ -39,41 +41,58 @@ const MasterList: React.FC<{ activeView: CrmView, setActiveView: (view: CrmView)
 );
 
 const CrmPage: React.FC = () => {
-    const { data: companies, loading: compLoading, error: compError } = useCollection<Company>('companies');
-    const { data: contacts, loading: coLoading, error: coError } = useCollection<Contact>('contacts');
-    const { data: prospects, loading: pLoading, error: pError } = useCollection<Prospect>('prospects');
+    const { data: companies, loading: compLoading } = useCollection<Company>('companies');
+    const { data: contacts, loading: coLoading } = useCollection<Contact>('contacts');
+    const { data: prospects, loading: pLoading } = useCollection<Prospect>('prospects');
+    const { data: samples, loading: sLoading } = useCollection<Sample>('samples');
+    const { data: quotes, loading: qLoading } = useCollection<Quote>('quotes');
+    const { data: salesOrders, loading: soLoading } = useCollection<SalesOrder>('salesOrders');
     
     const [searchParams, setSearchParams] = useSearchParams();
     const [filter, setFilter] = useState('');
+    
+    // Filter states
     const [stageFilter, setStageFilter] = useState<string>('all');
     const [priorityFilter, setPriorityFilter] = useState<string>('all');
     const [ownerFilter, setOwnerFilter] = useState<string>('all');
+    const [clientFilter, setClientFilter] = useState<string>('all');
+    const [dateFilter, setDateFilter] = useState<string>('');
+
 
     const activeView = (searchParams.get('view') as CrmView) || 'prospects';
 
     const setActiveView = (view: CrmView) => {
         setSearchParams({ view });
+        // Reset all filters when view changes
         setFilter('');
         setStageFilter('all');
         setPriorityFilter('all');
         setOwnerFilter('all');
+        setClientFilter('all');
+        setDateFilter('');
     };
     
     const currentViewInfo = CRM_VIEWS.find(v => v.id === activeView)!;
 
     const dataMap = {
-        companies: { data: companies, loading: compLoading, error: compError },
-        contacts: { data: contacts, loading: coLoading, error: coError },
-        prospects: { data: prospects, loading: pLoading, error: pError },
+        companies: { data: companies, loading: compLoading },
+        contacts: { data: contacts, loading: coLoading },
+        prospects: { data: prospects, loading: pLoading },
+        samples: { data: samples, loading: sLoading },
+        quotes: { data: quotes, loading: qLoading },
+        'sales-orders': { data: salesOrders, loading: soLoading },
     };
 
     const counts: Record<CrmView, number> = {
         companies: companies?.length ?? 0,
         contacts: contacts?.length ?? 0,
         prospects: prospects?.length ?? 0,
+        samples: samples?.length ?? 0,
+        quotes: quotes?.length ?? 0,
+        'sales-orders': salesOrders?.length ?? 0,
     };
     
-    const { data, loading, error } = dataMap[activeView];
+    const { loading } = dataMap[activeView];
 
     const getPriorityBadgeColor = (priority: Priority | Prospect['priority']) => {
         switch (priority) {
@@ -83,200 +102,191 @@ const CrmPage: React.FC = () => {
             default: return 'gray';
         }
     };
+    
+    const uniqueUsers = useMemo(() => {
+        const allUsers = Object.values(MOCK_USERS);
+        const seen = new Set();
+        return allUsers.filter(user => {
+            const duplicate = seen.has(user.id);
+            seen.add(user.id);
+            return !duplicate;
+        });
+    }, []);
 
-    const filteredData = useMemo(() => {
-        if (!data) return [];
-        
-        let result = data;
+    const companyMap = useMemo(() => new Map(companies?.map(c => [c.id, c.shortName || c.name])), [companies]);
+    const prospectMap = useMemo(() => new Map(prospects?.map(p => [p.id, p.name])), [prospects]);
+    
+    const ownerOptions = useMemo(() => uniqueUsers.map((u: User) => ({ value: u.id, label: u.name })), [uniqueUsers]);
+    const clientOptions = useMemo(() => (companies || []).map(c => ({ value: c.id, label: c.shortName || c.name })), [companies]);
 
-        if (filter) {
-            result = result.filter((item: any) => {
-                const name = item.name || item.shortName;
-                return name.toLowerCase().includes(filter.toLowerCase());
-            });
-        }
-
-        if (activeView === 'companies' && result) {
-            const companyResult = result as Company[];
-            if (stageFilter !== 'all') {
-                result = companyResult.filter(c => c.stage === stageFilter);
-            }
-            if (priorityFilter !== 'all') {
-                result = (result as Company[]).filter(c => c.priority === priorityFilter);
-            }
-            if (ownerFilter !== 'all') {
-                result = (result as Company[]).filter(c => c.ownerId === ownerFilter);
-            }
-        }
-
-        if (activeView === 'prospects' && result) {
-            const prospectResult = result as Prospect[];
-            if (stageFilter !== 'all') {
-                result = prospectResult.filter(p => p.stage === stageFilter);
-            }
-            if (priorityFilter !== 'all') {
-                result = (result as Prospect[]).filter(p => p.priority === priorityFilter);
-            }
-            if (ownerFilter !== 'all') {
-                result = (result as Prospect[]).filter(p => p.ownerId === ownerFilter);
-            }
-        }
-        
-        return result;
-    }, [data, filter, stageFilter, priorityFilter, ownerFilter, activeView]);
-
-    const companyColumns = useMemo(() => [
-        { header: 'Nombre', accessor: (c: Company) => <Link to={`/crm/clients/${c.id}`} className="font-medium text-accent hover:underline">{c.shortName || c.name}</Link> },
-        { header: 'Etapa', accessor: (c: Company) => <Badge text={c.stage} color="blue" /> },
-        { header: 'Prioridad', accessor: (c: Company) => <Badge text={c.priority} color={getPriorityBadgeColor(c.priority)} /> },
-        { 
-            header: 'Responsable', 
-            accessor: (c: Company) => {
-                const owner = Object.values(MOCK_USERS).find(u => u.id === c.ownerId);
-                return owner ? <img src={owner.avatarUrl} alt={owner.name} title={owner.name} className="w-8 h-8 rounded-full object-cover" /> : c.ownerId;
-            } 
-        },
-    ], []);
-
+    // Column Definitions
     const prospectColumns = useMemo(() => [
-        { header: 'NOMBRE', accessor: (p: Prospect) => <Link to={`/crm/prospects/${p.id}`} className="font-medium text-accent hover:underline">{p.name}</Link> },
+        { header: 'NOMBRE', accessor: (p: Prospect) => <Link to={`/crm/prospects/${p.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{p.name}</Link> },
         { header: 'ETAPA', accessor: (p: Prospect) => <Badge text={p.stage} color="blue" /> },
         { header: 'PRIORIDAD', accessor: (p: Prospect) => p.priority ? <Badge text={p.priority} color={getPriorityBadgeColor(p.priority)} /> : '-' },
         { header: 'VALOR EST.', accessor: (p: Prospect) => `$${p.estValue.toLocaleString('en-US')}`, className: 'text-left' },
-        { 
-            header: 'RESPONSABLE', 
-            accessor: (p: Prospect) => {
-                const owner = Object.values(MOCK_USERS).find(u => u.id === p.ownerId);
-                return owner ? owner.name : p.ownerId;
-            } 
-        },
+        { header: 'RESPONSABLE', accessor: (p: Prospect) => MOCK_USERS[p.ownerId]?.name || p.ownerId },
     ], []);
 
-    const contactColumns = useMemo(() => {
-        const companyMap = new Map(companies?.map(c => [c.id, c.shortName || c.name]));
-        return [
-            { header: 'Nombre', accessor: (c: Contact) => <span className="font-medium">{c.name}</span> },
-            { header: 'Cargo', accessor: (c: Contact) => c.role || '-' },
-            { header: 'Email', accessor: (c: Contact) => <a href={`mailto:${c.email}`} className="text-accent hover:underline">{c.email}</a> || '-' },
-            { header: 'Teléfono', accessor: (c: Contact) => c.phone || '-' },
-            { 
-                header: 'Empresa Asociada', 
-                accessor: (c: Contact) => {
-                    const companyName = c.companyId ? companyMap.get(c.companyId) : null;
-                    return companyName ? 
-                        <Link to={`/crm/clients/${c.companyId}`} className="text-accent hover:underline">{companyName}</Link> : 
-                        <span className="text-gray-400">-</span>;
-                },
-                className: 'text-left'
-            }
-        ];
-    }, [companies]);
+    const companyColumns = useMemo(() => [
+        { header: 'Nombre', accessor: (c: Company) => <Link to={`/crm/clients/${c.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{c.shortName || c.name}</Link> },
+        { header: 'Etapa', accessor: (c: Company) => <Badge text={c.stage} color="blue" /> },
+        { header: 'Prioridad', accessor: (c: Company) => <Badge text={c.priority} color={getPriorityBadgeColor(c.priority)} /> },
+        { header: 'Responsable', accessor: (c: Company) => MOCK_USERS[c.ownerId]?.name || c.ownerId },
+    ], []);
 
-    const columnsMap: Record<CrmView, any[]> = {
-        companies: companyColumns,
-        contacts: contactColumns,
-        prospects: prospectColumns,
-    };
+    const contactColumns = useMemo(() => [
+        { header: 'Nombre', accessor: (c: Contact) => <span className="font-medium">{c.name}</span> },
+        { header: 'Cargo', accessor: (c: Contact) => c.role || '-' },
+        { header: 'Email', accessor: (c: Contact) => <a href={`mailto:${c.email}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">{c.email}</a> || '-' },
+        { header: 'Teléfono', accessor: (c: Contact) => c.phone || '-' },
+        { header: 'Empresa', accessor: (c: Contact) => c.companyId ? companyMap.get(c.companyId) : '-', className: 'text-left' }
+    ], [companyMap]);
+    
+    const sampleColumns = useMemo(() => [
+        { header: 'Concepto', accessor: (s: Sample) => <span className="font-medium">{s.name}</span> },
+        { header: 'Destinatario', accessor: (s: Sample) => s.companyId ? companyMap.get(s.companyId) : (s.prospectId ? prospectMap.get(s.prospectId) : '-') },
+        { header: 'Estado', accessor: (s: Sample) => <Badge text={s.status} color="yellow" /> },
+        { header: 'Fecha Solicitud', accessor: (s: Sample) => new Date(s.requestDate).toLocaleDateString() },
+        { header: 'Responsable', accessor: (s: Sample) => MOCK_USERS[s.ownerId]?.name || s.ownerId },
+    ], [companyMap, prospectMap]);
+    
+    const quoteColumns = useMemo(() => [
+        { header: 'Folio', accessor: (q: Quote) => <Link to="#" className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{q.folio || q.id}</Link> },
+        { header: 'Cliente', accessor: (q: Quote) => q.companyId ? companyMap.get(q.companyId) : (q.prospectId ? prospectMap.get(q.prospectId) : '-') },
+        { header: 'Estado', accessor: (q: Quote) => <Badge text={q.status} /> },
+        { header: 'Total', accessor: (q: Quote) => `$${q.totals.grandTotal.toLocaleString('en-US')}`, className: 'text-right' },
+        { header: 'Responsable', accessor: (q: Quote) => MOCK_USERS[q.salespersonId]?.name || q.salespersonId },
+    ], [companyMap, prospectMap]);
 
-    const renderContent = () => {
-        if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
-        if (error) return <p className="text-center text-red-500 py-12">Error al cargar los datos.</p>;
-        if (!filteredData || filteredData.length === 0) {
-            return (
-                <EmptyState
-                    icon={currentViewInfo.icon}
-                    title={`No se encontraron ${currentViewInfo.name.toLowerCase()}`}
-                    message={`Comienza creando tu primer ${currentViewInfo.singular.toLowerCase()} para gestionar sus datos.`}
-                    actionText={`Crear ${currentViewInfo.singular}`}
-                    onAction={() => alert(`Abrir drawer para nuevo ${currentViewInfo.singular}`)}
-                />
-            );
-        }
-        // FIX: Use a switch statement to ensure type safety when passing data to the Table component.
+    const salesOrderColumns = useMemo(() => [
+        { header: 'Orden #', accessor: (so: SalesOrder) => <Link to="#" className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{so.id}</Link> },
+        { header: 'Cliente', accessor: (so: SalesOrder) => companyMap.get(so.companyId) },
+        { header: 'Estado', accessor: (so: SalesOrder) => <Badge text={so.status} /> },
+        { header: 'Total', accessor: (so: SalesOrder) => `$${so.total.toLocaleString('en-US')}`, className: 'text-right' },
+    ], [companyMap]);
+
+
+    const renderFilters = () => {
         switch (activeView) {
-            case 'companies':
-                return <Table columns={companyColumns} data={filteredData as Company[]} />;
-            case 'contacts':
-                return <Table columns={contactColumns} data={filteredData as Contact[]} />;
             case 'prospects':
-                return <Table columns={prospectColumns} data={filteredData as Prospect[]} />;
+                return (
+                    <>
+                        <FilterButton label="Etapa" options={Object.values(ProspectStage).map(s => ({ value: s, label: s }))} selectedValue={stageFilter} onSelect={setStageFilter} />
+                        <FilterButton label="Prioridad" options={Object.values(Priority).map(p => ({ value: p, label: p }))} selectedValue={priorityFilter} onSelect={setPriorityFilter} />
+                        <FilterButton label="Responsable" options={ownerOptions} selectedValue={ownerFilter} onSelect={setOwnerFilter} />
+                    </>
+                );
+            case 'companies':
+                 return (
+                    <>
+                        <FilterButton label="Etapa" options={Object.values(CompanyPipelineStage).map(s => ({ value: s, label: s }))} selectedValue={stageFilter} onSelect={setStageFilter} />
+                        <FilterButton label="Prioridad" options={Object.values(Priority).map(p => ({ value: p, label: p }))} selectedValue={priorityFilter} onSelect={setPriorityFilter} />
+                        <FilterButton label="Responsable" options={ownerOptions} selectedValue={ownerFilter} onSelect={setOwnerFilter} />
+                    </>
+                );
+            case 'samples':
+            case 'quotes':
+                return (
+                    <>
+                        <FilterButton label="Destinatario" options={clientOptions} selectedValue={clientFilter} onSelect={setClientFilter} />
+                        <FilterButton label="Estado" options={Object.values(activeView === 'samples' ? SampleStatus : QuoteStatus).map(s => ({ value: s, label: s }))} selectedValue={stageFilter} onSelect={setStageFilter} />
+                        <FilterButton label="Responsable" options={ownerOptions} selectedValue={ownerFilter} onSelect={setOwnerFilter} />
+                        <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
+                    </>
+                );
+            case 'sales-orders':
+                return (
+                    <>
+                        <FilterButton label="Cliente" options={clientOptions} selectedValue={clientFilter} onSelect={setClientFilter} />
+                        <FilterButton label="Estado" options={Object.values(SalesOrderStatus).map(s => ({ value: s, label: s }))} selectedValue={stageFilter} onSelect={setStageFilter} />
+                    </>
+                );
             default:
                 return null;
         }
     };
 
+
+    const renderContent = () => {
+        if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
+        
+        const renderTableForView = (items: any[] | null, columns: any[]) => {
+            if (!items) return <div className="flex justify-center py-12"><Spinner /></div>;
+            
+            const filtered = items.filter(item => {
+                // General text search
+                if (filter) {
+                    const searchable = item.name || item.shortName || item.id || item.folio || '';
+                    if (!searchable.toLowerCase().includes(filter.toLowerCase())) return false;
+                }
+                
+                // Specific filters
+                if (stageFilter !== 'all' && item.stage !== stageFilter && item.status !== stageFilter) return false;
+                if (priorityFilter !== 'all' && item.priority !== priorityFilter) return false;
+                if (ownerFilter !== 'all' && (item.ownerId !== ownerFilter && item.salespersonId !== ownerFilter)) return false;
+                if (clientFilter !== 'all' && (item.companyId !== clientFilter && item.prospectId !== clientFilter)) return false;
+                if (dateFilter && (item.requestDate || item.createdAt)) {
+                    const itemDate = new Date(item.requestDate || item.createdAt).toISOString().split('T')[0];
+                    if (itemDate !== dateFilter) return false;
+                }
+                
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                return (
+                    <EmptyState
+                        icon={currentViewInfo.icon}
+                        title={`No se encontraron ${currentViewInfo.name.toLowerCase()}`}
+                        message={filter ? 'Intenta con otro término de búsqueda o filtro.' : `Comienza creando tu primer ${currentViewInfo.singular.toLowerCase()}.`}
+                        actionText={`Crear ${currentViewInfo.singular}`}
+                        onAction={() => alert(`Abrir drawer para nuevo ${currentViewInfo.singular}`)}
+                    />
+                );
+            }
+            return <Table columns={columns} data={filtered} />;
+        };
+
+        switch (activeView) {
+            case 'companies': return renderTableForView(companies, companyColumns);
+            case 'contacts': return renderTableForView(contacts, contactColumns);
+            case 'prospects': return renderTableForView(prospects, prospectColumns);
+            case 'samples': return renderTableForView(samples, sampleColumns);
+            case 'quotes': return renderTableForView(quotes, quoteColumns);
+            case 'sales-orders': return renderTableForView(salesOrders, salesOrderColumns);
+            default: return null;
+        }
+    };
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            <div className="md:col-span-1 lg:col-span-1 bg-surface p-4 rounded-lg shadow-sm h-fit">
-                <h3 className="text-lg font-bold mb-4 px-2">Entidades</h3>
+            <div className="md:col-span-1 lg:col-span-1 bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm h-fit border border-slate-200 dark:border-slate-700">
+                <h3 className="text-lg font-bold mb-4 px-2 text-slate-800 dark:text-slate-200">Entidades</h3>
                 <MasterList activeView={activeView} setActiveView={setActiveView} counts={counts} />
             </div>
             <div className="md:col-span-3 lg:col-span-4 space-y-6">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-on-surface">{currentViewInfo.name}</h2>
-                    {activeView === 'prospects' ? (
-                       <Link 
-                         to="/crm/prospects/new"
-                         className="bg-primary text-on-primary font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-                           <span className="material-symbols-outlined mr-2">add</span>
-                           Nuevo Prospecto
-                       </Link>
-                    ) : (
-                       <button 
-                           onClick={() => alert(`Abrir drawer para nuevo ${currentViewInfo.singular}`)}
-                           className="bg-primary text-on-primary font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-                           <span className="material-symbols-outlined mr-2">add</span>
-                           Nuevo {currentViewInfo.singular}
-                       </button>
-                    )}
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">{currentViewInfo.name}</h2>
+                    <Link 
+                        to={currentViewInfo.newLink}
+                        className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700 transition-colors">
+                        <span className="material-symbols-outlined mr-2">add</span>
+                        Nuevo {currentViewInfo.singular}
+                    </Link>
                 </div>
-                <div className="flex flex-wrap items-center gap-4">
-                    <div className="relative">
-                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-secondary pointer-events-none">
-                            search
-                        </span>
-                        <input
-                            id="crm-search"
+                <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center flex-grow bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
+                         <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">search</span>
+                         <input
                             type="text"
-                            placeholder="Buscar por nombre..."
+                            placeholder="Buscar por nombre/ID..."
                             value={filter}
                             onChange={e => setFilter(e.target.value)}
-                            className="w-80 bg-surface pl-10 pr-4 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
+                            className="w-full bg-transparent pr-4 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none"
+                         />
                     </div>
-                    {(activeView === 'companies' || activeView === 'prospects') && (
-                        <>
-                            <div className="flex items-center gap-2">
-                                <label className="text-sm font-medium text-on-surface-secondary">Etapa:</label>
-                                {activeView === 'companies' && (
-                                    <select value={stageFilter} onChange={e => setStageFilter(e.target.value)} className="bg-surface text-on-surface text-sm border-border rounded-md shadow-sm focus:border-primary focus:ring-primary py-2 px-3">
-                                        <option value="all">Todas</option>
-                                        {Object.values(CompanyPipelineStage).map(stage => <option key={stage} value={stage}>{stage}</option>)}
-                                    </select>
-                                )}
-                                {activeView === 'prospects' && (
-                                     <select value={stageFilter} onChange={e => setStageFilter(e.target.value)} className="bg-surface text-on-surface text-sm border-border rounded-md shadow-sm focus:border-primary focus:ring-primary py-2 px-3">
-                                        <option value="all">Todas</option>
-                                        {Object.values(ProspectStage).map(stage => <option key={stage} value={stage}>{stage}</option>)}
-                                    </select>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <label className="text-sm font-medium text-on-surface-secondary">Prioridad:</label>
-                                <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className="bg-surface text-on-surface text-sm border-border rounded-md shadow-sm focus:border-primary focus:ring-primary py-2 px-3">
-                                    <option value="all">Todas</option>
-                                     {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
-                                </select>
-                            </div>
-                             <div className="flex items-center gap-2">
-                                <label className="text-sm font-medium text-on-surface-secondary">Responsable:</label>
-                                <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} className="bg-surface text-on-surface text-sm border-border rounded-md shadow-sm focus:border-primary focus:ring-primary py-2 px-3">
-                                    <option value="all">Todos</option>
-                                    {Object.values(MOCK_USERS).map((user: User) => <option key={user.id} value={user.id}>{user.name}</option>)}
-                                </select>
-                            </div>
-                        </>
-                    )}
+                    {renderFilters()}
                 </div>
                 {renderContent()}
             </div>

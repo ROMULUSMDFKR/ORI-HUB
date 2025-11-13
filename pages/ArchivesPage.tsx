@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { ArchiveFile } from '../types';
 import Table from '../components/ui/Table';
@@ -34,15 +34,43 @@ const getFileIcon = (fileName: string): string => {
 
 
 const ArchivesPage: React.FC = () => {
-    const { data: files, loading, error } = useCollection<ArchiveFile>('archives');
+    const { data: initialFiles, loading, error } = useCollection<ArchiveFile>('archives');
+    const [files, setFiles] = useState<ArchiveFile[] | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (initialFiles) {
+            setFiles(initialFiles);
+        }
+    }, [initialFiles]);
+
+    const handleDelete = (fileId: string) => {
+        if (window.confirm('¿Estás seguro de que quieres eliminar este archivo?')) {
+            setFiles(prev => prev!.filter(f => f.id !== fileId));
+        }
+    };
+    
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            console.log("Archivo seleccionado:", file);
+            alert(`Simulando subida de "${file.name}"`);
+            // Here you would typically handle the file upload process
+        }
+    };
+
 
     const columns = [
         {
             header: 'Nombre',
             accessor: (file: ArchiveFile) => (
                 <div className="flex items-center">
-                    <span className="material-symbols-outlined text-gray-500 mr-3">{getFileIcon(file.name)}</span>
-                    <span className="font-medium text-gray-900">{file.name}</span>
+                    <span className="material-symbols-outlined text-gray-500 dark:text-slate-400 mr-3">{getFileIcon(file.name)}</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">{file.name}</span>
                 </div>
             )
         },
@@ -58,8 +86,8 @@ const ArchivesPage: React.FC = () => {
             header: 'Acciones',
             accessor: (file: ArchiveFile) => (
                 <div className="flex space-x-2">
-                    <a href={file.url} download className="text-gray-500 hover:text-primary p-1 rounded-full"><span className="material-symbols-outlined">download</span></a>
-                    <button onClick={() => alert(`Eliminar ${file.name}`)} className="text-gray-500 hover:text-red-600 p-1 rounded-full"><span className="material-symbols-outlined">delete</span></button>
+                    <a href={file.url} download className="text-gray-500 hover:text-indigo-600 p-1 rounded-full"><span className="material-symbols-outlined">download</span></a>
+                    <button onClick={() => handleDelete(file.id)} className="text-gray-500 hover:text-red-600 p-1 rounded-full"><span className="material-symbols-outlined">delete</span></button>
                 </div>
             ),
             className: 'text-right'
@@ -76,7 +104,7 @@ const ArchivesPage: React.FC = () => {
                     title="No hay archivos"
                     message="Sube tu primer archivo para comenzar a gestionar tus documentos."
                     actionText="Subir Archivo"
-                    onAction={() => alert('Abrir modal para subir archivo')}
+                    onAction={handleUploadClick}
                 />
             );
         }
@@ -87,12 +115,18 @@ const ArchivesPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-text-main">Administrador de Archivos</h2>
-                    <p className="text-sm text-text-secondary mt-1">Gestiona todos los documentos de la organización.</p>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Administrador de Archivos</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona todos los documentos de la organización.</p>
                 </div>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                />
                 <button 
-                  onClick={() => alert('Abrir modal para subir archivo')}
-                  className="bg-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-primary-dark transition-colors">
+                  onClick={handleUploadClick}
+                  className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">upload_file</span>
                     Subir Archivo
                 </button>

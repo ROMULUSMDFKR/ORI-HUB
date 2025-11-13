@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { Product, ProductLot, LotStatus } from '../types';
@@ -5,10 +6,10 @@ import Spinner from '../components/ui/Spinner';
 import { Link } from 'react-router-dom';
 
 const AlertCard: React.FC<{ title: string; children: React.ReactNode; icon: string; iconClass: string; }> = ({ title, children, icon, iconClass }) => (
-    <div className="bg-white p-6 rounded-lg shadow-sm">
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
         <div className="flex items-center mb-4">
             <span className={`material-symbols-outlined text-2xl mr-3 ${iconClass}`}>{icon}</span>
-            <h3 className="text-lg font-semibold text-text-main">{title}</h3>
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
         </div>
         <div className="space-y-3">
             {children}
@@ -68,36 +69,36 @@ const InventoryAlertsPage: React.FC = () => {
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-2xl font-bold text-text-main">Alertas de Inventario</h2>
-                <p className="text-sm text-text-secondary mt-1">Acciones proactivas para mantener tu stock saludable.</p>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Alertas de Inventario</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Acciones proactivas para mantener tu stock saludable.</p>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <AlertCard title="Stock Bajo" icon="warning" iconClass="text-yellow-500">
                     {lowStockAlerts.length > 0 ? lowStockAlerts.map(alert => (
-                        <div key={alert!.product.id} className="p-3 bg-yellow-50 rounded-md flex justify-between items-center">
+                        <div key={alert!.product.id} className="p-3 bg-yellow-50 dark:bg-yellow-500/10 rounded-md flex justify-between items-center">
                             <div>
-                                <Link to={`/products/${alert!.product.id}`} className="font-semibold text-yellow-800 hover:underline">{alert!.product.name}</Link>
-                                <p className="text-sm text-yellow-700">
+                                <Link to={`/products/${alert!.product.id}`} className="font-semibold text-yellow-800 dark:text-yellow-300 hover:underline">{alert!.product.name}</Link>
+                                <p className="text-sm text-yellow-700 dark:text-yellow-400">
                                     Actual: {alert!.totalStock.toLocaleString()} / Reorden: {alert!.product.reorderPoint?.toLocaleString()} {alert!.product.unitDefault}
                                 </p>
                             </div>
-                            <button className="bg-primary text-white text-xs font-bold py-1 px-3 rounded-full hover:bg-primary-dark">Crear OC</button>
+                            <button className="bg-indigo-600 text-white text-xs font-bold py-1 px-3 rounded-full hover:bg-indigo-700">Crear OC</button>
                         </div>
-                    )) : <p className="text-sm text-gray-500">No hay productos con bajo stock.</p>}
+                    )) : <p className="text-sm text-gray-500 dark:text-slate-400">No hay productos con bajo stock.</p>}
                 </AlertCard>
                 <AlertCard title="Lotes Requieren Atención" icon="science" iconClass="text-blue-500">
                     {/* FIX: Completed the truncated JSX to correctly render quarantine alerts. */}
                     {quarantineAlerts.length > 0 ? quarantineAlerts.map(item => (
-                        <div key={item!.lot.id} className="p-3 bg-blue-50 rounded-md flex justify-between items-center">
+                        <div key={item!.lot.id} className="p-3 bg-blue-50 dark:bg-blue-500/10 rounded-md flex justify-between items-center">
                             <div>
-                                <Link to={`/products/${item!.product!.id}`} className="font-semibold text-blue-800 hover:underline">{item!.product!.name}</Link>
-                                <p className="text-sm text-blue-700">
+                                <Link to={`/products/${item!.product!.id}`} className="font-semibold text-blue-800 dark:text-blue-300 hover:underline">{item!.product!.name}</Link>
+                                <p className="text-sm text-blue-700 dark:text-blue-400">
                                     Lote: {item!.lot.code} - En cuarentena por más de 7 días.
                                 </p>
                             </div>
-                            <button className="bg-primary text-white text-xs font-bold py-1 px-3 rounded-full hover:bg-primary-dark">Revisar</button>
+                            <button className="bg-indigo-600 text-white text-xs font-bold py-1 px-3 rounded-full hover:bg-indigo-700">Revisar</button>
                         </div>
-                    )) : <p className="text-sm text-gray-500">No hay lotes que requieran atención.</p>}
+                    )) : <p className="text-sm text-gray-500 dark:text-slate-400">No hay lotes que requieran atención.</p>}
                 </AlertCard>
             </div>
         </div>

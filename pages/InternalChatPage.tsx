@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { ChatMessage, User, Task } from '../types';
@@ -109,15 +108,15 @@ const InternalChatPage: React.FC = () => {
     const selectedUser = selectedUserId ? MOCK_USERS[selectedUserId] || Object.values(MOCK_USERS).find(u => u.id === selectedUserId) : null;
 
     return (
-        <div className="flex h-[calc(100vh-120px)] bg-white rounded-lg shadow-sm border">
+        <div className="flex h-[calc(100vh-120px)] bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
             {/* User List */}
-            <div className="w-1/3 border-r flex flex-col">
-                <div className="p-4 border-b">
+            <div className="w-1/3 border-r border-slate-200 dark:border-slate-700 flex flex-col">
+                <div className="p-4 border-b border-slate-200 dark:border-slate-700">
                     <h2 className="text-lg font-semibold">Chats</h2>
                 </div>
                 <ul className="overflow-y-auto flex-1">
                     {users.map(user => (
-                        <li key={user.id} onClick={() => setSelectedUserId(user.id)} className={`flex items-center p-3 cursor-pointer hover:bg-gray-50 ${selectedUserId === user.id ? 'bg-primary/10' : ''}`}>
+                        <li key={user.id} onClick={() => setSelectedUserId(user.id)} className={`flex items-center p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 ${selectedUserId === user.id ? 'bg-indigo-100 dark:bg-indigo-500/10' : ''}`}>
                             <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full mr-3" />
                             <div>
                                 <p className="font-semibold">{user.name}</p>
@@ -131,15 +130,15 @@ const InternalChatPage: React.FC = () => {
             <div className="w-2/3 flex flex-col">
                 {selectedUser ? (
                     <>
-                        <div className="p-4 border-b flex items-center">
+                        <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center">
                             <img src={selectedUser.avatarUrl} alt={selectedUser.name} className="w-10 h-10 rounded-full mr-3" />
                             <h2 className="text-lg font-semibold">{selectedUser.name}</h2>
                         </div>
 
-                        <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
+                        <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50 dark:bg-slate-900">
                             {messagesLoading ? <Spinner /> : conversation.map(msg => (
                                 <div key={msg.id} className={`flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-xs lg:max-w-md p-3 rounded-lg ${msg.senderId === currentUser.id ? 'bg-primary text-on-primary' : 'bg-gray-200'}`}>
+                                    <div className={`max-w-xs lg:max-w-md p-3 rounded-lg ${msg.senderId === currentUser.id ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700'}`}>
                                         {renderMessageText(msg.text)}
                                         <p className="text-xs mt-1 opacity-70 text-right">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                     </div>
@@ -148,13 +147,13 @@ const InternalChatPage: React.FC = () => {
                              <div ref={chatEndRef} />
                         </div>
 
-                        <div className="p-4 border-t bg-white relative">
+                        <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 relative">
                              {showTaskSuggestions && (
-                                <div className="absolute bottom-full left-4 mb-2 w-3/4 bg-white border rounded-lg shadow-lg z-10">
-                                    <p className="text-xs font-semibold p-2 bg-gray-50 border-b">Sugerencias de Tareas</p>
+                                <div className="absolute bottom-full left-4 mb-2 w-3/4 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg z-10">
+                                    <p className="text-xs font-semibold p-2 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-600">Sugerencias de Tareas</p>
                                     <ul>
                                         {taskSuggestions.map(task => (
-                                            <li key={task.id} onClick={() => handleSuggestionClick(task)} className="p-2 text-sm hover:bg-gray-100 cursor-pointer truncate">
+                                            <li key={task.id} onClick={() => handleSuggestionClick(task)} className="p-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-600 cursor-pointer truncate">
                                                 {task.title}
                                             </li>
                                         ))}
@@ -168,9 +167,9 @@ const InternalChatPage: React.FC = () => {
                                         value={newMessage}
                                         onChange={handleInputChange}
                                         placeholder="Escribe un mensaje o '/task' para buscar una tarea..."
-                                        className="w-full pr-12 pl-4 py-2 border rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                                        className="w-full"
                                     />
-                                    <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-primary text-on-primary hover:opacity-90">
+                                    <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-indigo-600 text-white hover:opacity-90">
                                         <span className="material-symbols-outlined">send</span>
                                     </button>
                                 </div>

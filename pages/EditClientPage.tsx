@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 // FIX: Imported CompanyPipelineStage to resolve 'Cannot find name' error.
@@ -56,15 +54,16 @@ const ActivityFeed: React.FC<{ companyId: string }> = ({ companyId }) => {
     const activities = MOCK_ACTIVITIES.filter(a => a.companyId === companyId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    // FIX: Added missing activity types to the icon map.
+    // FIX: Corrected iconMap to align with ActivityLog['type'] and prevent type errors.
     const iconMap: Record<ActivityLog['type'], string> = {
         'Llamada': 'call',
         'Email': 'email',
         'Reunión': 'groups',
-        'Cotización': 'request_quote',
         'Nota': 'note',
-        'Email Sincronizado': 'mark_email_read',
-        'Reunión Sincronizada': 'calendar_month'
+        'Vista de Perfil': 'visibility',
+        'Análisis IA': 'auto_awesome',
+        'Cambio de Estado': 'change_circle',
+        'Sistema': 'dns'
     };
     
     return (

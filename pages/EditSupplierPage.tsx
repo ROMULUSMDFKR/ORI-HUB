@@ -1,12 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Supplier, SupplierRating } from '../types';
 import { useDoc } from '../hooks/useDoc';
 import Spinner from '../components/ui/Spinner';
+import CustomSelect from '../components/ui/CustomSelect';
 
 const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-white p-6 rounded-lg shadow-sm">
-        <h3 className="text-lg font-semibold border-b pb-3 mb-4">{title}</h3>
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
+        <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
         <div className="space-y-4">
             {children}
         </div>
@@ -43,7 +45,7 @@ const EditSupplierPage: React.FC = () => {
         if (validate()) {
             console.log("Proveedor Actualizado:", supplier);
             alert("Proveedor actualizado (revisa la consola).");
-            navigate(`/crm/suppliers/${id}`);
+            navigate(`/purchase/suppliers/${id}`);
         }
     };
 
@@ -54,16 +56,18 @@ const EditSupplierPage: React.FC = () => {
     if (!supplier) {
         return <div className="text-center p-12">Proveedor no encontrado</div>;
     }
+    
+    const ratingOptions = [{ value: '', name: 'Sin Calificar' }, ...Object.values(SupplierRating).map(r => ({ value: r, name: r }))];
 
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-text-main">Editar Proveedor</h2>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Editar Proveedor</h2>
                 <div className="flex space-x-2">
-                    <button onClick={() => navigate(`/crm/suppliers/${id}`)} className="bg-white border border-gray-300 text-text-main font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-gray-50">
+                    <button onClick={() => navigate(`/purchase/suppliers/${id}`)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">
                         Cancelar
                     </button>
-                    <button onClick={handleSubmit} className="bg-primary text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-primary-dark">
+                    <button onClick={handleSubmit} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700">
                         Guardar Cambios
                     </button>
                 </div>
@@ -73,35 +77,30 @@ const EditSupplierPage: React.FC = () => {
                 <FormBlock title="Información del Proveedor">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Nombre del Proveedor</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre del Proveedor</label>
                             <input
                                 type="text"
                                 value={supplier.name || ''}
                                 onChange={(e) => handleChange('name', e.target.value)}
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                                className="mt-1 block w-full"
                             />
                             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Industria</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Industria</label>
                             <input
                                 type="text"
                                 value={supplier.industry || ''}
                                 onChange={(e) => handleChange('industry', e.target.value)}
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                                className="mt-1 block w-full"
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Rating</label>
-                            <select
-                                value={supplier.rating || ''}
-                                onChange={(e) => handleChange('rating', e.target.value as SupplierRating)}
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
-                            >
-                                <option value="">Sin Calificar</option>
-                                {Object.values(SupplierRating).map(r => <option key={r} value={r}>{r}</option>)}
-                            </select>
-                        </div>
+                        <CustomSelect
+                            label="Rating"
+                            options={ratingOptions}
+                            value={supplier.rating || ''}
+                            onChange={val => handleChange('rating', val as SupplierRating)}
+                        />
                     </div>
                 </FormBlock>
             </form>

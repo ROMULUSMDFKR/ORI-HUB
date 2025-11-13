@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 
 interface RadioProps {
@@ -25,12 +26,12 @@ const Radio: React.FC<RadioProps> = ({ id, name, checked, onChange, value, child
         />
         <div
           className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors
-            ${checked ? 'border-accent' : 'border-border bg-surface'}`}
+            ${checked ? 'border-indigo-600' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700'}`}
         >
-          {checked && <div className="w-2 h-2 rounded-full bg-accent"></div>}
+          {checked && <div className="w-2 h-2 rounded-full bg-indigo-600"></div>}
         </div>
       </div>
-      {children && <div className="ml-2 text-sm text-on-surface-secondary">{children}</div>}
+      {children && <div className="ml-2 text-sm text-slate-600 dark:text-slate-300">{children}</div>}
     </label>
   );
 };

@@ -1,10 +1,10 @@
-
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { MOCK_SALES_ORDERS } from '../data/mockData';
 import { SALES_ORDERS_PIPELINE_COLUMNS } from '../constants';
-import { SalesOrder, SalesOrderStatus } from '../types';
+import { SalesOrder, SalesOrderStatus, Delivery, DeliveryStatus } from '../types';
 import SalesOrderCard from '../components/hubs/SalesOrderCard';
+import { useCollection } from '../hooks/useCollection';
 
 interface PipelineColumnProps<T> {
   stage: string;
@@ -19,15 +19,15 @@ interface PipelineColumnProps<T> {
 const PipelineColumn = <T extends {id: string}>({ stage, objective, items, totalValue, onDragOver, onDrop, children }: PipelineColumnProps<T>) => {
   return (
     <div
-      className="flex-shrink-0 w-80 bg-gray-50 rounded-xl p-3"
+      className="flex-shrink-0 w-80 bg-slate-200/60 dark:bg-black/10 rounded-xl p-3"
       onDragOver={onDragOver}
       onDrop={(e) => onDrop(e, stage)}
     >
       <div className="flex justify-between items-center mb-1 px-1">
-        <h3 className="font-semibold text-md text-text-main">{stage}</h3>
-        <span className="text-sm font-medium text-text-secondary bg-gray-200 px-2 py-0.5 rounded-full">{items.length}</span>
+        <h3 className="font-semibold text-md text-slate-800 dark:text-slate-200">{stage}</h3>
+        <span className="text-sm font-medium text-slate-500 dark:text-slate-400 bg-gray-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">{items.length}</span>
       </div>
-      <div className="text-xs text-gray-500 mb-4 px-1 truncate" title={objective}>
+      <div className="text-xs text-slate-500 dark:text-slate-400 mb-4 px-1 truncate" title={objective}>
         {totalValue !== undefined ? `$${totalValue.toLocaleString('en-US')} • ` : ''}{objective}
       </div>
       <div className="h-full overflow-y-auto pr-1" style={{maxHeight: 'calc(100vh - 250px)'}}>
@@ -40,8 +40,19 @@ const PipelineColumn = <T extends {id: string}>({ stage, objective, items, total
 
 const SalesOrdersPipelinePage: React.FC = () => {
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>(MOCK_SALES_ORDERS);
+  const { data: deliveries } = useCollection<Delivery>('deliveries');
 
-  // FIX: Used a type assertion on the initial value of reduce to ensure correct type inference.
+  const deliveriesBySalesOrderId = useMemo(() => {
+    if (!deliveries) return new Map<string, Delivery[]>();
+    return deliveries.reduce((acc, delivery) => {
+        if (!acc.has(delivery.salesOrderId)) {
+            acc.set(delivery.salesOrderId, []);
+        }
+        acc.get(delivery.salesOrderId)!.push(delivery);
+        return acc;
+    }, new Map<string, Delivery[]>());
+  }, [deliveries]);
+
   const groupedColumns = useMemo(() => {
     return SALES_ORDERS_PIPELINE_COLUMNS.reduce((acc, column) => {
       const group = column.group;
@@ -64,34 +75,52 @@ const SalesOrdersPipelinePage: React.FC = () => {
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStage: SalesOrderStatus) => {
     e.preventDefault();
     const itemId = e.dataTransfer.getData('itemId');
-    if (itemId) {
-        setSalesOrders(prevItems =>
-        prevItems.map(p =>
-          p.id === itemId ? { ...p, status: targetStage } : p
-        )
-      );
+    if (!itemId) return;
+
+    if (targetStage === SalesOrderStatus.Entregada) {
+        const orderDeliveries = deliveriesBySalesOrderId.get(itemId) || [];
+        if (orderDeliveries.length > 0) {
+            const allDelivered = orderDeliveries.every(d => d.status === DeliveryStatus.Entregada);
+            if (!allDelivered) {
+                alert('No se puede mover a "Entregada" hasta que todas las entregas estén completas.');
+                return;
+            }
+        }
     }
+    
+    setSalesOrders(prevItems =>
+      prevItems.map(p =>
+        p.id === itemId ? { ...p, status: targetStage } : p
+      )
+    );
   };
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-text-main">Pipeline de Órdenes de Venta</h2>
-        <button 
-          onClick={() => alert('Nueva Orden de Venta')}
-          className="bg-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-primary-dark transition-colors">
-          <span className="material-symbols-outlined mr-2">add</span>
-          Nueva Orden de Venta
-        </button>
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Pipeline de Órdenes de Venta</h2>
+        <div className="flex items-center gap-2">
+            <Link 
+                to="/crm/lists?view=sales-orders"
+                className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+                <span className="material-symbols-outlined mr-2">list</span>
+                Ver Lista
+            </Link>
+            <Link 
+              to="/hubs/sales-orders/new"
+              className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
+              <span className="material-symbols-outlined mr-2">add</span>
+              Nueva Orden de Venta
+            </Link>
+        </div>
       </div>
       <div className="flex-1 flex gap-8 overflow-x-auto pb-4">
-        {/* FIX: Replaced `Object.entries` with `Object.keys` to ensure correct type inference on `columns`. */}
         {Object.keys(groupedColumns).map((groupName) => {
           const columns = groupedColumns[groupName];
           return (
             <div key={groupName} className="flex flex-col">
               <div className="px-3 pb-2">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500">{groupName}</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{groupName}</h3>
               </div>
               <div className="flex gap-4">
                 {columns.map(col => {
@@ -99,7 +128,6 @@ const SalesOrdersPipelinePage: React.FC = () => {
                   const totalValue = stageItems.reduce((sum, so) => sum + so.total, 0);
                   return (
                     <div key={col.stage}>
-                      {/* FIX: Passed render function explicitly as `children` prop to satisfy TypeScript. */}
                       <PipelineColumn<SalesOrder>
                         stage={col.stage}
                         objective={col.objective}
@@ -107,7 +135,7 @@ const SalesOrdersPipelinePage: React.FC = () => {
                         totalValue={totalValue}
                         onDragOver={handleDragOver}
                         onDrop={handleDrop}
-                        children={(item) => <SalesOrderCard key={item.id} item={item} onDragStart={handleDragStart} />}
+                        children={(item) => <SalesOrderCard key={item.id} item={item} deliveries={deliveriesBySalesOrderId.get(item.id)} onDragStart={handleDragStart} />}
                       />
                     </div>
                   );

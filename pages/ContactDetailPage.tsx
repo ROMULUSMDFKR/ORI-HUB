@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
@@ -94,9 +93,16 @@ const NotesSection: React.FC<{ contactId: string }> = ({ contactId }) => {
 };
 
 const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) => {
+    // FIX: Corrected iconMap to align with ActivityLog['type'] and prevent type errors.
     const iconMap: Record<ActivityLog['type'], string> = {
-        'Llamada': 'call', 'Email': 'email', 'Reunión': 'groups', 'Cotización': 'request_quote', 'Nota': 'note',
-        'Email Sincronizado': 'mark_email_read', 'Reunión Sincronizada': 'calendar_month'
+        'Llamada': 'call',
+        'Email': 'email',
+        'Reunión': 'groups',
+        'Nota': 'note',
+        'Vista de Perfil': 'visibility',
+        'Análisis IA': 'auto_awesome',
+        'Cambio de Estado': 'change_circle',
+        'Sistema': 'dns'
     };
     
     if (!activities.length) {

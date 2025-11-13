@@ -11,7 +11,7 @@ const LogisticsPricingPage: React.FC = () => {
     const columns = [
         {
             header: 'Zona / Región',
-            accessor: (r: FreightPricingRule) => <span className="font-medium text-text-main">{r.zone}</span>,
+            accessor: (r: FreightPricingRule) => <span className="font-medium text-slate-800 dark:text-slate-200">{r.zone}</span>,
         },
         {
             header: 'Rango de Peso (kg)',
@@ -31,7 +31,7 @@ const LogisticsPricingPage: React.FC = () => {
             header: 'Acciones',
             accessor: (r: FreightPricingRule) => (
                 <div className="flex justify-end space-x-2">
-                    <button className="p-1 text-gray-500 hover:text-primary"><span className="material-symbols-outlined">edit</span></button>
+                    <button className="p-1 text-gray-500 hover:text-indigo-600"><span className="material-symbols-outlined">edit</span></button>
                     <button className="p-1 text-gray-500 hover:text-red-500"><span className="material-symbols-outlined">delete</span></button>
                 </div>
             ),
@@ -60,12 +60,12 @@ const LogisticsPricingPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-text-main">Reglas de Precios de Flete</h2>
-                    <p className="text-sm text-text-secondary mt-1">Gestiona los costos de envío por zona, peso y servicio.</p>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Reglas de Precios de Flete</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona los costos de envío por zona, peso y servicio.</p>
                 </div>
                 <button
                     onClick={() => alert('Abrir modal para nueva regla')}
-                    className="bg-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-primary-dark transition-colors">
+                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Añadir Regla
                 </button>

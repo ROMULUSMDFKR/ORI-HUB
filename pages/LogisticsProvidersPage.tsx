@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { Carrier, SupplierRating } from '../types';
 import Table from '../components/ui/Table';
@@ -8,6 +9,7 @@ import Badge from '../components/ui/Badge';
 
 const LogisticsProvidersPage: React.FC = () => {
     const { data: carriers, loading, error } = useCollection<Carrier>('carriers');
+    const navigate = useNavigate();
 
     const getRatingColor = (rating: SupplierRating) => {
         switch (rating) {
@@ -21,7 +23,7 @@ const LogisticsProvidersPage: React.FC = () => {
     const columns = [
         {
             header: 'Nombre del Transportista',
-            accessor: (c: Carrier) => <span className="font-medium text-text-main">{c.name}</span>,
+            accessor: (c: Carrier) => <span className="font-medium text-slate-800 dark:text-slate-200">{c.name}</span>,
         },
         {
             header: 'Rating',
@@ -45,7 +47,7 @@ const LogisticsProvidersPage: React.FC = () => {
                     title="No hay transportistas"
                     message="Añade tus proveedores de transporte para gestionar tus entregas."
                     actionText="Añadir Transportista"
-                    onAction={() => alert('Abrir modal para nuevo transportista')}
+                    onAction={() => navigate('/logistics/providers/new')}
                 />
             );
         }
@@ -56,15 +58,15 @@ const LogisticsProvidersPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-text-main">Proveedores de Transporte</h2>
-                    <p className="text-sm text-text-secondary mt-1">Gestiona tu red de transportistas.</p>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Proveedores de Transporte</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona tu red de transportistas.</p>
                 </div>
-                <button
-                    onClick={() => alert('Abrir modal para nuevo transportista')}
-                    className="bg-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-primary-dark transition-colors">
+                <Link
+                    to="/logistics/providers/new"
+                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Añadir Transportista
-                </button>
+                </Link>
             </div>
 
             {renderContent()}

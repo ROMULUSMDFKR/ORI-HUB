@@ -8,257 +8,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Lato:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-      :root {
-        /* Global & Typography */
-        --color-primary: #D7FE03;
-        --color-accent: #83AF3B;
-        --color-background: #F5F5F8;
-        --color-surface: #FFFFFF;
-        --color-on-surface: #1F2937;
-        --color-on-surface-secondary: #6B7280;
-        --color-border: #E5E7EB;
-        --font-sans: 'Inter', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif';
-        --font-size-base: 16px;
-
-        /* Borders & Shadows */
-        --border-radius: 0.5rem;
-        --card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-
-        /* Buttons */
-        --color-button-primary-bg: #D7FE03;
-        --color-button-primary-text: #1F2937;
-        --color-button-accent-bg: #83AF3B;
-        --color-button-accent-text: #FFFFFF;
-        --color-button-default-bg: #FFFFFF;
-        --color-button-default-text: #1F2937;
-        --color-button-default-border: #E5E7EB;
-        --button-border-radius: 0.5rem;
-        
-        /* Cards */
-        --card-bg: #FFFFFF;
-        --card-border-color: #E5E7EB;
-        --card-border-width: 1px;
-
-        /* Forms */
-        --form-input-bg: #F3F4F6;
-        --form-input-border-color: #E5E7EB;
-        --form-input-focus-ring-color: #D7FE03;
-
-        /* Menus & Navigation */
-        --menu-bg: #FFFFFF;
-        --menu-text-color: #6B7280;
-        --menu-icon-color: #6B7280;
-        --menu-item-hover-bg: #F5F5F8;
-        --menu-item-active-bg: #D7FE03;
-        --menu-item-active-text: #1F2937;
-
-        /* Tables */
-        --table-header-bg: #F9FAFB;
-        --table-header-text-color: #6B7280;
-        --table-row-bg: #FFFFFF;
-        --table-row-hover-bg: #F9FAFB;
-        --table-border-color: #E5E7EB;
-
-        /* Dropdowns & Popups */
-        --dropdown-bg: var(--color-surface);
-        --dropdown-border-color: var(--color-border);
-        --dropdown-text-color: var(--color-on-surface-secondary);
-        --dropdown-item-hover-bg: var(--color-background);
-        --dropdown-separator-color: var(--color-border);
-
-        /* Tabs Navigation */
-        --tabs-text-color: var(--color-on-surface-secondary);
-        --tabs-hover-text-color: var(--color-on-surface);
-        --tabs-hover-border-color: var(--color-border);
-        --tabs-active-text-color: var(--color-accent);
-        --tabs-active-border-color: var(--color-accent);
-      }
-      html {
-        font-size: var(--font-size-base);
-      }
-      body {
-        font-family: var(--font-sans);
-        background-color: var(--color-background);
-        color: var(--color-on-surface);
-      }
-      .rounded-lg { border-radius: var(--border-radius); }
-      .rounded-xl { border-radius: calc(var(--border-radius) * 1.5); }
-      .rounded-full { border-radius: 9999px; }
-      
-      /* --- NEW THEME OVERRIDE STYLES --- */
-
-      /* Buttons */
-      button.bg-primary, a.bg-primary {
-        background-color: var(--color-button-primary-bg);
-        color: var(--color-button-primary-text);
-        border-radius: var(--button-border-radius);
-      }
-      button.bg-accent, a.bg-accent {
-        background-color: var(--color-button-accent-bg);
-        color: var(--color-button-accent-text);
-        border-radius: var(--button-border-radius);
-      }
-      button.bg-surface.border, button.bg-white.border {
-        background-color: var(--color-button-default-bg);
-        color: var(--color-button-default-text);
-        border-color: var(--color-button-default-border);
-        border-radius: var(--button-border-radius);
-      }
-      
-      /* Cards & Surfaces */
-      .bg-surface, .bg-white {
-        background-color: var(--card-bg);
-        border-color: var(--card-border-color);
-        border-width: var(--card-border-width);
-        box-shadow: var(--card-shadow);
-        border-style: solid;
-        border-radius: var(--border-radius);
-      }
-      
-      /* Form Inputs */
-      input[type='text'],
-      input[type='number'],
-      input[type='email'],
-      input[type='password'],
-      input[type='date'],
-      select,
-      textarea {
-        background-color: var(--form-input-bg);
-        border-color: var(--form-input-border-color);
-        border-radius: var(--border-radius);
-        padding: 0.5rem 0.75rem;
-        font-size: 0.875rem;
-        line-height: 1.25rem;
-        width: 100%;
-        display: block;
-        transition: border-color 0.2s, box-shadow 0.2s;
-      }
-      input[type='text']:focus,
-      input[type='number']:focus,
-      input[type='email']:focus,
-      input[type='password']:focus,
-      input[type='date']:focus,
-      select:focus,
-      textarea:focus {
-        outline: none;
-        box-shadow: 0 0 0 2px var(--form-input-focus-ring-color);
-        border-color: var(--color-accent);
-      }
-       input:disabled, select:disabled, textarea:disabled {
-        background-color: #F3F4F6;
-        cursor: not-allowed;
-        color: #9CA3AF;
-        opacity: 0.7;
-      }
-
-      /* Menus & Navigation (Sidebar) */
-      .w-64.bg-surface {
-        background-color: var(--menu-bg);
-      }
-      .w-64.bg-surface a, .w-64.bg-surface button {
-        color: var(--menu-text-color);
-      }
-      .w-64.bg-surface .material-symbols-outlined {
-        color: var(--menu-icon-color);
-      }
-      .w-64.bg-surface a:hover, .w-64.bg-surface button:hover {
-        background-color: var(--menu-item-hover-bg);
-      }
-      .w-64.bg-surface a.active {
-        background-color: var(--menu-item-active-bg);
-        color: var(--menu-item-active-text);
-      }
-       .w-64.bg-surface a.active .material-symbols-outlined {
-        color: var(--menu-item-active-text);
-      }
-
-      /* Tables */
-      table thead.bg-gray-50 {
-        background-color: var(--table-header-bg);
-      }
-      table thead.bg-gray-50 th {
-        color: var(--table-header-text-color);
-      }
-      table tbody.bg-white {
-        background-color: var(--table-row-bg);
-      }
-      table tbody.bg-white tr.hover\\:bg-gray-50:hover {
-        background-color: var(--table-row-hover-bg);
-      }
-      table.divide-y > :not([hidden]) ~ :not([hidden]),
-      table tbody.divide-y > :not([hidden]) ~ :not([hidden]) {
-          border-color: var(--table-border-color);
-      }
-      
-      /* Dropdowns */
-      .absolute.right-0.mt-2 { /* Targets user and action dropdowns */
-          background-color: var(--dropdown-bg);
-          border-color: var(--dropdown-border-color);
-      }
-      .absolute.right-0.mt-2 a,
-      .absolute.right-0.mt-2 button {
-          color: var(--dropdown-text-color);
-      }
-      .absolute.right-0.mt-2 a:hover,
-      .absolute.right-0.mt-2 button:hover {
-          background-color: var(--dropdown-item-hover-bg);
-      }
-      .absolute.right-0.mt-2 .h-px.bg-border {
-          background-color: var(--dropdown-separator-color);
-      }
-
-      /* Tabs */
-      nav.-mb-px button.border-transparent {
-          color: var(--tabs-text-color);
-          border-color: transparent;
-      }
-      nav.-mb-px button.border-transparent:hover {
-          color: var(--tabs-hover-text-color);
-          border-color: var(--tabs-hover-border-color);
-      }
-      nav.-mb-px button:not(.border-transparent) {
-          color: var(--tabs-active-text-color);
-          border-color: var(--tabs-active-border-color);
-      }
-
-      /* --- END NEW STYLES --- */
-
-      @keyframes gradient-animation {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-      }
-      .animate-gradient {
-        background-size: 200% 200%;
-        animation: gradient-animation 15s ease infinite;
-      }
-    </style>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
-            colors: {
-              'primary': 'var(--color-primary)',
-              'accent': 'var(--color-accent)',
-              'on-primary': 'var(--color-button-primary-text)', // Use button text color for consistency
-              'background': 'var(--color-background)',
-              'surface': 'var(--color-surface)',
-              'surface-dark': 'var(--color-surface-dark)',
-              'surface-inset': 'var(--form-input-bg)',
-              'on-surface': 'var(--color-on-surface)',
-              'on-surface-secondary': 'var(--color-on-surface-secondary)',
-              'on-dark': 'var(--color-on-dark)',
-              'on-dark-secondary': 'var(--color-on-dark-secondary)',
-              'border': 'var(--color-border)',
-              'border-dark': 'var(--color-border-dark)'
-            },
             fontFamily: {
-                sans: ['var(--font-sans)', 'sans-serif'],
+                sans: ['Inter', 'sans-serif'],
             },
             borderRadius: {
-              'lg': 'var(--border-radius)',
-              'xl': 'calc(var(--border-radius) * 1.5)',
+              'lg': '0.5rem',
+              'xl': '0.75rem',
             }
           }
         }
@@ -273,6 +33,70 @@
     'GRAD' 0,
     'opsz' 24;
   }
+  
+  /* Base styles for all form elements using plain CSS for reliability */
+  input, select, textarea {
+    appearance: none; /* remove default styling */
+    background-color: #fff;
+    border-color: #cbd5e1; /* slate-300 */
+    border-width: 1px;
+    border-radius: 0.5rem; /* rounded-lg */
+    padding-top: 0.75rem; /* py-3 */
+    padding-bottom: 0.75rem; /* py-3 */
+    padding-left: 0.75rem; /* px-3 */
+    padding-right: 0.75rem;
+    font-size: 0.875rem; /* text-sm */
+    line-height: 1.25rem;
+    color: #0f172a; /* slate-900 */
+    width: 100%;
+  }
+
+  /* Specific styles for select to add a custom arrow */
+  select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #94a3b8; /* slate-400 */
+    opacity: 1; /* Firefox adds a lower opacity by default */
+  }
+
+  /* Focus styles */
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    --tw-ring-color: #6366f1; /* indigo-500 */
+    box-shadow: 0 0 0 2px var(--tw-ring-color);
+    border-color: #6366f1;
+  }
+
+  /* Dark mode overrides to force white background and dark text */
+  .dark input, 
+  .dark select, 
+  .dark textarea {
+    background-color: #fff;
+    border-color: #475569; /* dark:border-slate-600 */
+    color: #0f172a; 
+  }
+  
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: #94a3b8; /* dark:placeholder:text-slate-400 */
+  }
+  
+  .dark input:focus,
+  .dark select:focus,
+  .dark textarea:focus {
+    --tw-ring-color: #6366f1; /* dark:focus:ring-indigo-500 */
+    border-color: #6366f1;
+  }
 </style>
 <script type="importmap">
 {
@@ -286,7 +110,7 @@
 }
 </script>
 </head>
-<body class="bg-background font-sans">
+<body class="bg-slate-50 dark:bg-slate-900 font-sans text-slate-800 dark:text-slate-200">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>

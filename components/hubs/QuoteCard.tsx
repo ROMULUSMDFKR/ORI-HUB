@@ -19,14 +19,14 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ item, onDragStart }) => {
     <div
       draggable
       onDragStart={(e) => onDragStart(e, item.id)}
-      className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-grab active:cursor-grabbing mb-4"
+      className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing mb-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
     >
       <div className="flex justify-between items-start">
         <div>
-            <h4 className="font-bold text-sm text-text-main">{item.id}</h4>
-            <p className="text-xs text-text-secondary mt-1">{recipientName || 'Destinatario no asignado'}</p>
+            <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">{item.id}</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{recipientName || 'Destinatario no asignado'}</p>
         </div>
-        <p className="text-sm text-secondary font-semibold">${item.totals.grandTotal.toLocaleString('en-US')}</p>
+        <p className="text-sm text-indigo-600 dark:text-indigo-400 font-semibold">${item.totals.grandTotal.toLocaleString('en-US')}</p>
       </div>
     </div>
   );

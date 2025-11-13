@@ -1,19 +1,22 @@
 
 
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { Supplier, SupplierRating } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
+import FilterButton from '../components/ui/FilterButton';
 
 const CrmSuppliersListPage: React.FC = () => {
     const { data: suppliers, loading, error } = useCollection<Supplier>('suppliers');
     const [filter, setFilter] = useState('');
     const [industryFilter, setIndustryFilter] = useState<string>('all');
     const [ratingFilter, setRatingFilter] = useState<string>('all');
+    //FIX: Add navigate to use it in EmptyState
+    const navigate = useNavigate();
 
     const filteredData = useMemo(() => {
         if (!suppliers) return [];
@@ -46,7 +49,7 @@ const CrmSuppliersListPage: React.FC = () => {
         { 
             header: 'Nombre', 
             accessor: (supplier: Supplier) => (
-                <Link to={`/crm/suppliers/${supplier.id}`} className="font-medium text-primary hover:underline">
+                <Link to={`/purchase/suppliers/${supplier.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
                     {supplier.name}
                 </Link>
             )
@@ -60,6 +63,16 @@ const CrmSuppliersListPage: React.FC = () => {
         },
     ];
 
+    const industryOptions = useMemo(() => {
+        if (!suppliers) return [];
+        const uniqueIndustries = [...new Set(suppliers.map(s => s.industry).filter(Boolean) as string[])];
+        return uniqueIndustries.map(ind => ({ value: ind, label: ind }));
+    }, [suppliers]);
+
+    const ratingOptions = useMemo(() => {
+        return Object.values(SupplierRating).map(r => ({ value: r, label: r }));
+    }, []);
+
     const renderContent = () => {
         if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
         if (error) return <p className="text-center text-red-500 py-12">Error al cargar los proveedores.</p>;
@@ -70,26 +83,27 @@ const CrmSuppliersListPage: React.FC = () => {
                     title="No hay proveedores"
                     message="Registra a tus proveedores para gestionar órdenes de compra y logística."
                     actionText="Crear Proveedor"
-                    onAction={() => alert('Abrir drawer para nuevo proveedor')}
+                    onAction={() => navigate('/purchase/suppliers/new')}
                 />
             );
         }
         return <Table columns={columns} data={filteredData} />;
     };
+    
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-text-main">Proveedores</h2>
-                <button className="bg-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-primary-dark transition-colors">
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Proveedores</h2>
+                <Link to="/purchase/suppliers/new" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Nuevo Proveedor
-                </button>
+                </Link>
             </div>
 
-            <div className="bg-white p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4">
-                <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-secondary pointer-events-none">
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center w-80 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
+                    <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">
                         search
                     </span>
                     <input
@@ -98,23 +112,23 @@ const CrmSuppliersListPage: React.FC = () => {
                         placeholder="Buscar por nombre..."
                         value={filter}
                         onChange={e => setFilter(e.target.value)}
-                        className="w-80 bg-surface pl-10 pr-4 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full bg-transparent pr-4 py-2 text-sm focus:outline-none"
                     />
                 </div>
-                <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Industria:</label>
-                    <select value={industryFilter} onChange={e => setIndustryFilter(e.target.value)} className="bg-white text-gray-900 text-sm border-gray-300 rounded-md shadow-sm focus:border-primary focus:ring-primary">
-                        <option value="all">Todas</option>
-                        {[...new Set(suppliers?.map(s => s.industry).filter(Boolean))]?.map(ind => <option key={ind} value={ind}>{ind}</option>)}
-                    </select>
-                </div>
-                <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Rating:</label>
-                    <select value={ratingFilter} onChange={e => setRatingFilter(e.target.value)} className="bg-white text-gray-900 text-sm border-gray-300 rounded-md shadow-sm focus:border-primary focus:ring-primary">
-                        <option value="all">Todos</option>
-                        {Object.values(SupplierRating).map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                </div>
+                <FilterButton
+                    label="Industria"
+                    options={industryOptions}
+                    selectedValue={industryFilter}
+                    onSelect={setIndustryFilter}
+                    allLabel="Todas"
+                />
+                <FilterButton
+                    label="Rating"
+                    options={ratingOptions}
+                    selectedValue={ratingFilter}
+                    onSelect={setRatingFilter}
+                    allLabel="Todos"
+                />
             </div>
             
             {renderContent()}

@@ -6,6 +6,27 @@ import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import { Link } from 'react-router-dom';
+import FilterButton from '../components/ui/FilterButton';
+
+const DateFilterButton: React.FC<{ label: string; value: string; onChange: (value: string) => void }> = ({ label, value, onChange }) => {
+    return (
+        <div className="relative">
+            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 text-sm font-medium py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 pointer-events-none h-[42px]">
+                <span className="material-symbols-outlined text-base text-slate-500 dark:text-slate-400">calendar_today</span>
+                <span className={value ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}>
+                    {value ? new Date(value + 'T00:00:00').toLocaleDateString('es-MX') : label}
+                </span>
+            </div>
+            <input
+                type="date"
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+        </div>
+    );
+};
+
 
 const AuditPage: React.FC = () => {
     const { data: auditLogs, loading, error } = useCollection<AuditLog>('auditLogs');
@@ -14,11 +35,25 @@ const AuditPage: React.FC = () => {
     const [entityFilter, setEntityFilter] = useState<string>('all');
     const [dateFromFilter, setDateFromFilter] = useState<string>('');
     const [dateToFilter, setDateToFilter] = useState<string>('');
+    
+    const uniqueUsers = useMemo(() => {
+        const allUsers = Object.values(MOCK_USERS);
+        const seen = new Set();
+        return allUsers.filter(user => {
+            const duplicate = seen.has(user.id);
+            seen.add(user.id);
+            return !duplicate;
+        });
+    }, []);
+
+    const userOptions = useMemo(() => uniqueUsers.map((user: User) => ({ value: user.id, label: user.name })), [uniqueUsers]);
 
     const entityTypes = useMemo(() => {
         if (!auditLogs) return [];
         return [...new Set(auditLogs.map(log => log.entity))];
     }, [auditLogs]);
+    
+    const entityOptions = useMemo(() => entityTypes.map(type => ({ value: type, label: type })), [entityTypes]);
 
     const filteredLogs = useMemo(() => {
         if (!auditLogs) return [];
@@ -86,9 +121,9 @@ const AuditPage: React.FC = () => {
             header: 'Acción',
             accessor: (log: AuditLog) => (
                 <div>
-                    <p className="font-medium text-text-main">{log.action}</p>
-                    <p className="text-xs text-text-secondary">
-                        en <Link to={getEntityLink(log.entity, log.entityId)} className="text-primary hover:underline">{log.entity} ({log.entityId})</Link>
+                    <p className="font-medium text-slate-800 dark:text-slate-200">{log.action}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                        en <Link to={getEntityLink(log.entity, log.entityId)} className="text-indigo-600 dark:text-indigo-400 hover:underline">{log.entity} ({log.entityId})</Link>
                     </p>
                 </div>
             )
@@ -115,34 +150,16 @@ const AuditPage: React.FC = () => {
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-2xl font-bold text-text-main">Auditoría del Sistema</h2>
-                <p className="text-sm text-text-secondary mt-1">Rastrea todos los cambios y acciones importantes realizadas en la plataforma.</p>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Auditoría del Sistema</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Rastrea todos los cambios y acciones importantes realizadas en la plataforma.</p>
             </div>
 
-            <div className="bg-white p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4">
-                <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Usuario:</label>
-                    <select value={userFilter} onChange={e => setUserFilter(e.target.value)} className="bg-white text-gray-900 text-sm border-gray-300 rounded-md shadow-sm focus:border-primary focus:ring-primary">
-                        <option value="all">Todos</option>
-                        {Object.values(MOCK_USERS).map((user: User) => <option key={user.id} value={user.id}>{user.name}</option>)}
-                    </select>
-                </div>
-                <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Entidad:</label>
-                    <select value={entityFilter} onChange={e => setEntityFilter(e.target.value)} className="bg-white text-gray-900 text-sm border-gray-300 rounded-md shadow-sm focus:border-primary focus:ring-primary">
-                        <option value="all">Todas</option>
-                        {entityTypes.map(type => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                </div>
-                <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Desde:</label>
-                    <input type="date" value={dateFromFilter} onChange={e => setDateFromFilter(e.target.value)} className="bg-white text-gray-900 text-sm border-gray-300 rounded-md shadow-sm focus:border-primary focus:ring-primary"/>
-                </div>
-                <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Hasta:</label>
-                    <input type="date" value={dateToFilter} onChange={e => setDateToFilter(e.target.value)} className="bg-white text-gray-900 text-sm border-gray-300 rounded-md shadow-sm focus:border-primary focus:ring-primary"/>
-                </div>
-                <button onClick={handleClearFilters} className="text-sm text-primary hover:underline">Limpiar Filtros</button>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
+                <FilterButton label="Usuario" options={userOptions} selectedValue={userFilter} onSelect={setUserFilter} allLabel="Todos" />
+                <FilterButton label="Entidad" options={entityOptions} selectedValue={entityFilter} onSelect={setEntityFilter} allLabel="Todas" />
+                <DateFilterButton label="Desde" value={dateFromFilter} onChange={setDateFromFilter} />
+                <DateFilterButton label="Hasta" value={dateToFilter} onChange={setDateToFilter} />
+                <button onClick={handleClearFilters} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Limpiar Filtros</button>
             </div>
             
             {renderContent()}

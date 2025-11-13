@@ -17,6 +17,81 @@ export interface Team {
     members: string[]; // array of user IDs
 }
 
+// --- NEW CANDIDATE MANAGEMENT TYPES ---
+
+export type ProspectingGoal = 'Puredef' | 'Trade Aitirik' | 'Santzer' | 'General';
+export type MainCategory = 'Puredef: Transporte y Logística' | 'Trade Aitirik: Insumos Agrícolas' | 'Industrial Revenue: Industria y Manufactura' | 'Commerce and resale for distributors';
+
+export enum CandidateStatus {
+  Pendiente = 'Pendiente',
+  Aprobado = 'Aprobado', // Becomes a Prospect
+  Rechazado = 'Rechazado',
+  ListaNegra = 'Lista Negra',
+}
+
+export type CandidateTag = 'Alto Potencial' | 'Potencial Distribuidor' | 'Consumidor Directo' | 'Para seguimiento' | 'No Relevante' | 'Lista Negra';
+
+export enum RejectionReason {
+    NoInteresado = 'No interesado',
+    NoCalifica = 'No califica (fuera de perfil)',
+    InformacionIncorrecta = 'Información de contacto incorrecta',
+    Otro = 'Otro',
+}
+
+export enum BlacklistReason {
+    Competencia = 'Competencia',
+    MalasPracticas = 'Malas prácticas comerciales',
+    RiesgoCrediticio = 'Alto riesgo crediticio',
+    NoContactar = 'Solicitud de no contactar',
+    Otro = 'Otro',
+}
+
+export interface Review {
+  text: string;
+  rating: number;
+  author: string;
+  publishedAt: string;
+}
+
+export interface CandidateAiAnalysis {
+  suggestedCategory: string;
+  suggestedSubCategory: string;
+  relevantProducts: string[];
+  profileSummary: string;
+  confidenceScore: number; // 0-100
+  nextActionSuggestion: string;
+  communicationScripts: {
+    whatsapp: string;
+    phone: string;
+    email: string;
+  };
+  socialMediaLinks?: string[];
+  additionalEmails?: string[];
+  additionalPhones?: string[];
+}
+
+export interface Candidate {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  imageUrl?: string;
+  googleMapsUrl?: string;
+  rawCategories?: string[]; // Categories from the data source
+  status: CandidateStatus;
+  assignedCompanyId?: 'Puredef' | 'Trade Aitirik' | 'Santzer';
+  manuallyAssignedProductId?: string;
+  tags: CandidateTag[];
+  notes: Note[];
+  activityLog: ActivityLog[];
+  aiAnalysis?: CandidateAiAnalysis;
+  reviews?: Review[];
+  importedAt: string; // ISO Date string
+  importedBy: string; // userId
+}
+
 // Enums
 export enum ProspectStage {
   // Pre-flujo
@@ -44,14 +119,19 @@ export enum SupplierRating {
   Regular = 'Regular',
 }
 
-export enum QuotePipelineStage {
+export enum QuoteStatus {
   Borrador = 'Borrador',
-  Enviada = 'Enviada',
   EnRevision = 'En Revisión',
-  Negociacion = 'Negociación',
   Aprobada = 'Aprobada',
+  Rechazada = 'Rechazada',
+  Enviada = 'Enviada',
+  Negociacion = 'Negociación',
   Perdida = 'Perdida',
 }
+
+// FIX: Export QuoteStatus as QuotePipelineStage for compatibility with other files.
+export { QuoteStatus as QuotePipelineStage };
+
 
 export enum SampleStatus {
   Solicitada = 'Solicitada',
@@ -65,7 +145,7 @@ export enum SampleStatus {
 export enum SalesOrderStatus {
   Pendiente = 'Pendiente',
   EnPreparacion = 'En Preparación',
-  EnTransito = 'En Tránsito',
+  EnTransito = 'En Transito',
   Entregada = 'Entregada',
   Facturada = 'Facturada',
   Cancelada = 'Cancelada',
@@ -99,6 +179,15 @@ export enum TaskStatus {
   EnProgreso = 'En Progreso',
   Hecho = 'Hecho',
 }
+
+export enum DeliveryStatus {
+  Programada = 'Programada',
+  EnTransito = 'En Transito',
+  Entregada = 'Entregada',
+  Incidencia = 'Incidencia',
+  Cancelada = 'Cancelada',
+}
+
 
 // Detailed Profile Enums
 export type CommunicationChannel = 'WhatsApp' | 'Teléfono' | 'Email' | 'Teams' | 'Zoom' | 'Telegram' | 'Otro';
@@ -290,8 +379,8 @@ export interface Supplier {
 }
 
 export interface QuoteItem {
+  id: string;
   productId: string;
-  productName?: string;
   lotId: string;
   qty: number;
   unit: Unit;
@@ -300,36 +389,109 @@ export interface QuoteItem {
 }
 
 export interface QuoteDelivery {
-  date: string; // ISO string
+  id: string;
+  address: string;
+  zip: string;
   qty: number;
-  locationId: string;
+  date: string;
+}
+
+export type QuoteFeeType = 'commissions' | 'handling' | 'freight' | 'insurance' | 'storage' | 'other';
+
+export type ManeuverType = 'Carga' | 'Descarga' | 'Carga y Descarga' | 'Ninguna';
+export type CommissionType = 'fijo_ton' | 'fijo_litro';
+
+export interface QuoteCommission {
+    id: string;
+    salespersonId: string;
+    type: CommissionType;
+    value: number;
+}
+export interface QuoteHandling {
+    id: string;
+    type: ManeuverType;
+    costPerTon: number;
+}
+export interface QuoteFreight {
+    id: string;
+    origin: string;
+    destination: string;
+    cost: number;
+}
+export interface QuoteOtherItem {
+    id: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+}
+
+export interface QuoteChangeLog {
+  id: string;
+  timestamp: string; // ISO
+  userId: string;
+  field: string;
+  oldValue: any;
+  newValue: any;
+  comment?: string;
 }
 
 export interface Quote {
   id: string;
+  folio: string;
+  issuingCompanyId: string;
   prospectId?: string;
   companyId?: string;
-  status: QuotePipelineStage;
+  contactId?: string;
+  salespersonId: string; // Responsable
+  approverId: string;
+  status: QuoteStatus;
+  createdAt: string; // ISO
+  validity: number; // in days
+  
   currency: Currency;
+  exchangeRate: {
+    official: number;
+    commission: number;
+    final: number;
+  };
+  
   items: QuoteItem[];
-  fees: {
-    handling?: number;
-    insurance?: number;
-    storage?: number;
-    freight?: number;
-  };
-  commissions: {
-    type?: 'fijo' | 'porcentaje';
-    value?: number;
-  };
   deliveries: QuoteDelivery[];
+
+  commissions: QuoteCommission[];
+  handling: QuoteHandling[];
+  freight: QuoteFreight[];
+  insurance: {
+    enabled: boolean;
+    costPerTon: number;
+  };
+  storage: {
+    enabled: boolean;
+    period: number;
+    unit: 'Día' | 'Semana' | 'Mes';
+    costPerTon: number;
+  };
+  otherItems: QuoteOtherItem[];
+
+  taxRate: number; // Percentage, e.g. 16
+
   totals: {
-    base: number;
-    extras: number;
+    products: number;
+    commissions: number;
+    handling: number;
+    freight: number;
+    insurance: number;
+    storage: number;
+    other: number;
+    subtotal: number;
     tax: number;
     grandTotal: number;
   };
+  
+  notes?: string;
+  changeLog: QuoteChangeLog[];
 }
+
 
 export interface Sample {
   id: string;
@@ -348,6 +510,7 @@ export interface SalesOrder {
   companyId: string;
   status: SalesOrderStatus;
   deliveries: any[];
+  deliveryIds?: string[];
   items: QuoteItem[];
   total: number;
   createdAt: string; // ISO
@@ -386,6 +549,25 @@ export interface LogisticsDelivery {
     note?: string;
 }
 
+export interface Delivery {
+    id: string;
+    salesOrderId: string;
+    companyId: string;
+    deliveryNumber: string; // e.g. "1 of 3"
+    status: DeliveryStatus;
+    destination: string;
+    carrierId: string;
+    trackingNumber?: string;
+    trackingUrl?: string;
+    scheduledDate: string; // ISO date string
+    items: QuoteItem[];
+    notes: {
+        text: string;
+        userId: string;
+        createdAt: string;
+    }[];
+}
+
 export interface Comment {
   id: string;
   text: string;
@@ -393,17 +575,28 @@ export interface Comment {
   createdAt: string; // ISO Date string
 }
 
+export interface Attachment {
+  id: string;
+  name: string;
+  size: number; // in bytes
+  url: string;
+}
+
 export interface Subtask {
   id: string;
   text: string;
   isCompleted: boolean;
+  notes?: string;
 }
 
 export interface Task {
     id: string;
     title: string;
+    description?: string;
     status: TaskStatus;
     dueAt?: string;
+    createdAt?: string;
+    createdById?: string;
     assignees: string[];
     watchers: string[];
     links?: {
@@ -418,6 +611,9 @@ export interface Task {
     subtasks?: Subtask[];
     tags?: string[];
     startDate?: string;
+    teamId?: string;
+    estimationHours?: number;
+    attachments?: Attachment[];
 }
 
 export interface Project {
@@ -453,7 +649,8 @@ export interface ActivityLog {
     companyId?: string;
     prospectId?: string;
     contactId?: string;
-    type: 'Llamada' | 'Email' | 'Reunión' | 'Cotización' | 'Nota' | 'Email Sincronizado' | 'Reunión Sincronizada';
+    candidateId?: string; // Link to candidate
+    type: 'Llamada' | 'Email' | 'Reunión' | 'Nota' | 'Vista de Perfil' | 'Análisis IA' | 'Cambio de Estado' | 'Sistema';
     description: string;
     userId: string;
     createdAt: string; // ISO Date string
@@ -466,6 +663,7 @@ export interface Note {
     contactId?: string;
     productId?: string;
     supplierId?: string;
+    candidateId?: string; // Link to candidate
     text: string;
     userId: string;
     createdAt: string; // ISO Date string
@@ -487,6 +685,7 @@ export interface Carrier {
     contactName: string;
     contactPhone: string;
     serviceTypes: ('Carga Seca' | 'Refrigerado' | 'Material Peligroso')[];
+    trackingUrlTemplate?: string;
 }
 
 export interface FreightPricingRule {
@@ -515,4 +714,61 @@ export interface Email {
     timestamp: string; // ISO Date string
     status: 'read' | 'unread' | 'draft';
     folder: 'inbox' | 'sent' | 'drafts' | 'trash';
+}
+
+export enum InvoiceStatus {
+    Borrador = 'Borrador',
+    Enviada = 'Enviada',
+    Pagada = 'Pagada',
+    PagadaParcialmente = 'Pagada Parcialmente',
+    Vencida = 'Vencida',
+    Cancelada = 'Cancelada',
+}
+
+export interface InvoiceItem {
+    productId: string;
+    productName: string;
+    qty: number;
+    unit: Unit;
+    unitPrice: number;
+    subtotal: number;
+}
+
+export interface Invoice {
+    id: string; // e.g., 'F-2024-001'
+    salesOrderId: string;
+    companyId: string;
+    status: InvoiceStatus;
+    createdAt: string; // ISO date
+    dueDate: string; // ISO date
+    items: InvoiceItem[];
+    subtotal: number;
+    tax: number;
+    total: number;
+    paidAmount: number;
+    notes?: string;
+}
+
+export interface Expense {
+    id: string;
+    description: string;
+    category: 'Logística' | 'Materia Prima' | 'Oficina' | 'Nómina' | 'Marketing' | 'Otros';
+    amount: number;
+    date: string; // ISO date string
+    notes?: string;
+}
+
+export enum CommissionStatus {
+  Pendiente = 'Pendiente',
+  Pagada = 'Pagada',
+}
+
+export interface Commission {
+  id: string;
+  salesOrderId: string;
+  salespersonId: string;
+  amount: number;
+  status: CommissionStatus;
+  createdAt: string; // ISO date string
+  paidAt?: string; // ISO date string
 }

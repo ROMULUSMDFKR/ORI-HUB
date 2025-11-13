@@ -1,21 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
-import { User, Team, AuditLog, Company } from '../../types';
+import { User, Team, Company } from '../../types';
 import Table from '../../components/ui/Table';
 import Spinner from '../../components/ui/Spinner';
 import Badge from '../../components/ui/Badge';
 import Drawer from '../../components/ui/Drawer';
-import Radio from '../../components/ui/Radio';
-import Checkbox from '../../components/ui/Checkbox';
-
-const PERMISSIONS_CONFIG = {
-    'Prospectos': ['view', 'create', 'edit', 'delete'],
-    'Empresas': ['view', 'create', 'edit', 'delete'],
-    'Productos': ['view', 'create', 'edit', 'delete'],
-    'Inventario': ['view', 'adjust'],
-};
-type Module = keyof typeof PERMISSIONS_CONFIG;
 
 // --- Helper Components ---
 const DropdownMenu: React.FC<{ user: User, onSelectAction: (action: string, userId: string) => void }> = ({ user, onSelectAction }) => {
@@ -30,17 +20,17 @@ const DropdownMenu: React.FC<{ user: User, onSelectAction: (action: string, user
 
     return (
         <div className="relative">
-            <button onClick={() => setIsOpen(!isOpen)} onBlur={() => setTimeout(() => setIsOpen(false), 200)} className="p-2 rounded-full hover:bg-background">
-                <span className="material-symbols-outlined text-on-surface-secondary">more_vert</span>
+            <button onClick={() => setIsOpen(!isOpen)} onBlur={() => setTimeout(() => setIsOpen(false), 200)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
+                <span className="material-symbols-outlined text-slate-500 dark:text-slate-400">more_vert</span>
             </button>
             {isOpen && (
-                <div className="absolute right-0 mt-1 w-64 bg-surface rounded-lg shadow-lg z-10 border border-border">
-                    <ul className="py-1">
+                <div className="absolute right-0 mt-1 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-lg z-10 border border-slate-200 dark:border-slate-700">
+                    <ul className="py-1 bg-white dark:bg-slate-800 rounded-lg">
                         {actions.map(action => (
                             <li key={action.id}>
                                 <button
-                                    onClick={() => onSelectAction(action.id, user.id)}
-                                    className={`w-full text-left flex items-center px-4 py-2 text-sm ${action.isDestructive ? 'text-red-600 hover:bg-red-50' : 'text-on-surface-secondary hover:bg-background'}`}
+                                    onClick={() => { onSelectAction(action.id, user.id); setIsOpen(false); }}
+                                    className={`w-full text-left flex items-center px-4 py-2 text-sm ${action.isDestructive ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                                 >
                                     <span className="material-symbols-outlined mr-3 text-base">{action.icon}</span>
                                     {action.label}
@@ -51,147 +41,6 @@ const DropdownMenu: React.FC<{ user: User, onSelectAction: (action: string, user
                 </div>
             )}
         </div>
-    );
-};
-
-const EditUserDrawer: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    user: User | null;
-    teams: Team[];
-    companies: Company[];
-    onSave: (user: User) => void;
-}> = ({ isOpen, onClose, user, teams, companies, onSave }) => {
-    const [editedUser, setEditedUser] = useState<User | null>(null);
-    const [activeTab, setActiveTab] = useState('general');
-    const {data: auditLogs} = useCollection<AuditLog>('auditLogs');
-    const [scope, setScope] = useState('team');
-
-    useEffect(() => {
-        if (user) {
-            setEditedUser(user);
-            setActiveTab('general');
-        }
-    }, [user]);
-
-    if (!isOpen || !editedUser) return null;
-    
-    const handleFieldChange = (field: keyof User, value: any) => {
-        setEditedUser(prev => prev ? { ...prev, [field]: value } : null);
-    };
-
-    const userActivity = (auditLogs || []).filter(log => log.by === editedUser.id).sort((a,b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-
-    const sharedInputClass = "mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary";
-
-    return (
-        <Drawer isOpen={isOpen} onClose={onClose} title={`Editar Usuario: ${user?.name}`}>
-            <div className="flex flex-col h-full">
-                <div className="border-b border-border">
-                    <nav className="-mb-px flex space-x-6 px-6">
-                        {['general', 'permisos', 'actividad'].map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab)} className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm capitalize ${activeTab === tab ? 'border-accent text-accent' : 'border-transparent text-on-surface-secondary hover:text-on-surface'}`}>
-                                {tab}
-                            </button>
-                        ))}
-                    </nav>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {/* General Tab */}
-                    {activeTab === 'general' && (
-                        <>
-                           <div>
-                                <label className="block text-sm font-medium text-gray-700">Nombre</label>
-                                <input type="text" value={editedUser.name} onChange={e => handleFieldChange('name', e.target.value)} className={sharedInputClass}/>
-                            </div>
-                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Email</label>
-                                <input type="email" value={editedUser.email} onChange={e => handleFieldChange('email', e.target.value)} className={sharedInputClass}/>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Rol</label>
-                                <select value={editedUser.role} onChange={e => handleFieldChange('role', e.target.value)} className={sharedInputClass}>
-                                    <option>Admin</option>
-                                    <option>Ventas</option>
-                                    <option>Logística</option>
-                                </select>
-                            </div>
-                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Equipo</label>
-                                <select value={editedUser.teamId || ''} onChange={e => handleFieldChange('teamId', e.target.value)} className={sharedInputClass}>
-                                    <option value="">Sin equipo</option>
-                                    {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Empresa</label>
-                                <select value={editedUser.companyId || ''} onChange={e => handleFieldChange('companyId', e.target.value)} className={sharedInputClass}>
-                                    <option value="">Sin empresa</option>
-                                    {companies.map(c => <option key={c.id} value={c.id}>{c.shortName || c.name}</option>)}
-                                </select>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-700">Usuario Activo</span>
-                                <button type="button" onClick={() => handleFieldChange('isActive', !editedUser.isActive)} className={`${editedUser.isActive ? 'bg-primary' : 'bg-gray-200'} relative inline-flex items-center h-6 rounded-full w-11 transition-colors`}>
-                                    <span className={`${editedUser.isActive ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}/>
-                                </button>
-                            </div>
-                        </>
-                    )}
-
-                    {/* Permissions Tab */}
-                    {activeTab === 'permisos' && (
-                        <div className="space-y-6">
-                            <div>
-                                <h4 className="font-semibold text-on-surface">Alcance de Datos</h4>
-                                <fieldset className="mt-2 space-y-2">
-                                    <Radio id="scope-own" name="scope" value="own" checked={scope === 'own'} onChange={setScope}>Ver solo datos propios</Radio>
-                                    <Radio id="scope-team" name="scope" value="team" checked={scope === 'team'} onChange={setScope}>Ver datos del equipo</Radio>
-                                    <Radio id="scope-all" name="scope" value="all" checked={scope === 'all'} onChange={setScope}>Ver todos los datos</Radio>
-                                </fieldset>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold text-on-surface">Permisos por Módulo</h4>
-                                <div className="mt-2 space-y-4">
-                                    {Object.entries(PERMISSIONS_CONFIG).map(([module, actions]) => (
-                                        <div key={module}>
-                                            <p className="font-medium text-sm">{module}</p>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
-                                                {actions.map(action => (
-                                                     <div key={action}>
-                                                        <Checkbox id={`${module}-${action}`} checked={true} onChange={() => {}}>
-                                                          <span className="text-sm capitalize">{action}</span>
-                                                        </Checkbox>
-                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Activity Tab */}
-                    {activeTab === 'actividad' && (
-                        <ul className="space-y-4">
-                            {userActivity.length > 0 ? userActivity.map(log => (
-                                <li key={log.id} className="text-sm">
-                                    <p><span className="font-semibold">{log.action}</span> en {log.entity} ({log.entityId})</p>
-                                    <p className="text-xs text-on-surface-secondary">{new Date(log.at).toLocaleString()}</p>
-                                </li>
-                            )) : <p className="text-sm text-on-surface-secondary text-center">No hay actividad registrada.</p>}
-                        </ul>
-                    )}
-                </div>
-
-                <div className="p-4 bg-background border-t border-border flex justify-end gap-2">
-                    <button onClick={onClose} className="bg-surface border border-border text-on-surface font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
-                    <button onClick={() => onSave(editedUser)} className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Cambios</button>
-                </div>
-            </div>
-        </Drawer>
     );
 };
 
@@ -208,46 +57,44 @@ const InviteUserDrawer: React.FC<{ isOpen: boolean; onClose: () => void; teams: 
         }
     };
     
-    const sharedInputClass = "mt-1 block w-full border-border rounded-md shadow-sm";
-
     return (
         <Drawer isOpen={isOpen} onClose={onClose} title="Invitar Nuevo Usuario">
              <div className="flex flex-col h-full">
                 <div className="flex-1 p-6 space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Email</label>
-                        <input type="email" value={newUser.email} onChange={e => setNewUser(p => ({...p, email: e.target.value}))} className={sharedInputClass} placeholder="nombre@empresa.com" />
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Email</label>
+                        <input type="email" value={newUser.email} onChange={e => setNewUser(p => ({...p, email: e.target.value}))} placeholder="nombre@empresa.com" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Nombre</label>
-                        <input type="text" value={newUser.name} onChange={e => setNewUser(p => ({...p, name: e.target.value}))} className={sharedInputClass} />
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre</label>
+                        <input type="text" value={newUser.name} onChange={e => setNewUser(p => ({...p, name: e.target.value}))} />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Rol</label>
-                        <select value={newUser.role} onChange={e => setNewUser(p => ({...p, role: e.target.value as User['role']}))} className={sharedInputClass}>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Rol</label>
+                        <select value={newUser.role} onChange={e => setNewUser(p => ({...p, role: e.target.value as User['role']}))}>
                             <option>Ventas</option>
                             <option>Logística</option>
                             <option>Admin</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Equipo</label>
-                        <select value={newUser.teamId} onChange={e => setNewUser(p => ({...p, teamId: e.target.value}))} className={sharedInputClass}>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Equipo</label>
+                        <select value={newUser.teamId} onChange={e => setNewUser(p => ({...p, teamId: e.target.value}))}>
                             <option value="">Asignar después</option>
                             {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Empresa</label>
-                        <select value={newUser.companyId} onChange={e => setNewUser(p => ({...p, companyId: e.target.value}))} className={sharedInputClass}>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Empresa</label>
+                        <select value={newUser.companyId} onChange={e => setNewUser(p => ({...p, companyId: e.target.value}))}>
                             <option value="">Asignar después</option>
                             {companies.map(c => <option key={c.id} value={c.id}>{c.shortName || c.name}</option>)}
                         </select>
                     </div>
                 </div>
-                 <div className="p-4 bg-background border-t border-border flex justify-end gap-2">
-                    <button onClick={onClose} className="bg-surface border border-border text-on-surface font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
-                    <button onClick={handleInvite} className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg shadow-sm">Enviar Invitación</button>
+                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
+                    <button onClick={onClose} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
+                    <button onClick={handleInvite} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Enviar Invitación</button>
                 </div>
             </div>
         </Drawer>
@@ -260,10 +107,9 @@ const UserManagement: React.FC = () => {
     const { data: teams, loading: teamsLoading } = useCollection<Team>('teams');
     const { data: companies, loading: companiesLoading } = useCollection<Company>('companies');
     const [users, setUsers] = useState<User[] | null>(null);
+    const navigate = useNavigate();
 
-    const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
     const [isInviteDrawerOpen, setIsInviteDrawerOpen] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
     useEffect(() => {
         if (initialUsers) {
@@ -285,16 +131,10 @@ const UserManagement: React.FC = () => {
         }
     };
     
-    const handleOpenEditDrawer = (user: User) => {
-        setSelectedUser(user);
-        setIsEditDrawerOpen(true);
+    const handleEditUser = (userId: string) => {
+        navigate(`/settings/users/${userId}/edit`);
     };
 
-    const handleSaveUser = (updatedUser: User) => {
-        setUsers(prev => prev!.map(u => u.id === updatedUser.id ? updatedUser : u));
-        setIsEditDrawerOpen(false);
-    };
-    
     const handleInviteUser = (newUser: Omit<User, 'id' | 'isActive' | 'avatarUrl'>) => {
         const userToAdd: User = {
             ...newUser,
@@ -333,8 +173,8 @@ const UserManagement: React.FC = () => {
                 <div className="flex items-center">
                     <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full mr-4" />
                     <div>
-                        <p className="font-semibold text-on-surface">{user.name}</p>
-                        <p className="text-sm text-on-surface-secondary">{user.email}</p>
+                        <p className="font-semibold text-slate-800 dark:text-slate-200">{user.name}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">{user.email}</p>
                     </div>
                 </div>
             )
@@ -355,7 +195,7 @@ const UserManagement: React.FC = () => {
             header: 'Acciones',
             accessor: (user: User) => (
                 <div className="flex items-center justify-end space-x-2">
-                    <button onClick={() => handleOpenEditDrawer(user)} className="p-2 rounded-full hover:bg-background"><span className="material-symbols-outlined text-on-surface-secondary">edit</span></button>
+                    <button onClick={() => handleEditUser(user.id)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><span className="material-symbols-outlined text-slate-500 dark:text-slate-400">edit</span></button>
                     <DropdownMenu user={user} onSelectAction={handleAction} />
                 </div>
             ),
@@ -369,10 +209,10 @@ const UserManagement: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-on-surface">Usuarios y Permisos</h2>
-                    <p className="text-on-surface-secondary mt-1">Gestiona quién tiene acceso a tu espacio de trabajo.</p>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Usuarios y Permisos</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Gestiona quién tiene acceso a tu espacio de trabajo.</p>
                 </div>
-                <button onClick={() => setIsInviteDrawerOpen(true)} className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
+                <button onClick={() => setIsInviteDrawerOpen(true)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Invitar Usuario
                 </button>
@@ -384,14 +224,6 @@ const UserManagement: React.FC = () => {
                 <Table columns={columns} data={users || []} />
             )}
 
-            <EditUserDrawer
-                isOpen={isEditDrawerOpen}
-                onClose={() => setIsEditDrawerOpen(false)}
-                user={selectedUser}
-                teams={teams || []}
-                companies={companies || []}
-                onSave={handleSaveUser}
-            />
             <InviteUserDrawer
                 isOpen={isInviteDrawerOpen}
                 onClose={() => setIsInviteDrawerOpen(false)}

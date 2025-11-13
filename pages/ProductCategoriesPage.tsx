@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { Category, Product } from '../types';
 import Table from '../components/ui/Table';
@@ -8,6 +9,7 @@ import EmptyState from '../components/ui/EmptyState';
 const ProductCategoriesPage: React.FC = () => {
     const { data: categories, loading: categoriesLoading, error: categoriesError } = useCollection<Category>('categories');
     const { data: products, loading: productsLoading } = useCollection<Product>('products');
+    const navigate = useNavigate();
 
     const productCounts = useMemo(() => {
         if (!products) return new Map();
@@ -33,7 +35,7 @@ const ProductCategoriesPage: React.FC = () => {
             header: 'Acciones',
             accessor: (c: Category) => (
                 <div className="flex space-x-2 justify-center">
-                    <button className="text-gray-500 hover:text-primary p-1 rounded-full"><span className="material-symbols-outlined">edit</span></button>
+                    <button className="text-gray-500 hover:text-indigo-600 p-1 rounded-full"><span className="material-symbols-outlined">edit</span></button>
                     <button className="text-gray-500 hover:text-red-600 p-1 rounded-full"><span className="material-symbols-outlined">delete</span></button>
                 </div>
             ),
@@ -51,7 +53,7 @@ const ProductCategoriesPage: React.FC = () => {
                     title="No hay categorías definidas"
                     message="Crea categorías para organizar tus productos de manera eficiente."
                     actionText="Crear Categoría"
-                    onAction={() => alert('Abrir drawer para nueva categoría')}
+                    onAction={() => navigate('/products/categories/new')}
                 />
             );
         }
@@ -62,15 +64,15 @@ const ProductCategoriesPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-text-main">Categorías de Productos</h2>
-                    <p className="text-sm text-text-secondary mt-1">Organiza tu inventario en grupos lógicos.</p>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Categorías de Productos</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Organiza tu inventario en grupos lógicos.</p>
                 </div>
-                <button 
-                    onClick={() => alert('Abrir drawer para nueva categoría')}
-                    className="bg-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-primary-dark transition-colors">
+                <Link 
+                    to="/products/categories/new"
+                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Nueva Categoría
-                </button>
+                </Link>
             </div>
 
             {renderContent()}

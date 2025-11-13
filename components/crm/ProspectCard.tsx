@@ -7,6 +7,7 @@ import Badge from '../ui/Badge';
 interface ProspectCardProps {
   prospect: Prospect;
   onDragStart: (e: React.DragEvent<HTMLDivElement>, prospectId: string) => void;
+  onArchive: (prospectId: string) => void;
 }
 
 const formatDistanceToNow = (isoDate: string): string => {
@@ -28,13 +29,13 @@ const formatDistanceToNow = (isoDate: string): string => {
 };
 
 const InfoRow: React.FC<{ icon: string; text: React.ReactNode; isAlert?: boolean }> = ({ icon, text, isAlert = false }) => (
-    <div className={`flex items-center text-xs ${isAlert ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
+    <div className={`flex items-center text-xs ${isAlert ? 'text-red-600 font-semibold' : 'text-gray-600 dark:text-slate-400'}`}>
         <span className="material-symbols-outlined text-sm mr-2">{icon}</span>
         <span>{text}</span>
     </div>
 );
 
-const ProspectCard: React.FC<ProspectCardProps> = ({ prospect, onDragStart }) => {
+const ProspectCard: React.FC<ProspectCardProps> = ({ prospect, onDragStart, onArchive }) => {
   const owner = Object.values(MOCK_USERS).find(u => u.id === prospect.ownerId) || MOCK_USERS.admin;
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -48,25 +49,31 @@ const ProspectCard: React.FC<ProspectCardProps> = ({ prospect, onDragStart }) =>
     <div
       draggable
       onDragStart={(e) => onDragStart(e, prospect.id)}
-      className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-grab active:cursor-grabbing mb-4 space-y-3"
+      className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing mb-4 space-y-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
     >
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
             <Link to={`/crm/prospects/${prospect.id}`} onClick={e => e.stopPropagation()}>
-                <h4 className="font-bold text-sm text-text-main hover:underline">{prospect.name}</h4>
+                <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 hover:underline">{prospect.name}</h4>
             </Link>
-            <p className="text-xs text-secondary font-semibold">${prospect.estValue.toLocaleString('en-US')}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold">${prospect.estValue.toLocaleString('en-US')}</p>
         </div>
         <div className="relative">
-            <button onClick={() => setMenuOpen(!menuOpen)} onBlur={() => setTimeout(() => setMenuOpen(false), 150)} className="p-1 rounded-full hover:bg-gray-100">
+            <button onClick={() => setMenuOpen(!menuOpen)} onBlur={() => setTimeout(() => setMenuOpen(false), 150)} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
                 <span className="material-symbols-outlined text-sm">more_horiz</span>
             </button>
             {menuOpen && (
-                <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 border">
-                    <a href="#" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><span className="material-symbols-outlined text-base mr-2">event</span>Programar acción</a>
-                    <Link to={`/crm/prospects/${prospect.id}`} onClick={e => e.stopPropagation()} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><span className="material-symbols-outlined text-base mr-2">visibility</span>Abrir detalle</Link>
-                    <a href="#" className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"><span className="material-symbols-outlined text-base mr-2">delete</span>Eliminar</a>
+                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-md shadow-lg z-10 border border-slate-200 dark:border-slate-700">
+                    <button onClick={() => alert('Funcionalidad para programar acción.')} className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <span className="material-symbols-outlined text-base mr-2">event</span>Programar acción
+                    </button>
+                    <Link to={`/crm/prospects/${prospect.id}`} onClick={e => e.stopPropagation()} className="flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <span className="material-symbols-outlined text-base mr-2">visibility</span>Abrir detalle
+                    </Link>
+                    <button onClick={() => onArchive(prospect.id)} className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <span className="material-symbols-outlined text-base mr-2">archive</span>Archivar
+                    </button>
                 </div>
             )}
         </div>
@@ -87,7 +94,7 @@ const ProspectCard: React.FC<ProspectCardProps> = ({ prospect, onDragStart }) =>
                 text={<>Pausado: {prospect.pausedInfo.reason}</>}
             />
          )}
-         <div className="flex justify-between items-center text-xs text-gray-500">
+         <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
             <div className="flex items-center">
                 <img src={owner.avatarUrl} alt={owner.name} title={owner.name} className="w-5 h-5 rounded-full mr-1" />
                 <span>{prospect.origin || 'N/A'}</span>

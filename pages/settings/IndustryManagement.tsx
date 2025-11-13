@@ -55,7 +55,7 @@ const IndustryManagement: React.FC = () => {
                             <li key={industry} className="flex justify-between items-center p-2 rounded-lg hover:bg-background">
                                 <span className="text-on-surface">{industry}</span>
                                 <div className="flex gap-2">
-                                    <button className="p-1 rounded-full text-on-surface-secondary hover:text-accent"><span className="material-symbols-outlined text-base">edit</span></button>
+                                    <button onClick={() => alert(`Editando "${industry}"...`)} className="p-1 rounded-full text-on-surface-secondary hover:text-accent"><span className="material-symbols-outlined text-base">edit</span></button>
                                     <button onClick={() => handleDeleteIndustry(industry)} className="p-1 rounded-full text-on-surface-secondary hover:text-red-500"><span className="material-symbols-outlined text-base">delete</span></button>
                                 </div>
                             </li>

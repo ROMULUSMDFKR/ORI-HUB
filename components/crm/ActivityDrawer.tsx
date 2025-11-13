@@ -42,11 +42,11 @@ const ActivityDrawer: React.FC<ActivityDrawerProps> = ({ isOpen, onClose, prospe
         <Drawer isOpen={isOpen} onClose={onClose} title="Registrar Actividad">
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Tipo de Actividad</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tipo de Actividad</label>
                     <select
                         value={type}
                         onChange={(e) => setType(e.target.value as ActivityLog['type'])}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-container-bg text-text-main"
+                        className="mt-1 block w-full"
                     >
                         <option value="Llamada">Llamada</option>
                         <option value="Email">Email</option>
@@ -56,27 +56,27 @@ const ActivityDrawer: React.FC<ActivityDrawerProps> = ({ isOpen, onClose, prospe
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Descripción</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Descripción</label>
                     <textarea
                         rows={5}
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-container-bg text-text-main"
+                        className="mt-1 block w-full"
                         placeholder="Ej: Llamada de seguimiento sobre la cotización QT-1002. Cliente pidió ajuste en precios."
                     />
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-4 border-t">
+                <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200 dark:border-slate-700">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        className="bg-white dark:bg-slate-700 py-2 px-4 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
                         Cancelar
                     </button>
                     <button
                         type="submit"
-                        className="bg-primary py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-primary-dark"
+                        className="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
                         Guardar Actividad
                     </button>

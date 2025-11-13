@@ -1,9 +1,8 @@
-
-
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MOCK_PROSPECTS, MOCK_TASKS, MOCK_SALES_ORDERS } from '../data/mockData';
 import { Prospect, ProspectStage, Task } from '../types';
+import AiAssistantWidget from '../components/dashboard/AiAssistantWidget';
 
 
 // --- New KPI Card Components ---
@@ -22,7 +21,7 @@ const MiniChart: React.FC<{ data: number[], isPrimary: boolean }> = ({ data, isP
             {data.map((val, index) => (
                 <div 
                     key={index} 
-                    className={`${isPrimary ? 'bg-black/20' : 'bg-gray-200'} rounded-t-sm w-full transition-all duration-500 ease-in-out`}
+                    className={`${isPrimary ? 'bg-black/20' : 'bg-slate-200 dark:bg-slate-600'} rounded-t-sm w-full transition-all duration-500 ease-in-out`}
                     style={{ height: `${maxVal > 0 ? (val / maxVal) * 100 : 0}%` }}
                 ></div>
             ))}
@@ -39,23 +38,23 @@ const StyledKpiCard: React.FC<{
 }> = ({ title, value, change, chartData, variant = 'default' }) => {
     const isPositive = change >= 0;
     const containerClasses = variant === 'primary' 
-        ? 'bg-primary text-on-primary p-5 rounded-xl relative overflow-hidden shadow-lg' 
-        : 'bg-surface text-on-surface p-5 rounded-xl relative overflow-hidden shadow-sm border border-border';
+        ? 'bg-indigo-600 text-white p-5 rounded-xl relative overflow-hidden shadow-lg' 
+        : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 p-5 rounded-xl relative overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700';
     
     return (
         <div className={containerClasses}>
-            {variant === 'primary' && <div className="text-on-primary"><WavyBg /></div>}
+            {variant === 'primary' && <div className="text-white"><WavyBg /></div>}
             <div className="relative z-10">
                 <div className="flex justify-between items-center">
-                    <h3 className={`text-base font-semibold ${variant === 'primary' ? 'text-on-primary/90' : 'text-on-surface-secondary'}`}>{title}</h3>
-                    <select className="bg-white/20 text-xs rounded-md px-2 py-1 border-none focus:ring-0 appearance-none" style={{backgroundColor: variant === 'primary' ? 'rgba(0,0,0,0.05)' : '#f3f4f6', color: variant === 'primary' ? '#1F2937' : 'black'}}>
-                        <option>Mensual</option>
-                        <option>Semestral</option>
-                        <option>Anual</option>
+                    <h3 className={`text-base font-semibold ${variant === 'primary' ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'}`}>{title}</h3>
+                    <select className="bg-transparent text-xs rounded-md px-2 py-1 border-none focus:ring-0 appearance-none dark:bg-slate-700/50 bg-slate-50" style={{backgroundColor: variant === 'primary' ? 'rgba(255,255,255,0.1)' : undefined, color: variant === 'primary' ? 'white' : 'inherit'}}>
+                        <option className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">Mensual</option>
+                        <option className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">Semestral</option>
+                        <option className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">Anual</option>
                     </select>
                 </div>
                 <p className="text-4xl font-bold mt-2">{value}</p>
-                <p className={`text-sm mt-4 ${isPositive ? (variant === 'primary' ? 'text-green-800' : 'text-green-600') : (variant === 'primary' ? 'text-red-800' : 'text-red-600')}`}>
+                <p className={`text-sm mt-4 ${isPositive ? (variant === 'primary' ? 'text-green-300' : 'text-green-600 dark:text-green-400') : (variant === 'primary' ? 'text-red-300' : 'text-red-600 dark:text-red-400')}`}>
                     <span className="font-semibold">{isPositive ? '+' : ''}{change.toFixed(1)}%</span> mes anterior
                 </p>
                 <MiniChart data={chartData} isPrimary={variant === 'primary'} />
@@ -65,31 +64,31 @@ const StyledKpiCard: React.FC<{
 };
 
 const SmallKpiCard: React.FC<{ title: string; value: string; icon: string; linkTo: string; }> = ({ title, value, icon, linkTo }) => (
-  <Link to={linkTo} className="bg-surface p-5 rounded-xl shadow-sm border border-border flex items-center justify-between hover:shadow-md transition-shadow">
+  <Link to={linkTo} className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between hover:shadow-md transition-shadow">
     <div>
-      <p className="text-sm font-semibold text-on-surface-secondary">{title}</p>
-      <p className="text-3xl font-bold text-on-surface mt-1">{value}</p>
+      <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{title}</p>
+      <p className="text-3xl font-bold text-slate-800 dark:text-slate-200 mt-1">{value}</p>
     </div>
-    <span className="material-symbols-outlined text-3xl text-primary/70">{icon}</span>
+    <span className="material-symbols-outlined text-3xl text-indigo-500/70 dark:text-indigo-500/70">{icon}</span>
   </Link>
 );
 
 
 const MyWorkList: React.FC<{ tasks: Task[] }> = ({ tasks }) => (
-  <div className="bg-surface p-4 rounded-xl shadow-sm h-full">
-    <h3 className="font-bold text-lg mb-4">Mi Trabajo Hoy</h3>
+  <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm h-full border border-slate-200 dark:border-slate-700">
+    <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-slate-200">Mi Trabajo Hoy</h3>
     <ul className="space-y-3">
       {tasks.map(task => (
-        <li key={task.id} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50">
+        <li key={task.id} className="flex items-center justify-between p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700">
           <div className="flex items-center">
-            <span className={`material-symbols-outlined text-lg mr-3 ${task.status === 'Por Hacer' ? 'text-gray-400' : 'text-accent'}`}>
+            <span className={`material-symbols-outlined text-lg mr-3 ${task.status === 'Por Hacer' ? 'text-slate-400 dark:text-slate-500' : 'text-indigo-600 dark:text-indigo-400'}`}>
               {task.status === 'Por Hacer' ? 'radio_button_unchecked' : 'check_circle'}
             </span>
             <div>
-              <p className="text-sm font-medium">{task.title}</p>
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{task.title}</p>
             </div>
           </div>
-          <span className="text-xs font-medium bg-red-100 text-red-700 px-2 py-1 rounded-full">Hoy</span>
+          <span className="text-xs font-medium bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400 px-2 py-1 rounded-full">Hoy</span>
         </li>
       ))}
     </ul>
@@ -103,13 +102,13 @@ const PipelineSummary: React.FC<{prospects: Prospect[]}> = ({prospects}) => {
     }, {} as Record<ProspectStage, number>);
 
     return (
-        <div className="bg-surface p-4 rounded-xl shadow-sm">
-            <h3 className="font-bold text-lg mb-4">Resumen de Pipeline</h3>
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-slate-200">Resumen de Pipeline</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 text-center">
                 {Object.values(ProspectStage).slice(0, 5).map(stage => (
                      <div key={stage}>
-                        <p className="text-2xl font-bold">{stageCounts[stage] || 0}</p>
-                        <p className="text-sm text-on-surface-secondary">{stage}</p>
+                        <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">{stageCounts[stage] || 0}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">{stage}</p>
                     </div>
                 ))}
             </div>
@@ -185,7 +184,9 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-on-surface">Hoy</h2>
+      <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Hoy</h2>
+
+      <AiAssistantWidget tasks={MOCK_TASKS} prospects={MOCK_PROSPECTS} salesOrders={MOCK_SALES_ORDERS} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <StyledKpiCard

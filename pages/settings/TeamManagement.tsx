@@ -36,7 +36,7 @@ const TeamManagement: React.FC = () => {
                     <h2 className="text-2xl font-bold text-on-surface">Equipos</h2>
                     <p className="text-on-surface-secondary mt-1">Organiza a tus usuarios en equipos para una mejor colaboración.</p>
                 </div>
-                <button className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
+                <button onClick={() => alert('Abriendo modal para crear equipo...')} className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Crear Equipo
                 </button>

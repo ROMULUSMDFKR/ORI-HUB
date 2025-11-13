@@ -32,31 +32,31 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onDragStart, onClick }) => {
       draggable
       onClick={onClick}
       onDragStart={(e) => onDragStart(e, task.id)}
-      className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-grab active:cursor-grabbing mb-4 space-y-3 hover:bg-gray-50"
+      className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing mb-4 space-y-3 hover:bg-slate-50 dark:hover:bg-slate-700/50"
     >
-      <h4 className="font-bold text-sm text-text-main">{task.title}</h4>
+      <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">{task.title}</h4>
 
       <div className="flex flex-wrap gap-1">
         {project && <Badge text={project.name} color="blue" />}
         {task.tags?.map(tag => <Badge key={tag} text={tag} />)}
       </div>
 
-      <div className="flex justify-between items-center border-t pt-3 mt-2">
+      <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-700 pt-3 mt-2">
         <div className="flex -space-x-2">
             {assignees.map(user => (
-                user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-6 h-6 rounded-full border-2 border-white" /> : null
+                user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-800" /> : null
             ))}
         </div>
         <div className="flex items-center space-x-2 text-xs">
              {totalSubtasks > 0 && (
-                <span className="font-medium flex items-center text-text-secondary">
+                <span className="font-medium flex items-center text-slate-500 dark:text-slate-400">
                     <span className="material-symbols-outlined text-sm mr-1">check_box</span>
                     {completedSubtasks}/{totalSubtasks}
                 </span>
              )}
              {task.priority && <Badge text={task.priority} color={getPriorityBadgeColor(task.priority)} />}
             {task.dueAt && (
-                <span className={`font-medium flex items-center ${isOverdue ? 'text-red-600' : 'text-text-secondary'}`}>
+                <span className={`font-medium flex items-center ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
                     <span className="material-symbols-outlined text-sm mr-1">event</span>
                     {new Date(task.dueAt).toLocaleDateString('es-ES', {day: 'numeric', month: 'short'})}
                 </span>

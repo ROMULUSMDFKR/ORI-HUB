@@ -30,46 +30,42 @@ const Table = <T extends { id: string }>({ columns, data, itemsPerPage = 10 }: T
   };
 
   return (
-    <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 shadow-sm rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+          <thead className="bg-slate-50 dark:bg-slate-700/50">
             <tr>
               {columns.map((col, index) => (
-                <th key={index} scope="col" className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.className}`}>
+                <th key={index} scope="col" className={`px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${col.className}`}>
                   {col.header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
             {paginatedData.map((item) => (
-              <tr key={item.id} className="hover:bg-gray-50">
+              <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                 {columns.map((col, index) => (
-                  <td key={index} className={`px-6 py-4 whitespace-nowrap text-sm text-gray-800 ${col.className}`}>
+                  <td key={index} className={`px-6 py-4 whitespace-nowrap text-sm text-slate-800 dark:text-slate-200 ${col.className}`}>
                     {col.accessor(item)}
                   </td>
                 ))}
               </tr>
             ))}
-             {totalPages > 1 && (
-              <tr>
-                <td colSpan={columns.length} className="px-6 py-4 text-sm text-on-surface-secondary">
-                  Página <span className="font-medium text-on-surface">{currentPage}</span> de <span className="font-medium text-on-surface">{totalPages}</span>
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
 
       {totalPages > 1 && (
-        <div className="px-6 py-3 flex items-center justify-end border-t border-gray-200">
+        <div className="px-6 py-3 flex items-center justify-between border-t border-slate-200 dark:border-slate-700">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+                Página <span className="font-medium text-slate-700 dark:text-slate-200">{currentPage}</span> de <span className="font-medium text-slate-700 dark:text-slate-200">{totalPages}</span>
+            </p>
             <div className="flex justify-end space-x-2">
-                <button onClick={handlePrevPage} disabled={currentPage === 1} className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
+                <button onClick={handlePrevPage} disabled={currentPage === 1} className="relative inline-flex items-center px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-md text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50">
                     Anterior
                 </button>
-                <button onClick={handleNextPage} disabled={currentPage === totalPages} className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
+                <button onClick={handleNextPage} disabled={currentPage === totalPages} className="ml-3 relative inline-flex items-center px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-md text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50">
                     Siguiente
                 </button>
             </div>

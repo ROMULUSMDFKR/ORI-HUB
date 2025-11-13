@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+// FIX: Changed import path to a dedicated api module.
 import { api } from '../data/mockData';
 
 interface UseCollectionResult<T> {

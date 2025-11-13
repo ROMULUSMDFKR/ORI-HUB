@@ -28,3 +28,25 @@ export function convertPrice(price: number, fromUnit: Unit, toUnit: Unit): numbe
 
     return convertedPrice;
 }
+
+/**
+ * Converts a quantity from a source unit to tons.
+ * Assumes 1 ton = 1000 kg and 1 ton = 1000 L for simplicity.
+ * @param quantity The quantity to convert.
+ * @param fromUnit The source unit of the quantity.
+ * @returns The quantity in tons.
+ */
+export function convertQuantityToTon(quantity: number, fromUnit: Unit): number {
+    if (fromUnit === 'ton') {
+        return quantity;
+    }
+    if (fromUnit === 'kg') {
+        return quantity / 1000;
+    }
+    if (fromUnit === 'L') {
+        // This is a simplification. Density would be needed for a real app.
+        return quantity / 1000;
+    }
+    // 'unidad' is not convertible in a generic way. Assuming 1 unit is negligible or handled elsewhere.
+    return 0; 
+}

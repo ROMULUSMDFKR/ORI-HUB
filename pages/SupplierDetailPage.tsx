@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
@@ -127,7 +128,7 @@ const SupplierDetailPage: React.FC = () => {
                     )}
                 </div>
                 <div className="flex space-x-2 mt-4 md:mt-0">
-                    <Link to={`/crm/suppliers/${supplier.id}/edit`} className="bg-white border border-gray-300 text-text-main font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-gray-50 transition-colors">
+                    <Link to={`/purchase/suppliers/${supplier.id}/edit`} className="bg-white border border-gray-300 text-text-main font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-gray-50 transition-colors">
                         <span className="material-symbols-outlined mr-2 text-base">edit</span>
                         Editar Proveedor
                     </Link>

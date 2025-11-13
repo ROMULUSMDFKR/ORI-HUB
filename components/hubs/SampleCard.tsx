@@ -1,4 +1,6 @@
 
+
+
 import React from 'react';
 import { Sample } from '../../types';
 import { MOCK_COMPANIES, MOCK_PRODUCTS, MOCK_PROSPECTS } from '../../data/mockData';
@@ -20,12 +22,12 @@ const SampleCard: React.FC<SampleCardProps> = ({ item, onDragStart }) => {
     <div
       draggable
       onDragStart={(e) => onDragStart(e, item.id)}
-      className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-grab active:cursor-grabbing mb-4"
+      className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing mb-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
     >
-      <h4 className="font-bold text-sm text-text-main">{item.name}</h4>
-      <p className="text-xs text-text-secondary mt-1">{recipientName || 'Destinatario no encontrado'}</p>
-      <p className="text-xs text-text-secondary">{product?.name || 'Producto no encontrado'}</p>
-      <div className="text-right text-xs text-gray-500 mt-2">
+      <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">{item.name}</h4>
+      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{recipientName || 'Destinatario no encontrado'}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">{product?.name || 'Producto no encontrado'}</p>
+      <div className="text-right text-xs text-slate-500 dark:text-slate-400 mt-2">
         Solicitada: {new Date(item.requestDate).toLocaleDateString()}
       </div>
     </div>

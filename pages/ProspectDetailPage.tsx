@@ -1,11 +1,14 @@
+
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { Prospect, Note, ActivityLog, Contact } from '../types';
+// FIX: Added Priority to imports to use the enum member.
+import { Prospect, Note, ActivityLog, Contact, Company, CompanyPipelineStage, ProspectStage, Quote, Sample, Priority } from '../types';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
-import { MOCK_USERS } from '../data/mockData';
+import { MOCK_USERS, api } from '../data/mockData';
 import ActivityDrawer from '../components/crm/ActivityDrawer';
 import { GoogleGenAI } from '@google/genai';
 
@@ -18,6 +21,20 @@ const WavyBg: React.FC = () => (
       <path d="M-50,50 C100,-50 200,100 350,20 L350,150 L-50,150 Z" fill="currentColor" opacity="0.5"/>
     </svg>
 );
+
+const SimpleMarkdown: React.FC<{ text: string }> = ({ text }) => {
+    const lines = text.split('\n').map((line, i) => {
+        const boldedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        if (line.startsWith('### ')) return <h3 key={i} className="text-md font-semibold mt-4 mb-2">{boldedLine.substring(4)}</h3>;
+        if (line.startsWith('## ')) return <h2 key={i} className="text-lg font-bold mt-4 mb-2">{boldedLine.substring(3)}</h2>;
+        if (line.startsWith('- ')) return <li key={i} className="list-disc ml-5" dangerouslySetInnerHTML={{ __html: boldedLine.substring(2) }}></li>;
+        if (line.match(/^\d+\. /)) return <li key={i} className="list-decimal ml-5" dangerouslySetInnerHTML={{ __html: boldedLine.substring(line.indexOf(' ') + 1) }}></li>;
+        if (line.trim() === '') return <br key={i} />;
+        return <p key={i} dangerouslySetInnerHTML={{ __html: boldedLine }} />;
+    });
+
+    return <div className="prose prose-sm max-w-none text-on-surface space-y-2">{lines}</div>;
+};
 
 const SuggestionModal: React.FC<{
     isOpen: boolean;
@@ -175,9 +192,16 @@ const NotesSection: React.FC<{ prospectId: string }> = ({ prospectId }) => {
 };
 
 const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) => {
+    // FIX: Corrected iconMap to align with ActivityLog['type'] and prevent type errors.
     const iconMap: Record<ActivityLog['type'], string> = {
-        'Llamada': 'call', 'Email': 'email', 'Reunión': 'groups', 'Cotización': 'request_quote', 'Nota': 'note',
-        'Email Sincronizado': 'mark_email_read', 'Reunión Sincronizada': 'calendar_month'
+        'Llamada': 'call',
+        'Email': 'email',
+        'Reunión': 'groups',
+        'Nota': 'note',
+        'Vista de Perfil': 'visibility',
+        'Análisis IA': 'auto_awesome',
+        'Cambio de Estado': 'change_circle',
+        'Sistema': 'dns'
     };
     
     if (!activities.length) {
@@ -226,9 +250,12 @@ const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) =
 
 const ProspectDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
     const { data: prospect, loading, error } = useDoc<Prospect>('prospects', id || '');
     const { data: allContacts } = useCollection<Contact>('contacts');
     const { data: initialActivities } = useCollection<ActivityLog>('activities');
+    const { data: quotes } = useCollection<Quote>('quotes');
+    const { data: samples } = useCollection<Sample>('samples');
     
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
@@ -298,18 +325,21 @@ const ProspectDetailPage: React.FC = () => {
                 Notas relevantes: ${prospect.notes || 'Sin notas principales.'}
             `;
             const prompt = `
-                Eres un asistente experto en ventas para un CRM. Basado en el siguiente resumen de un prospecto, sugiere una única, clara y accionable "próxima acción" para el vendedor.
-                La sugerencia debe ser concisa (máximo 2-3 frases), directa y en español. No añadas introducciones como "Claro..." o saludos. Empieza directamente con la acción.
+                Eres un asistente de IA experto en análisis de datos para un CRM. Tu nombre es "Studio AI".
+                Basado en el siguiente contexto de un prospecto, proporciona un análisis completo para el vendedor. Tu respuesta debe estar en español y formateada en Markdown. Incluye las siguientes secciones:
+                1. **Resumen Ejecutivo (TL;DR):** Un párrafo corto que resuma el estado actual, el valor y la temperatura del prospecto (frío, tibio, caliente).
+                2. **Puntos Clave:** Una lista de 2-3 puntos importantes extraídos del historial de notas y actividades.
+                3. **Próxima Acción Sugerida:** Una sugerencia clara, accionable y con un "porqué".
 
                 Contexto del Prospecto:
                 ${context}
 
-                Próxima acción sugerida:
+                Análisis del Prospecto:
             `;
 
             const ai = new GoogleGenAI({apiKey: process.env.API_KEY as string});
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-2.5-pro',
                 contents: prompt,
             });
             
@@ -321,6 +351,48 @@ const ProspectDetailPage: React.FC = () => {
         } finally {
             setSuggestionLoading(false);
         }
+    };
+
+    const handleConvertToClient = async () => {
+        if (!prospect) return;
+        if (!window.confirm(`¿Estás seguro de que quieres convertir a "${prospect.name}" en un cliente? Esta acción creará una nueva entidad de empresa.`)) {
+            return;
+        }
+
+        const newCompany: Company = {
+            id: `comp-${Date.now()}`,
+            name: prospect.name,
+            shortName: prospect.name,
+            rfc: '',
+            isActive: true,
+            stage: CompanyPipelineStage.ClienteActivo,
+            ownerId: prospect.ownerId,
+            createdById: prospect.createdById,
+            createdAt: new Date().toISOString(),
+            // FIX: The string literal 'Media' is not assignable to the enum 'Priority'. Replaced with Priority.Media.
+            priority: Priority.Media,
+            industry: prospect.industry,
+            productsOfInterest: prospect.productsOfInterest || [],
+            deliveryAddresses: [],
+        };
+        
+        await api.addDoc('companies', newCompany);
+
+        // Re-associate quotes and samples
+        const prospectQuotes = (quotes || []).filter(q => q.prospectId === prospect.id);
+        for (const quote of prospectQuotes) {
+            await api.updateDoc('quotes', quote.id, { companyId: newCompany.id, prospectId: undefined });
+        }
+        
+        const prospectSamples = (samples || []).filter(s => s.prospectId === prospect.id);
+        for (const sample of prospectSamples) {
+             await api.updateDoc('samples', sample.id, { companyId: newCompany.id, prospectId: undefined });
+        }
+        
+        await api.updateDoc('prospects', prospect.id, { stage: ProspectStage.Ganado });
+
+        alert(`${prospect.name} ha sido convertido a cliente. Se ha transferido su historial.`);
+        navigate(`/crm/clients/${newCompany.id}`);
     };
 
 
@@ -371,11 +443,10 @@ const ProspectDetailPage: React.FC = () => {
                             </Link>
                         </div>
                         <button 
-                            onClick={handleSuggestAction}
-                            disabled={suggestionLoading}
-                            className="w-full text-center bg-green-50 border border-green-200 text-green-700 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-green-100 transition-colors flex items-center justify-center disabled:bg-gray-200 disabled:cursor-not-allowed">
-                            <span className="material-symbols-outlined mr-2">{suggestionLoading ? 'hourglass_top' : 'lightbulb'}</span>
-                            {suggestionLoading ? 'Analizando...' : 'Acción Sugerida'}
+                            onClick={handleConvertToClient}
+                            className="w-full text-center bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 transition-colors flex items-center justify-center">
+                            <span className="material-symbols-outlined mr-2">star</span>
+                            Convertir en Cliente
                         </button>
                     </div>
                 </div>
@@ -442,7 +513,7 @@ const ProspectDetailPage: React.FC = () => {
             <SuggestionModal
                 isOpen={isSuggestionModalOpen}
                 onClose={() => setIsSuggestionModalOpen(false)}
-                title="Acción Sugerida por IA"
+                title="Análisis con IA por Studio AI"
             >
                 {suggestionLoading ? (
                     <div className="flex flex-col items-center justify-center h-32">
@@ -455,7 +526,7 @@ const ProspectDetailPage: React.FC = () => {
                         <p>{suggestionError}</p>
                     </div>
                 ) : (
-                    <p className="text-text-main whitespace-pre-wrap">{suggestion}</p>
+                    <SimpleMarkdown text={suggestion} />
                 )}
             </SuggestionModal>
         </div>

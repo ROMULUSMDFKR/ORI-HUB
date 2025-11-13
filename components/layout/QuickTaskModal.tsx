@@ -47,7 +47,7 @@ const QuickTaskModal: React.FC<QuickTaskModalProps> = ({ isOpen, onClose, onSave
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-start pt-20" onClick={onClose}>
             <div 
-                className="bg-surface rounded-xl shadow-2xl w-full max-w-lg transform transition-all"
+                className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg transform transition-all"
                 onClick={e => e.stopPropagation()}
             >
                 <div className="p-4">
@@ -58,20 +58,20 @@ const QuickTaskModal: React.FC<QuickTaskModalProps> = ({ isOpen, onClose, onSave
                         onChange={e => setTitle(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleSubmit()}
                         placeholder="¿Qué necesitas hacer?"
-                        className="w-full bg-transparent text-lg placeholder:text-on-surface-secondary focus:outline-none"
+                        className="w-full bg-transparent text-lg text-slate-800 dark:text-slate-200 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none"
                     />
                 </div>
-                <div className="p-4 bg-background border-t border-border flex justify-between items-center">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                          {/* Placeholder for future quick actions */}
-                        <button className="p-2 rounded-lg hover:bg-surface-inset text-on-surface-secondary"><span className="material-symbols-outlined text-base">person_add</span></button>
-                        <button className="p-2 rounded-lg hover:bg-surface-inset text-on-surface-secondary"><span className="material-symbols-outlined text-base">flag</span></button>
-                        <button className="p-2 rounded-lg hover:bg-surface-inset text-on-surface-secondary"><span className="material-symbols-outlined text-base">calendar_month</span></button>
+                        <button className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"><span className="material-symbols-outlined text-base">person_add</span></button>
+                        <button className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"><span className="material-symbols-outlined text-base">flag</span></button>
+                        <button className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"><span className="material-symbols-outlined text-base">calendar_month</span></button>
                     </div>
                     <button 
                         onClick={handleSubmit} 
                         disabled={!title.trim()}
-                        className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg shadow-sm disabled:opacity-50"
+                        className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50"
                     >
                         Crear Tarea
                     </button>

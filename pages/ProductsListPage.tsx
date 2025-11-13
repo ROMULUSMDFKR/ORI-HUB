@@ -1,7 +1,5 @@
-
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { Product, Category } from '../types';
 import Table from '../components/ui/Table';
@@ -14,6 +12,7 @@ const ProductsListPage: React.FC = () => {
     const { data: categories, loading: categoriesLoading } = useCollection<Category>('categories');
     const [products, setProducts] = useState<Product[] | null>(null);
     const [filter, setFilter] = useState('');
+    const navigate = useNavigate();
 
     useEffect(() => {
         if(initialProducts) {
@@ -39,7 +38,7 @@ const ProductsListPage: React.FC = () => {
         {
             header: 'Nombre',
             accessor: (p: Product) => (
-                <Link to={`/products/${p.id}`} className="font-medium text-accent hover:underline">
+                <Link to={`/products/${p.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
                     {p.name}
                 </Link>
             )
@@ -60,7 +59,7 @@ const ProductsListPage: React.FC = () => {
         {
             header: 'Acciones',
             accessor: (p: Product) => (
-                 <button className="text-gray-500 hover:text-primary p-1 rounded-full"><span className="material-symbols-outlined">more_vert</span></button>
+                 <button className="text-gray-500 hover:text-indigo-600 p-1 rounded-full"><span className="material-symbols-outlined">more_vert</span></button>
             ),
             className: 'text-center'
         }
@@ -77,7 +76,7 @@ const ProductsListPage: React.FC = () => {
                         title="No se encontraron productos"
                         message="Comienza creando tu primer producto para gestionar tu catálogo."
                         actionText="Crear Producto"
-                        onAction={() => { /* Navigate to new product page */ }}
+                        onAction={() => navigate('/products/new')}
                     />
                 </div>
             );
@@ -86,23 +85,23 @@ const ProductsListPage: React.FC = () => {
     };
 
     return (
-        <div className="bg-surface rounded-lg shadow-sm overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b border-border">
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden">
+            <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700">
                 <div>
-                    <h2 className="text-2xl font-bold text-on-surface">Lista de Productos</h2>
-                    <p className="text-sm text-on-surface-secondary mt-1">Gestiona tu catálogo de productos.</p>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Lista de Productos</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona tu catálogo de productos.</p>
                 </div>
                 <Link 
                   to="/products/new"
-                  className="bg-primary text-on-primary font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
+                  className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Nuevo Producto
                 </Link>
             </div>
 
-            <div className="px-6 py-4 border-b border-border">
-                <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-secondary pointer-events-none">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center w-80 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-1 focus-within:ring-indigo-500">
+                    <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">
                         search
                     </span>
                     <input
@@ -111,7 +110,7 @@ const ProductsListPage: React.FC = () => {
                         placeholder="Buscar por nombre o SKU..."
                         value={filter}
                         onChange={e => setFilter(e.target.value)}
-                        className="block w-80 pl-10 pr-4 py-2 text-sm bg-surface-inset text-on-surface placeholder:text-on-surface-secondary border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="w-full bg-transparent pr-4 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none"
                     />
                 </div>
             </div>

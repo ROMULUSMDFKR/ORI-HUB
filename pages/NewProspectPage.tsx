@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Prospect, ProspectStage, Priority, User } from '../types';
+import { Prospect, ProspectStage, Priority, User, Company } from '../types';
 import { MOCK_USERS } from '../data/mockData';
+import CustomSelect from '../components/ui/CustomSelect';
+import { useCollection } from '../hooks/useCollection';
+import DuplicateChecker from '../components/ui/DuplicateChecker';
+
 
 const initialProspectState: Partial<Prospect> = {
     name: '',
@@ -19,6 +23,11 @@ const NewProspectPage: React.FC = () => {
     const navigate = useNavigate();
     const [prospect, setProspect] = useState(initialProspectState);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const { data: companies } = useCollection<Company>('companies');
+    const { data: prospects } = useCollection<Prospect>('prospects');
+
 
     const validate = (): boolean => {
         const newErrors: Record<string, string> = {};
@@ -32,6 +41,9 @@ const NewProspectPage: React.FC = () => {
 
     const handleChange = (field: keyof Prospect, value: any) => {
         setProspect(prev => ({ ...prev, [field]: value }));
+         if (field === 'name') {
+            setSearchTerm(value);
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -49,10 +61,15 @@ const NewProspectPage: React.FC = () => {
             navigate('/hubs/prospects');
         }
     };
+    
+    const userOptions = Object.values(MOCK_USERS).filter((v,i,a)=>a.findIndex(t=>(t.id === v.id))===i).map(u => ({ value: u.id, name: u.name }));
+    const stageOptions = Object.values(ProspectStage).map(s => ({ value: s, name: s }));
+    const priorityOptions = Object.values(Priority).map(p => ({ value: p, name: p }));
+
 
     const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-semibold border-b pb-3 mb-4">{title}</h3>
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4">{title}</h3>
           <div className="space-y-4">
             {children}
           </div>
@@ -62,12 +79,12 @@ const NewProspectPage: React.FC = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-text-main">Crear Nuevo Prospecto</h2>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Crear Nuevo Prospecto</h2>
                 <div className="flex space-x-2">
-                    <button onClick={() => navigate('/hubs/prospects')} className="bg-white border border-gray-300 text-text-main font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-gray-50">
+                    <button onClick={() => navigate('/hubs/prospects')} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">
                         Cancelar
                     </button>
-                    <button onClick={handleSubmit} className="bg-primary text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-primary-dark">
+                    <button onClick={handleSubmit} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700">
                         Guardar Prospecto
                     </button>
                 </div>
@@ -76,58 +93,43 @@ const NewProspectPage: React.FC = () => {
             <form onSubmit={handleSubmit}>
                 <FormBlock title="Información del Prospecto">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Nombre del Prospecto</label>
-                            <input type="text" value={prospect.name || ''} onChange={(e) => handleChange('name', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />
+                        <div className="relative">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre del Prospecto</label>
+                            <input type="text" value={prospect.name || ''} onChange={(e) => handleChange('name', e.target.value)} className="mt-1 block w-full" />
                             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                            <DuplicateChecker 
+                                searchTerm={searchTerm}
+                                existingProspects={prospects || []}
+                                existingCompanies={companies || []}
+                            />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Valor Estimado (USD)</label>
-                            <input type="number" value={prospect.estValue || ''} onChange={(e) => handleChange('estValue', parseFloat(e.target.value) || 0)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Valor Estimado (USD)</label>
+                            <input type="number" value={prospect.estValue || ''} onChange={(e) => handleChange('estValue', parseFloat(e.target.value) || 0)} className="mt-1 block w-full" />
                             {errors.estValue && <p className="text-red-500 text-xs mt-1">{errors.estValue}</p>}
                         </div>
+                        <CustomSelect label="Responsable" options={userOptions} value={prospect.ownerId || ''} onChange={val => handleChange('ownerId', val)} />
+                        {errors.ownerId && <p className="text-red-500 text-xs mt-1">{errors.ownerId}</p>}
+
+                        <CustomSelect label="Creador" options={userOptions} value={prospect.createdById || ''} onChange={val => handleChange('createdById', val)} />
+                        {errors.createdById && <p className="text-red-500 text-xs mt-1">{errors.createdById}</p>}
+
+                        <CustomSelect label="Etapa Inicial" options={stageOptions} value={prospect.stage || ''} onChange={val => handleChange('stage', val as ProspectStage)} />
+
+                        <CustomSelect label="Prioridad" options={priorityOptions} value={prospect.priority || ''} onChange={val => handleChange('priority', val as Priority)} />
+
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Responsable</label>
-                            <select value={prospect.ownerId || ''} onChange={(e) => handleChange('ownerId', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main">
-                                {Object.values(MOCK_USERS).map((user: User) => (
-                                    <option key={user.id} value={user.id}>{user.name}</option>
-                                ))}
-                            </select>
-                            {errors.ownerId && <p className="text-red-500 text-xs mt-1">{errors.ownerId}</p>}
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Creador</label>
-                            <select value={prospect.createdById || ''} onChange={(e) => handleChange('createdById', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main">
-                                {Object.values(MOCK_USERS).map((user: User) => (
-                                    <option key={user.id} value={user.id}>{user.name}</option>
-                                ))}
-                            </select>
-                            {errors.createdById && <p className="text-red-500 text-xs mt-1">{errors.createdById}</p>}
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Etapa Inicial</label>
-                            <select value={prospect.stage || ''} onChange={(e) => handleChange('stage', e.target.value as ProspectStage)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main">
-                                {Object.values(ProspectStage).map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Prioridad</label>
-                            <select value={prospect.priority || ''} onChange={(e) => handleChange('priority', e.target.value as Priority)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main">
-                                {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Origen</label>
-                            <input type="text" value={prospect.origin || ''} onChange={(e) => handleChange('origin', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Origen</label>
+                            <input type="text" value={prospect.origin || ''} onChange={(e) => handleChange('origin', e.target.value)} className="mt-1 block w-full" />
                         </div>
                          <div>
-                            <label className="block text-sm font-medium text-gray-700">Industria</label>
-                            <input type="text" value={prospect.industry || ''} onChange={(e) => handleChange('industry', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Industria</label>
+                            <input type="text" value={prospect.industry || ''} onChange={(e) => handleChange('industry', e.target.value)} className="mt-1 block w-full" />
                         </div>
                     </div>
                     <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700">Notas</label>
-                        <textarea value={prospect.notes || ''} onChange={(e) => handleChange('notes', e.target.value)} rows={4} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Notas</label>
+                        <textarea value={prospect.notes || ''} onChange={(e) => handleChange('notes', e.target.value)} rows={4} className="mt-1 block w-full" />
                     </div>
                 </FormBlock>
             </form>

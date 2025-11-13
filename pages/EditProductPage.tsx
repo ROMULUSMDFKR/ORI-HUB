@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
@@ -6,8 +5,10 @@ import { useCollection } from '../hooks/useCollection';
 import { Product, ProductLot, Category, Unit, Supplier, LotStatus } from '../types';
 import Spinner from '../components/ui/Spinner';
 import Drawer from '../components/ui/Drawer';
+// FIX: Changed import path to a dedicated api module.
 import { api } from '../data/mockData';
 import { UNITS } from '../constants';
+import CustomSelect from '../components/ui/CustomSelect';
 
 const initialLotState = {
     code: '',
@@ -64,6 +65,9 @@ const AddLotDrawer: React.FC<{
             alert("Por favor, complete todos los campos requeridos del lote.");
         }
     }
+    
+    const supplierOptions = (suppliers || []).map(s => ({ value: s.id, name: s.name }));
+    const locationOptions = (locations || []).map(l => ({ value: l.id, name: l.name }));
 
     return (
         <Drawer isOpen={isOpen} onClose={onClose} title="Añadir Nuevo Lote">
@@ -72,13 +76,7 @@ const AddLotDrawer: React.FC<{
                     <label className="block text-sm font-medium text-on-surface-secondary">Código de Lote</label>
                     <input type="text" value={lot.code} onChange={e => handleChange('code', e.target.value)} />
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-on-surface-secondary">Proveedor</label>
-                    <select value={lot.supplierId} onChange={e => handleChange('supplierId', e.target.value)}>
-                        <option value="">Seleccionar...</option>
-                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                </div>
+                <CustomSelect label="Proveedor" options={supplierOptions} value={lot.supplierId} onChange={val => handleChange('supplierId', val)} />
                  <div>
                     <label className="block text-sm font-medium text-on-surface-secondary">Fecha de Recepción</label>
                     <input type="date" value={lot.receptionDate} onChange={e => handleChange('receptionDate', e.target.value)} />
@@ -88,13 +86,7 @@ const AddLotDrawer: React.FC<{
                         <label className="block text-sm font-medium text-on-surface-secondary">Cantidad Recibida</label>
                         <input type="number" value={lot.initialQty} onChange={e => handleChange('initialQty', parseFloat(e.target.value) || 0)} />
                     </div>
-                     <div>
-                        <label className="block text-sm font-medium text-on-surface-secondary">Ubicación Inicial</label>
-                        <select value={lot.initialLocationId} onChange={e => handleChange('initialLocationId', e.target.value)}>
-                            <option value="">Seleccionar...</option>
-                            {locations.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                        </select>
-                    </div>
+                     <CustomSelect label="Ubicación Inicial" options={locationOptions} value={lot.initialLocationId} onChange={val => handleChange('initialLocationId', val)} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -180,6 +172,9 @@ const EditProductPage: React.FC = () => {
         return <div className="text-center p-12">Producto no encontrado</div>;
     }
 
+    const categoryOptions = (categories || []).map(c => ({ value: c.id, name: c.name }));
+    const unitOptions = UNITS.map(u => ({ value: u, name: u }));
+
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
@@ -208,18 +203,8 @@ const EditProductPage: React.FC = () => {
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-on-surface-secondary">Categoría</label>
-                                <select value={product.categoryId || ''} onChange={(e) => handleChange('categoryId', e.target.value)}>
-                                    {categories?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-on-surface-secondary">Unidad Default</label>
-                                <select value={product.unitDefault || 'ton'} onChange={(e) => handleChange('unitDefault', e.target.value as Unit)}>
-                                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                                </select>
-                            </div>
+                            <CustomSelect label="Categoría" options={categoryOptions} value={product.categoryId || ''} onChange={val => handleChange('categoryId', val)} />
+                            <CustomSelect label="Unidad Default" options={unitOptions} value={product.unitDefault || 'ton'} onChange={val => handleChange('unitDefault', val as Unit)} />
                         </div>
                         <div className="flex items-center justify-between pt-4 border-t">
                             <span className="text-sm font-medium text-on-surface">Producto Activo</span>

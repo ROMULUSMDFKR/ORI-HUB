@@ -11,22 +11,22 @@ interface LocationInfo {
 }
 
 const LocationCard: React.FC<{ location: LocationInfo }> = ({ location }) => (
-    <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
         <div className="flex items-center mb-4">
-            <span className="material-symbols-outlined text-3xl text-primary mr-4">warehouse</span>
+            <span className="material-symbols-outlined text-3xl text-indigo-600 dark:text-indigo-400 mr-4">warehouse</span>
             <div>
-                <h3 className="font-bold text-lg text-text-main">{location.name}</h3>
-                <p className="text-sm text-text-secondary">{location.id}</p>
+                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200">{location.name}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{location.id}</p>
             </div>
         </div>
-        <div className="flex justify-around text-center border-t pt-4">
+        <div className="flex justify-around text-center border-t border-slate-200 dark:border-slate-700 pt-4">
             <div>
                 <p className="text-2xl font-bold">{location.skuCount}</p>
-                <p className="text-xs text-text-secondary">SKUs Distintos</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">SKUs Distintos</p>
             </div>
             <div>
                 <p className="text-2xl font-bold">{location.totalQuantity.toLocaleString()}</p>
-                <p className="text-xs text-text-secondary">Unidades Totales</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Unidades Totales</p>
             </div>
         </div>
     </div>
@@ -68,10 +68,10 @@ const InventoryLocationsPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-text-main">Ubicaciones de Almacén</h2>
-                    <p className="text-sm text-text-secondary mt-1">Gestiona tus bodegas y centros de distribución.</p>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Ubicaciones de Almacén</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona tus bodegas y centros de distribución.</p>
                 </div>
-                <button className="bg-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-primary-dark transition-colors">
+                <button className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Nueva Ubicación
                 </button>

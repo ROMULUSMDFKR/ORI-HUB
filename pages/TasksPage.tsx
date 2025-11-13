@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -10,6 +9,7 @@ import Badge from '../components/ui/Badge';
 import TaskCard from '../components/tasks/TaskCard';
 import { MOCK_USERS } from '../data/mockData';
 import { getOverdueStatus } from '../utils/time';
+import FilterButton from '../components/ui/FilterButton';
 
 type TaskView = 'mine' | 'board' | 'all';
 const KANBAN_COLUMNS: { stage: TaskStatus, title: string }[] = [
@@ -25,6 +25,28 @@ const getPriorityBadgeColor = (priority?: Priority) => {
         case Priority.Baja: return 'gray';
         default: return 'gray';
     }
+};
+
+const TaskSummary: React.FC<{ counts: Partial<Record<TaskStatus, number>> }> = ({ counts }) => {
+    const summaryItems = [
+        { label: 'No Iniciadas', status: TaskStatus.PorHacer, icon: 'radio_button_unchecked', color: 'text-slate-500 dark:text-slate-400' },
+        { label: 'En Progreso', status: TaskStatus.EnProgreso, icon: 'hourglass_top', color: 'text-blue-500 dark:text-blue-400' },
+        { label: 'Terminadas', status: TaskStatus.Hecho, icon: 'check_circle', color: 'text-green-500 dark:text-green-400' },
+    ];
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {summaryItems.map(item => (
+                <div key={item.status} className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 flex items-center">
+                    <span className={`material-symbols-outlined text-3xl mr-4 ${item.color}`}>{item.icon}</span>
+                    <div>
+                        <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">{counts[item.status] || 0}</p>
+                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{item.label}</p>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
 };
 
 const TasksPage: React.FC = () => {
@@ -88,6 +110,17 @@ const TasksPage: React.FC = () => {
         return result;
     }, [tasks, activeView, currentUser.id, projectFilter, priorityFilter, assigneeFilter]);
     
+    const statusCounts = useMemo(() => {
+        if (!filteredTasks) return { [TaskStatus.PorHacer]: 0, [TaskStatus.EnProgreso]: 0, [TaskStatus.Hecho]: 0 };
+        return filteredTasks.reduce((acc, task) => {
+            if (!acc[task.status]) {
+                acc[task.status] = 0;
+            }
+            acc[task.status]++;
+            return acc;
+        }, {} as Record<TaskStatus, number>);
+    }, [filteredTasks]);
+
     const uniqueUsers = useMemo(() => {
         const allUsers = Object.values(MOCK_USERS);
         const seen = new Set();
@@ -98,8 +131,12 @@ const TasksPage: React.FC = () => {
         });
     }, []);
 
+    const projectOptions = useMemo(() => (projects || []).map(p => ({ value: p.id, label: p.name })), [projects]);
+    const priorityOptions = useMemo(() => Object.values(Priority).map(p => ({ value: p, label: p })), []);
+    const assigneeOptions = useMemo(() => uniqueUsers.map((u: User) => ({ value: u.id, label: u.name })), [uniqueUsers]);
+
     const columns = useMemo(() => [
-        { header: 'Título', accessor: (t: Task) => <Link to={`/tasks/${t.id}`} className="font-medium text-left hover:text-accent">{t.title}</Link> },
+        { header: 'Título', accessor: (t: Task) => <Link to={`/tasks/${t.id}`} className="font-medium text-left hover:text-indigo-600 dark:hover:text-indigo-400">{t.title}</Link> },
         { header: 'Estado', accessor: (t: Task) => <Badge text={t.status} color={t.status === TaskStatus.Hecho ? 'green' : 'blue'} /> },
         { header: 'Prioridad', accessor: (t: Task) => t.priority ? <Badge text={t.priority} color={getPriorityBadgeColor(t.priority)} /> : '-' },
         { 
@@ -133,10 +170,10 @@ const TasksPage: React.FC = () => {
             return (
                 <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
                     {KANBAN_COLUMNS.map(col => (
-                        <div key={col.stage} className="flex-shrink-0 w-80 bg-gray-50 rounded-xl p-3" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, col.stage)}>
+                        <div key={col.stage} className="flex-shrink-0 w-80 bg-slate-100 dark:bg-slate-800 rounded-xl p-3" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, col.stage)}>
                             <div className="flex justify-between items-center mb-4 px-1">
-                                <h3 className="font-semibold text-md text-text-main">{col.title}</h3>
-                                <span className="text-sm font-medium text-text-secondary bg-gray-200 px-2 py-0.5 rounded-full">
+                                <h3 className="font-semibold text-md text-slate-800 dark:text-slate-200">{col.title}</h3>
+                                <span className="text-sm font-medium text-slate-500 dark:text-slate-400 bg-gray-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">
                                     {filteredTasks.filter(t => t.status === col.stage).length}
                                 </span>
                             </div>
@@ -170,30 +207,23 @@ const TasksPage: React.FC = () => {
         <div className="space-y-6 h-full flex flex-col">
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-text-main">Tareas</h2>
-                    <p className="text-sm text-text-secondary mt-1">Organiza, colabora y completa el trabajo.</p>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Tareas</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Organiza, colabora y completa el trabajo.</p>
                 </div>
                 <Link 
                     to="/tasks/new"
-                    className="bg-primary text-on-primary font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
+                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Nueva Tarea
                 </Link>
             </div>
 
-            <div className="bg-surface p-3 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-border">
-                <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-on-surface-secondary">Proyecto:</label>
-                    <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)} className="bg-surface text-on-surface text-sm border-border rounded-md shadow-sm py-1 px-2"><option value="all">Todos</option>{(projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-                </div>
-                <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-on-surface-secondary">Prioridad:</label>
-                    <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className="bg-surface text-on-surface text-sm border-border rounded-md shadow-sm py-1 px-2"><option value="all">Todas</option>{Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}</select>
-                </div>
-                <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-on-surface-secondary">Asignado a:</label>
-                    <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} className="bg-surface text-on-surface text-sm border-border rounded-md shadow-sm py-1 px-2"><option value="all">Todos</option>{uniqueUsers.map((u: User) => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
-                </div>
+            {(activeView === 'mine' || activeView === 'all') && <TaskSummary counts={statusCounts} />}
+
+            <div className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
+                <FilterButton label="Proyecto" options={projectOptions} selectedValue={projectFilter} onSelect={setProjectFilter} allLabel="Todos" />
+                <FilterButton label="Prioridad" options={priorityOptions} selectedValue={priorityFilter} onSelect={setPriorityFilter} allLabel="Todas" />
+                <FilterButton label="Asignado a" options={assigneeOptions} selectedValue={assigneeFilter} onSelect={setAssigneeFilter} allLabel="Todos" />
             </div>
 
             <div className="flex-1">

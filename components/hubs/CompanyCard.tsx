@@ -20,7 +20,7 @@ const CompanyCard: React.FC<CompanyCardProps> = ({ item, onDragStart }) => {
     }
   };
 
-  const getHealthScoreColor = (label: Company['healthScore']['label']) => {
+  const getHealthScoreColor = (label?: Company['healthScore']['label']) => {
     switch(label) {
       case 'Saludable': return 'bg-green-500';
       case 'Estable': return 'bg-yellow-500';
@@ -33,17 +33,17 @@ const CompanyCard: React.FC<CompanyCardProps> = ({ item, onDragStart }) => {
     <div
       draggable
       onDragStart={(e) => onDragStart(e, item.id)}
-      className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-grab active:cursor-grabbing mb-4 space-y-3"
+      className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing mb-4 space-y-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
     >
       {/* Header */}
       <div className="flex justify-between items-start">
-        <h4 className="font-bold text-sm text-text-main flex-1 pr-2">{item.shortName || item.name}</h4>
+        <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 flex-1 pr-2">{item.shortName || item.name}</h4>
         {owner && (
           <img 
             src={owner.avatarUrl} 
             alt={owner.name} 
             title={`Responsable: ${owner.name}`} 
-            className="w-6 h-6 rounded-full border-2 border-white" 
+            className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-800" 
           />
         )}
       </div>
@@ -56,7 +56,7 @@ const CompanyCard: React.FC<CompanyCardProps> = ({ item, onDragStart }) => {
       </div>
       
       {/* Footer info */}
-      <div className="border-t pt-2 mt-2 flex justify-between items-center text-xs text-gray-500">
+      <div className="border-t border-slate-200 dark:border-slate-700 pt-2 mt-2 flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
         <div className="flex items-center" title="Contacto Principal">
           <span className="material-symbols-outlined text-sm mr-1 align-bottom">person</span>
           <span className="truncate">{item.primaryContact?.name || 'Sin contacto'}</span>

@@ -1,8 +1,13 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, FunctionDeclaration, Type } from '@google/genai';
 import { useCollection } from '../hooks/useCollection';
-import { SalesOrder, Prospect, Task } from '../types';
-import { MOCK_USERS } from '../data/mockData';
+import { SalesOrder, Prospect, Task, User } from '../types';
+import { MOCK_USERS, api } from '../data/mockData';
+
+// Polyfill for browser compatibility
+// FIX: Cast window to `any` to access non-standard SpeechRecognition properties.
+const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
 interface Message {
     id: number;
@@ -10,134 +15,248 @@ interface Message {
     sender: 'user' | 'ai';
 }
 
+// MOCK PERMISSIONS - In a real app, this would come from a user context
+const MOCK_ACTION_PERMISSIONS: Record<User['role'], Record<string, boolean>> = {
+    'Admin': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
+    'Ventas': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
+    'Logística': { 'createTask': true, 'updateClientStatus': false, 'getSummary': true },
+};
+
+// DEFINE ALL POSSIBLE AI FUNCTIONS
+const ALL_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
+    {
+        name: 'createTask',
+        description: 'Crea una nueva tarea en el sistema.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                title: { type: Type.STRING, description: 'El título de la tarea.' },
+                dueDate: { type: Type.STRING, description: 'La fecha de vencimiento en formato ISO 8601.' },
+            },
+            required: ['title'],
+        },
+    },
+    {
+        name: 'updateClientStatus',
+        description: 'Actualiza la etapa de un cliente o empresa.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                clientName: { type: Type.STRING, description: 'El nombre del cliente a actualizar.' },
+                newStatus: { type: Type.STRING, description: 'La nueva etapa del cliente.' },
+            },
+            required: ['clientName', 'newStatus'],
+        },
+    },
+];
+
 const AiAssistantPage: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 0,
-            text: "¡Hola! Soy tu asistente de IA. Puedes preguntarme cosas como 'resume las ventas del último mes', '¿cuáles son nuestros prospectos más valiosos?' o '¿qué tareas tengo vencidas?'",
+            text: "¡Hola! Soy tu asistente de IA. Puedes pedirme que cree tareas, resuma datos o actualice el estado de un cliente (si tienes permiso). También puedes usar el micrófono para hablar.",
             sender: 'ai'
         }
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    // FIX: Use `any` for the ref type to avoid a name collision with the `SpeechRecognition` variable defined above.
+    const recognitionRef = useRef<any | null>(null);
     const chatEndRef = useRef<null | HTMLDivElement>(null);
-
 
     const { data: salesOrders } = useCollection<SalesOrder>('salesOrders');
     const { data: prospects } = useCollection<Prospect>('prospects');
     const { data: tasks } = useCollection<Task>('tasks');
     const currentUser = MOCK_USERS.natalia;
 
+    // Initialize Speech Recognition
+    useEffect(() => {
+        if (!SpeechRecognition) {
+            console.error("Speech Recognition not supported by this browser.");
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.lang = 'es-MX';
+        recognition.interimResults = false;
+
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setInput(transcript);
+        };
+
+        recognition.onerror = (event: any) => {
+            console.error('Speech recognition error', event.error);
+            setIsRecording(false);
+        };
+        
+        recognition.onend = () => {
+            setIsRecording(false);
+        };
+
+        recognitionRef.current = recognition;
+    }, []);
+    
+    // Auto-scroll logic
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isLoading]);
+    
+    const handleToggleRecording = () => {
+        if (isRecording) {
+            recognitionRef.current?.stop();
+        } else {
+            recognitionRef.current?.start();
+            setIsRecording(true);
+        }
+    };
 
-    const handleSendMessage = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSendMessage = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         if (input.trim() === '' || isLoading) return;
+        
+        if (isRecording) {
+            recognitionRef.current?.stop();
+        }
 
         const userMessage: Message = { id: Date.now(), text: input, sender: 'user' };
         setMessages(prev => [...prev, userMessage]);
+        const currentInput = input;
         setInput('');
         setIsLoading(true);
 
         try {
             // Prepare context from CRM data
             const userTasks = (tasks || []).filter(t => t.assignees.includes(currentUser.id));
-            const overdueTasks = userTasks.filter(t => t.dueAt && new Date(t.dueAt) < new Date());
-            const todayTasks = userTasks.filter(t => t.dueAt && new Date(t.dueAt).toDateString() === new Date().toDateString());
-
+            const overdueTasks = userTasks.filter(t => t.dueAt && new Date(t.dueAt) < new Date() && t.status !== 'Hecho');
+            
             const context = `
-                Datos de Ventas Recientes:
-                ${(salesOrders || []).slice(0, 5).map(o => `- Orden ${o.id}: $${o.total.toFixed(2)} el ${new Date(o.createdAt).toLocaleDateString()}`).join('\n')}
-
-                Prospectos Clave:
-                ${(prospects || []).slice(0, 5).map(p => `- ${p.name} (Valor: $${p.estValue}, Etapa: ${p.stage})`).join('\n')}
-                
-                Resumen de Tareas para ${currentUser.name}:
-                - Tienes ${overdueTasks.length} tareas vencidas.
-                - Tienes ${todayTasks.length} tareas para hoy.
-                - Tareas Vencidas: ${overdueTasks.map(t => t.title).join(', ') || 'Ninguna'}
+                Datos del CRM:
+                - Usuario actual: ${currentUser.name} (Rol: ${currentUser.role})
+                - Tareas vencidas del usuario: ${overdueTasks.length}
+                - Pregunta del usuario: "${currentInput}"
             `;
+
+            // Filter tools based on user role
+            const userPermissions = MOCK_ACTION_PERMISSIONS[currentUser.role];
+            const allowedFunctionDeclarations = ALL_FUNCTION_DECLARATIONS.filter(
+                func => userPermissions[func.name]
+            );
 
             const prompt = `
-                Eres un asistente de IA experto en análisis de datos para un CRM.
-                Responde a la pregunta del usuario utilizando el siguiente contexto de la empresa.
-                Sé conciso y directo en tus respuestas. Usa markdown para formatear tu respuesta si es necesario (listas, negritas, etc.).
-                El usuario que pregunta es ${currentUser.name}.
-                
-                Contexto:
-                ${context}
-
-                Pregunta del Usuario:
-                ${input}
+                Eres "Studio AI", un asistente de IA experto en CRM. Responde a la pregunta del usuario de forma concisa y útil.
+                Si la pregunta parece una orden para ejecutar una acción (como 'crear', 'actualizar', 'modificar'), utiliza las herramientas disponibles. 
+                Si no tienes una herramienta para la acción o no tienes permiso, informa al usuario amablemente.
+                De lo contrario, responde basándote en el contexto.
+                Contexto: ${context}
             `;
 
-            const ai = new GoogleGenAI({apiKey: process.env.API_KEY as string});
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
+                config: {
+                    tools: [{ functionDeclarations: allowedFunctionDeclarations }],
+                },
             });
-            const aiText = response.text;
-            
-            const aiMessage: Message = { id: Date.now() + 1, text: aiText, sender: 'ai' };
-            setMessages(prev => [...prev, aiMessage]);
 
-        } catch (error) {
-            console.error("Error calling Gemini API:", error);
-            const errorMessage: Message = { id: Date.now() + 1, text: "Lo siento, tuve un problema al procesar tu solicitud. Por favor, revisa la configuración de la API Key.", sender: 'ai' };
+            if (response.functionCalls && response.functionCalls.length > 0) {
+                const functionCall = response.functionCalls[0];
+                let apiResponseText = '';
+
+                if (functionCall.name === 'createTask') {
+                    console.log('AI wants to create a task:', functionCall.args);
+                    await api.addDoc('tasks', { id: `task-${Date.now()}`, assignees: [currentUser.id], ...functionCall.args });
+                    apiResponseText = `¡Tarea "${functionCall.args.title}" creada exitosamente!`;
+                } else if (functionCall.name === 'updateClientStatus') {
+                    console.log('AI wants to update a client:', functionCall.args);
+                    apiResponseText = `Acción simulada: Estatus de "${functionCall.args.clientName}" actualizado a "${functionCall.args.newStatus}".`;
+                } else {
+                    apiResponseText = `No reconozco la acción: ${functionCall.name}`;
+                }
+                
+                const aiMessage: Message = { id: Date.now() + 1, text: apiResponseText, sender: 'ai' };
+                setMessages(prev => [...prev, aiMessage]);
+            } else {
+                const aiMessage: Message = { id: Date.now() + 1, text: response.text, sender: 'ai' };
+                setMessages(prev => [...prev, aiMessage]);
+            }
+
+        } catch (err) {
+            console.error("Error with AI:", err);
+            const errorMessage: Message = { id: Date.now() + 1, text: "Lo siento, tuve un problema al procesar tu solicitud. Inténtalo de nuevo.", sender: 'ai' };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
         }
     };
-
+    
     return (
-        <div className="flex flex-col h-[calc(100vh-120px)] bg-white rounded-lg shadow-sm border">
-            <div className="p-4 border-b">
-                <h2 className="text-lg font-semibold">Asistente de IA</h2>
+        <div className="flex flex-col h-[calc(100vh-120px)] bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+                <h1 className="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-indigo-500">auto_awesome</span>
+                    Asistente IA
+                </h1>
             </div>
 
-            <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
-                {messages.map(msg => (
-                    <div key={msg.id} className={`flex items-start gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        {msg.sender === 'ai' && <span className="material-symbols-outlined text-xl bg-primary text-white p-2 rounded-full">smart_toy</span>}
-                        <div className={`max-w-lg p-3 rounded-lg ${msg.sender === 'user' ? 'bg-blue-100' : 'bg-gray-200'}`}>
-                            <p className="whitespace-pre-wrap text-sm">{msg.text}</p>
+            <div className="flex-1 p-6 overflow-y-auto space-y-6">
+                {messages.map((message) => (
+                    <div key={message.id} className={`flex items-start gap-4 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        {message.sender === 'ai' && (
+                            <span className="material-symbols-outlined text-indigo-500 bg-indigo-100 dark:bg-indigo-500/10 p-2 rounded-full flex-shrink-0">
+                                auto_awesome
+                            </span>
+                        )}
+                        <div className={`max-w-xl p-3 rounded-xl ${message.sender === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200'}`}>
+                            <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                         </div>
-                        {msg.sender === 'user' && <img src={currentUser.avatarUrl} alt="User" className="w-10 h-10 rounded-full" />}
                     </div>
                 ))}
                 {isLoading && (
-                    <div className="flex items-start gap-3 justify-start">
-                         <span className="material-symbols-outlined text-xl bg-primary text-white p-2 rounded-full animate-pulse">smart_toy</span>
-                        <div className="max-w-lg p-3 rounded-lg bg-gray-200">
-                           <div className="flex items-center space-x-1">
-                               <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                               <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                               <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce"></div>
-                           </div>
+                    <div className="flex items-start gap-4 justify-start">
+                        <span className="material-symbols-outlined text-indigo-500 bg-indigo-100 dark:bg-indigo-500/10 p-2 rounded-full flex-shrink-0">
+                            auto_awesome
+                        </span>
+                        <div className="max-w-xl p-3 rounded-xl bg-slate-100 dark:bg-slate-700">
+                            <div className="flex items-center space-x-1">
+                                <div className="h-2 w-2 bg-slate-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                <div className="h-2 w-2 bg-slate-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                <div className="h-2 w-2 bg-slate-500 rounded-full animate-bounce"></div>
+                            </div>
                         </div>
                     </div>
                 )}
-                 <div ref={chatEndRef} />
+                <div ref={chatEndRef} />
             </div>
 
-            <form onSubmit={handleSendMessage} className="p-4 border-t bg-white">
-                <div className="relative">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+                <form onSubmit={handleSendMessage} className="relative">
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Pregunta sobre ventas, prospectos, tareas..."
-                        className="w-full pr-12 pl-4 py-2 border rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Pregúntale algo a tu asistente..."
+                        className="w-full pr-24"
                         disabled={isLoading}
                     />
-                    <button type="submit" disabled={isLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-primary text-white hover:bg-primary-dark disabled:bg-gray-400">
-                        <span className="material-symbols-outlined">send</span>
-                    </button>
-                </div>
-            </form>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                         <button 
+                            type="button"
+                            onClick={handleToggleRecording}
+                            disabled={!SpeechRecognition || isLoading}
+                            className={`p-2 rounded-full transition-colors ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-500'} disabled:opacity-50`}
+                         >
+                            <span className="material-symbols-outlined">{isRecording ? 'square' : 'mic'}</span>
+                        </button>
+                        <button type="submit" disabled={isLoading || input.trim() === ''} className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+                            <span className="material-symbols-outlined">send</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 };

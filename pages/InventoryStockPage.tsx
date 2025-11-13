@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -5,6 +6,7 @@ import { Product, ProductLot, Category } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
+import FilterButton from '../components/ui/FilterButton';
 
 interface StockInfo {
     // FIX: Add id for Table component key.
@@ -37,6 +39,8 @@ const InventoryStockPage: React.FC = () => {
         });
     }, [products, lotsData]);
     
+    const categoryOptions = useMemo(() => (categories || []).map(c => ({ value: c.id, label: c.name })), [categories]);
+
     const filteredStockData = useMemo(() => {
         return stockData.filter(item => {
             const categoryMatch = categoryFilter === 'all' || item.product.categoryId === categoryFilter;
@@ -59,7 +63,7 @@ const InventoryStockPage: React.FC = () => {
         {
             header: 'Producto',
             accessor: (item: StockInfo) => (
-                <Link to={`/products/${item.product.id}`} className="font-medium text-primary hover:underline">
+                <Link to={`/products/${item.product.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
                     {item.product.name}
                 </Link>
             )
@@ -89,33 +93,27 @@ const InventoryStockPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-text-main">Stock Actual</h2>
-                    <p className="text-sm text-text-secondary mt-1">Vista consolidada de tu inventario disponible.</p>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Stock Actual</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Vista consolidada de tu inventario disponible.</p>
                 </div>
-                <button className="bg-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-primary-dark transition-colors">
+                <button className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Nuevo Movimiento
                 </button>
             </div>
             
-            <div className="bg-white p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4">
-                 <div className="relative flex-grow">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
+                 <div className="flex items-center flex-grow bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
+                    <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">search</span>
                     <input
                         type="text"
                         placeholder="Buscar por nombre o SKU..."
                         value={filter}
                         onChange={e => setFilter(e.target.value)}
-                        className="w-full bg-white pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-dark/50"
+                        className="w-full bg-transparent pr-4 py-2 text-sm focus:outline-none"
                     />
                 </div>
-                <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Categoría:</label>
-                    <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="bg-white text-gray-900 text-sm border-gray-300 rounded-md shadow-sm">
-                        <option value="all">Todas</option>
-                        {categories?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                </div>
+                <FilterButton label="Categoría" options={categoryOptions} selectedValue={categoryFilter} onSelect={setCategoryFilter} allLabel="Todas" />
             </div>
 
             {loading ? <div className="flex justify-center py-12"><Spinner /></div> : <Table columns={columns} data={filteredStockData} />}

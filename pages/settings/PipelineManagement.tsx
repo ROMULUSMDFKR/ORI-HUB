@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { PIPELINE_COLUMNS, SAMPLES_PIPELINE_COLUMNS, QUOTES_PIPELINE_COLUMNS, SALES_ORDERS_PIPELINE_COLUMNS, COMPANIES_PIPELINE_COLUMNS } from '../../constants';
 
@@ -52,23 +53,20 @@ const PipelineStageList: React.FC<{ initialStages: Stage[] }> = ({ initialStages
     };
     
     const handleDragSort = () => {
-        if (dragItem.current === null || dragOverItem.current === null) return;
+        if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) {
+            return;
+        }
 
-        // Deep copy
-        let _stages = JSON.parse(JSON.stringify(stages));
-
-        // Remove and save the dragged item
-        const draggedItemContent = _stages.splice(dragItem.current, 1)[0];
-
-        // Switch the position
-        _stages.splice(dragOverItem.current, 0, draggedItemContent);
+        setStages(prevStages => {
+            const newStages = [...prevStages];
+            const [draggedItemContent] = newStages.splice(dragItem.current!, 1);
+            newStages.splice(dragOverItem.current!, 0, draggedItemContent);
+            return newStages;
+        });
 
         // Reset refs
         dragItem.current = null;
         dragOverItem.current = null;
-
-        // Update state
-        setStages(_stages);
     };
 
     return (

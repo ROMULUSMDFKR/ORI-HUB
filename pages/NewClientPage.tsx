@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Company, CompanyPipelineStage, Priority, User, Prospect } from '../types';
@@ -11,8 +12,8 @@ const initialClientState: Partial<Company> = {
     shortName: '',
     rfc: '',
     industry: '',
-    ownerId: MOCK_USERS.natalia.id,
-    createdById: MOCK_USERS.natalia.id,
+    ownerId: MOCK_USERS['user-1'].id,
+    createdById: MOCK_USERS['user-1'].id,
     stage: CompanyPipelineStage.Investigacion,
     priority: Priority.Media,
     isActive: true,

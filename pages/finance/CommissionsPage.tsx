@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { Commission, CommissionStatus, SalesOrder, User } from '../../types';
@@ -114,8 +113,6 @@ const CommissionsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Gestión de Comisiones</h1>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <KpiCard title="Total Pendiente por Pagar" value={`$${totalPending.toLocaleString('en-US', {minimumFractionDigits: 2})}`} icon="hourglass_top" />
                 <KpiCard title="Pagado este Mes" value={`$${paidThisMonth.toLocaleString('en-US', {minimumFractionDigits: 2})}`} icon="paid" />

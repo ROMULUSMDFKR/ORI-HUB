@@ -54,11 +54,7 @@ const InventoryMovementsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-200">Historial de Movimientos</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Audita todas las transacciones de inventario.</p>
-                </div>
+            <div className="flex justify-end items-center">
                 <button className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
                     <span className="material-symbols-outlined mr-2">add_circle</span>
                     Nuevo Movimiento
@@ -68,7 +64,7 @@ const InventoryMovementsPage: React.FC = () => {
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
                 <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">calendar_today</span>
-                    <input type="text" placeholder="dd/mm/aaaa" className="w-full sm:w-40 bg-white dark:bg-slate-800 pl-11 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"/>
+                    <input type="text" placeholder="dd/mm/aaaa" className="w-full sm:w-40 bg-white dark:bg-slate-800 pl-11 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 search-input-field"/>
                 </div>
                  <FilterButton
                     label="Tipo"

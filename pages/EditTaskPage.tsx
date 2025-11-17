@@ -11,8 +11,8 @@ import UserSelector from '../components/ui/UserSelector';
 import CustomSelect from '../components/ui/CustomSelect';
 
 const FormCard: React.FC<{ title: string, children: React.ReactNode}> = ({ title, children }) => (
-    <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-        <h3 className="text-xl font-bold mb-6 text-on-surface">{title}</h3>
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <h3 className="text-xl font-bold mb-6 text-slate-800 dark:text-slate-200">{title}</h3>
         <div className="space-y-6">
             {children}
         </div>
@@ -98,10 +98,10 @@ const EditTaskPage: React.FC = () => {
     return (
         <div className="max-w-4xl mx-auto">
              <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-on-surface">Editar Tarea</h1>
+                <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Editar Tarea</h1>
                 <div className="flex gap-2">
-                    <button onClick={() => navigate(`/tasks/${id}`)} className="bg-surface border border-border text-on-surface font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
-                    <button onClick={handleSave} className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Cambios</button>
+                    <button onClick={() => navigate(`/tasks/${id}`)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
+                    <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Cambios</button>
                 </div>
             </div>
              <div className="space-y-6">
@@ -130,7 +130,7 @@ const EditTaskPage: React.FC = () => {
                         />
                          <div>
                             <label className="block text-sm font-medium text-gray-700">Etiquetas</label>
-                            <div className="mt-1 flex flex-wrap gap-1 p-2 border border-border rounded-md bg-surface-inset" style={{ minHeight: '42px' }}>
+                            <div className="mt-1 flex flex-wrap gap-1 p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-slate-100 dark:bg-slate-700" style={{ minHeight: '42px' }}>
                                 {task.tags?.map(tag => (
                                     <span key={tag} className="bg-gray-200 text-gray-800 text-xs font-medium px-2 py-1 rounded-full flex items-center h-6">
                                         {tag}
@@ -174,7 +174,7 @@ const EditTaskPage: React.FC = () => {
                 
                 <FormCard title="Checklist">
                     <div className="flex justify-between mb-1"><span className="text-xs font-medium text-gray-700">{completedSubtasks} de {totalSubtasks} completadas</span><span className="text-xs font-medium text-gray-700">{progress.toFixed(0)}%</span></div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-accent h-1.5 rounded-full" style={{ width: `${progress}%` }}></div></div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${progress}%` }}></div></div>
                     <div className="space-y-3 mt-4">
                         {task.subtasks?.map(st => (
                             <div key={st.id} className="flex items-start gap-2 p-2 bg-gray-50 rounded-md">
@@ -187,7 +187,7 @@ const EditTaskPage: React.FC = () => {
                             </div>
                         ))}
                     </div>
-                     <div className="flex items-center gap-2 mt-4 p-2 border border-border rounded-lg bg-surface-inset">
+                     <div className="flex items-center gap-2 mt-4 p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-100 dark:bg-slate-700">
                         <input 
                             type="text" 
                             placeholder="Añadir elemento..." 
@@ -198,7 +198,7 @@ const EditTaskPage: React.FC = () => {
                         />
                         <button 
                             onClick={handleAddSubtask} 
-                            className="bg-accent text-on-dark font-semibold py-1 px-3 rounded-md flex-shrink-0"
+                            className="bg-indigo-600 text-white font-semibold py-1 px-3 rounded-md flex-shrink-0"
                         >
                             Añadir
                         </button>

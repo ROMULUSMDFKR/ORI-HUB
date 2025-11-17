@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { Product, ProductLot, LotStatus } from '../types';
@@ -68,10 +67,6 @@ const InventoryAlertsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Alertas de Inventario</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Acciones proactivas para mantener tu stock saludable.</p>
-            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <AlertCard title="Stock Bajo" icon="warning" iconClass="text-yellow-500">
                     {lowStockAlerts.length > 0 ? lowStockAlerts.map(alert => (

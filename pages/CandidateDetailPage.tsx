@@ -1,457 +1,240 @@
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
-import { useCollection } from '../hooks/useCollection';
-import { Candidate, Note, ActivityLog, CandidateStatus, CandidateTag, CandidateAiAnalysis, Review, Product, RejectionReason, BlacklistReason, Prospect, ProspectStage } from '../types';
+import { Candidate, Note, ActivityLog, CandidateStatus, CandidateTag, CandidateAiAnalysis, RejectionReason, BlacklistReason, Prospect, ProspectStage } from '../types';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
-import { MOCK_USERS, MOCK_MY_COMPANIES, api } from '../data/mockData';
+import { MOCK_USERS, api } from '../data/mockData';
 import { GoogleGenAI, Type } from '@google/genai';
-import Drawer from '../components/ui/Drawer';
-import FilterButton from '../components/ui/FilterButton';
+import CustomSelect from '../components/ui/CustomSelect';
+import NotesSection from '../components/shared/NotesSection';
 
 
-const ActionModal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    title: string;
-    reasons: string[];
-    onConfirm: (reason: string, notes?: string) => void;
-    requiresNotes?: boolean;
-}> = ({ isOpen, onClose, title, reasons, onConfirm, requiresNotes = false }) => {
+const SocialIcon: React.FC<{ url: string }> = ({ url }) => {
+    let iconName = 'public';
+    if (!url) return <span className="material-symbols-outlined !text-2xl text-slate-500">{iconName}</span>;
+    
+    const icons: Record<string, { path: string; brandColor: string }> = {
+        linkedin: { path: "M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z", brandColor: 'text-blue-700 dark:text-blue-500' },
+        facebook: { path: "M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z", brandColor: 'text-blue-600 dark:text-blue-400' },
+    };
+
+    try {
+        const hostname = new URL(url).hostname.replace('www.', '');
+        if (hostname.includes('linkedin.com')) iconName = 'linkedin';
+        else if (hostname.includes('facebook.com')) iconName = 'facebook';
+    } catch (e) { /* Invalid URL */ }
+
+    if (icons[iconName]) {
+        return <a href={url} target="_blank" rel="noopener noreferrer" className="hover:opacity-75 transition-opacity"><svg className={`w-6 h-6 ${icons[iconName].brandColor}`} fill="currentColor" viewBox="0 0 24 24"><path d={icons[iconName].path} /></svg></a>;
+    }
+
+    return <a href={url} target="_blank" rel="noopener noreferrer" className="hover:opacity-75 transition-opacity"><span className="material-symbols-outlined !text-2xl text-slate-500">{iconName}</span></a>;
+}
+
+const InfoCard: React.FC<{ title?: string; children: React.ReactNode; icon?: string; className?: string }> = ({ title, icon, children, className }) => (
+    <div className={`bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 ${className}`}>
+        {title && (
+            <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                {icon && <span className="material-symbols-outlined text-indigo-500">{icon}</span>}
+                {title}
+            </h3>
+        )}
+        <div className="space-y-4">
+            {children}
+        </div>
+    </div>
+);
+
+const ActionModal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; reasons: string[]; onConfirm: (reason: string, notes?: string) => void; }> = ({ isOpen, onClose, title, reasons, onConfirm }) => {
     const [reason, setReason] = useState(reasons[0] || '');
     const [notes, setNotes] = useState('');
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsDropdownOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
+    useEffect(() => { if (isOpen) { setReason(reasons[0] || ''); setNotes(''); } }, [isOpen, reasons]);
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" onClick={onClose}>
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl m-4 max-w-md w-full" onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                    <h3 className="text-lg font-semibold">{title}</h3>
-                </div>
+                <div className="p-4 border-b border-slate-200 dark:border-slate-700"><h3 className="text-lg font-semibold">{title}</h3></div>
                 <div className="p-6 space-y-4">
-                    <div className="relative" ref={dropdownRef}>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Motivo</label>
-                        <button
-                            type="button"
-                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                            className="flex w-full items-center justify-between gap-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 text-sm font-medium py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600"
-                        >
-                            <span>{reason}</span>
-                            <span className="material-symbols-outlined text-base text-slate-500 dark:text-slate-400">
-                                {isDropdownOpen ? 'expand_less' : 'expand_more'}
-                            </span>
-                        </button>
-                        {isDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-slate-800 rounded-lg shadow-lg z-20 border border-slate-200 dark:border-slate-700 py-1">
-                                {reasons.map(r => (
-                                    <button
-                                        key={r}
-                                        onClick={() => { setReason(r); setIsDropdownOpen(false); }}
-                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                                    >
-                                        {r}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                    {requiresNotes && (
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Notas (Opcional)</label>
-                            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="mt-1 block w-full" />
-                        </div>
-                    )}
+                    <CustomSelect label="Motivo *" options={reasons.map(r => ({ value: r, name: r }))} value={reason} onChange={setReason} />
+                    <div><label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Notas (Opcional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="mt-1 block w-full" /></div>
                 </div>
                 <div className="flex justify-end p-4 bg-slate-50 dark:bg-slate-800/50 rounded-b-lg space-x-2">
                     <button onClick={onClose} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">Cancelar</button>
-                    <button onClick={() => onConfirm(reason, notes)} className="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:bg-red-700">Confirmar</button>
+                    <button onClick={() => onConfirm(reason, notes)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:bg-indigo-700">Confirmar</button>
                 </div>
             </div>
         </div>
     );
 };
 
-
-const SocialIcon: React.FC<{ url: string }> = ({ url }) => {
-    let iconName = 'public';
-    let brandColor = 'text-slate-500';
-
-    if (url.includes('linkedin.com')) { iconName = 'linkedin'; brandColor = 'text-blue-700'; }
-    else if (url.includes('facebook.com')) { iconName = 'facebook'; brandColor = 'text-blue-600'; }
-    else if (url.includes('twitter.com') || url.includes('x.com')) { iconName = 'twitter'; brandColor = 'text-slate-500'; }
-    else if (url.includes('instagram.com')) { iconName = 'instagram'; brandColor = 'text-pink-500'; }
-    else if (url.includes('youtube.com')) { iconName = 'youtube'; brandColor = 'text-red-600'; }
-
-    // Dummy SVGs for brands not in material symbols
-    if (['linkedin', 'facebook', 'twitter', 'instagram', 'youtube'].includes(iconName)) {
-        return (
-            <svg className={`w-4 h-4 ${brandColor}`} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                {iconName === 'linkedin' && <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />}
-                {iconName === 'facebook' && <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z" />}
-                {/* Add other SVG paths if needed */}
-            </svg>
-        );
-    }
-
-    return <span className={`material-symbols-outlined !text-base ${brandColor}`}>{iconName}</span>;
-}
-
-
-interface MapModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  candidate: Candidate | null;
-}
-
-const MapModal: React.FC<MapModalProps> = ({ isOpen, onClose, candidate }) => {
-    if (!isOpen || !candidate) return null;
-
-    const mapEmbedUrl = `https://www.google.com/maps?q=${encodeURIComponent(candidate.address || candidate.name)}&output=embed`;
+const CompletenessCriteria: React.FC<{ candidate: Candidate }> = ({ candidate }) => {
+    const criteria = [
+        { name: 'Email', met: !!(candidate.email || candidate.aiAnalysis?.additionalEmails?.length) },
+        { name: 'Teléfono', met: !!(candidate.phone || candidate.aiAnalysis?.additionalPhones?.length) },
+        { name: 'Sitio Web', met: !!candidate.website },
+        { name: 'Redes Sociales', met: !!(candidate.aiAnalysis?.socialMediaLinks?.length) },
+        { name: 'Análisis con IA', met: !!candidate.aiAnalysis },
+    ];
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl m-4 w-full max-w-6xl h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{candidate.name}</h3>
-                    <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
-                        <span className="material-symbols-outlined text-slate-500 dark:text-slate-400">close</span>
-                    </button>
+        <div className="grid grid-cols-2 gap-y-1 gap-x-4 text-xs text-slate-500 dark:text-slate-400 mt-2">
+            {criteria.map(item => (
+                <div key={item.name} className="flex items-center">
+                    <span className={`material-symbols-outlined !text-sm mr-1.5 ${item.met ? 'text-green-500' : 'text-slate-400'}`}>
+                        {item.met ? 'check_circle' : 'cancel'}
+                    </span>
+                    {item.name}
                 </div>
-                <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                    <div className="lg:w-2/3 w-full h-1/2 lg:h-full">
-                        <iframe
-                            className="w-full h-full border-0"
-                            loading="lazy"
-                            allowFullScreen
-                            src={mapEmbedUrl}>
-                        </iframe>
-                    </div>
-                    <div className="lg:w-1/3 w-full h-1/2 lg:h-full overflow-y-auto p-4 space-y-4">
-                        {candidate.imageUrl && <img src={candidate.imageUrl} alt={candidate.name} className="w-full h-40 object-cover rounded-lg" />}
-                        <h3 className="font-bold text-xl text-slate-800 dark:text-slate-200">{candidate.name}</h3>
-                        <div className="text-sm text-slate-600 dark:text-slate-300 space-y-2">
-                             <p><span className="font-semibold">Categorías:</span> {candidate.rawCategories?.join(', ')}</p>
-                             <p><span className="font-semibold">Dirección:</span> {candidate.address}</p>
-                             <p><span className="font-semibold">Teléfono:</span> {candidate.phone}</p>
-                             <a href={candidate.website} target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline block truncate">Visitar sitio web</a>
-                        </div>
-                        
-                        {candidate.reviews && candidate.reviews.length > 0 && (
-                            <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-                                <h4 className="font-semibold text-md mb-2 text-slate-800 dark:text-slate-200">Reseñas</h4>
-                                <div className="space-y-3 max-h-60 overflow-y-auto">
-                                    {candidate.reviews.map((review, index) => (
-                                        <div key={index} className="text-xs p-2 bg-slate-50 dark:bg-slate-700/50 rounded-md">
-                                            <div className="flex items-center">
-                                               {[...Array(5)].map((_, i) => <span key={i} className={`material-symbols-outlined !text-sm ${i < review.rating ? 'text-yellow-500' : 'text-slate-300'}`}>star</span>)}
-                                                <span className="font-semibold ml-2">{review.author}</span>
-                                            </div>
-                                            <p className="mt-1">{review.text}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
+            ))}
         </div>
     );
 };
 
-
-const InfoCard: React.FC<{ title: string; children: React.ReactNode, icon?: string, className?: string }> = ({ title, icon, children, className }) => (
-    <div className={`bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 ${className}`}>
-        <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200 flex items-center gap-2">
-            {icon && <span className="material-symbols-outlined text-indigo-500">{icon}</span>}
-            {title}
-        </h3>
-        <div className="space-y-3">
-            {children}
-        </div>
-    </div>
-);
-
-const NoteCard: React.FC<{ note: Note }> = ({ note }) => {
-    const user = MOCK_USERS[note.userId];
-    return (
-        <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg">
-            <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{note.text}</p>
-            <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mt-2">
-                {user && <img src={user.avatarUrl} alt={user.name} className="w-5 h-5 rounded-full mr-2" />}
-                <span>{user?.name} &bull; {new Date(note.createdAt).toLocaleString()}</span>
-            </div>
-        </div>
-    );
-};
-
-const NotesSection: React.FC<{
-    notes: Note[];
-    onAddNote: (text: string) => void;
-}> = ({ notes, onAddNote }) => {
-    const [newNote, setNewNote] = useState('');
-
-    const handleAddNote = () => {
-        if (newNote.trim() === '') return;
-        onAddNote(newNote);
-        setNewNote('');
-    };
-
-    return (
-        <div className="space-y-4">
-            <div>
-                <textarea
-                    rows={3}
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    placeholder="Escribe una nueva nota..."
-                    className="w-full"
-                />
-                <div className="text-right mt-2">
-                    <button onClick={handleAddNote} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:bg-indigo-700">
-                        Agregar Nota
-                    </button>
-                </div>
-            </div>
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                {notes.length > 0 ? notes.map(note => (
-                   <NoteCard key={note.id} note={note} />
-                )) : <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No hay notas para este candidato.</p>}
-            </div>
-        </div>
-    );
-};
-
-
-const ActivityItem: React.FC<{ log: ActivityLog }> = ({ log }) => {
-    const user = MOCK_USERS[log.userId];
+const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) => {
     const iconMap: Record<ActivityLog['type'], string> = {
-        'Llamada': 'call', 'Email': 'email', 'Reunión': 'groups', 'Nota': 'note',
-        'Vista de Perfil': 'visibility', 'Análisis IA': 'auto_awesome', 'Cambio de Estado': 'change_circle', 'Sistema': 'dns'
+        'Llamada': 'call',
+        'Email': 'email',
+        'Reunión': 'groups',
+        'Nota': 'note',
+        'Vista de Perfil': 'visibility',
+        'Análisis IA': 'auto_awesome',
+        'Cambio de Estado': 'change_circle',
+        'Sistema': 'dns'
     };
+
     return (
-         <li className="relative flex gap-x-4">
-            <div className="absolute left-0 top-0 flex w-8 justify-center -bottom-6">
-              <div className="w-px bg-slate-200 dark:bg-slate-700"></div>
-            </div>
-            <div className="relative flex h-8 w-8 flex-none items-center justify-center bg-white dark:bg-slate-800">
-              <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center ring-4 ring-white dark:ring-slate-800">
-                <span className="material-symbols-outlined text-sm text-slate-500 dark:text-slate-400">{iconMap[log.type]}</span>
-              </div>
-            </div>
-            <div className="flex-auto py-1.5">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {log.description} por <span className="font-medium text-slate-900 dark:text-slate-200">{user?.name || 'Sistema'}</span>
-              </p>
-              <time dateTime={log.createdAt} className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                {new Date(log.createdAt).toLocaleString()}
-              </time>
-            </div>
-        </li>
+        <InfoCard title="Actividad Reciente" icon="history">
+            {activities.length > 0 ? (
+                 <ul className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                     {activities.map(activity => {
+                        const author = MOCK_USERS[activity.userId];
+                        return (
+                            <li key={activity.id} className="flex items-start gap-3">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center ring-4 ring-white dark:ring-slate-800">
+                                    <span className="material-symbols-outlined text-slate-500 dark:text-slate-400 !text-base">{iconMap[activity.type]}</span>
+                                </div>
+                                <div className="flex-1 text-sm">
+                                    <p className="text-slate-800 dark:text-slate-200">{activity.description}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                        {author?.name} &bull; {new Date(activity.createdAt).toLocaleString()}
+                                    </p>
+                                </div>
+                            </li>
+                        )
+                     })}
+                 </ul>
+            ) : (
+                <p className="text-sm text-center text-slate-500 dark:text-slate-400 py-4">No hay actividades para este candidato.</p>
+            )}
+        </InfoCard>
     );
 };
-
-const useOutsideAlerter = (ref: React.RefObject<HTMLDivElement>, setOpen: React.Dispatch<React.SetStateAction<boolean>>) => {
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (ref.current && !ref.current.contains(event.target as Node)) {
-                setOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [ref, setOpen]);
-}
 
 const CandidateDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { data: candidate, loading, error } = useDoc<Candidate>('candidates', id || '');
-    const { data: products } = useCollection<Product>('products');
-
     const [currentCandidate, setCurrentCandidate] = useState<Candidate | null>(null);
     const [isLoadingAI, setIsLoadingAI] = useState(false);
     const [aiError, setAiError] = useState('');
     const currentUser = MOCK_USERS['user-1'];
 
-    const [newTag, setNewTag] = useState('');
-    
-    const [isGoalOpen, setIsGoalOpen] = useState(false);
-    const [isProductOpen, setIsProductOpen] = useState(false);
-    const goalDropdownRef = useRef<HTMLDivElement>(null);
-    const productDropdownRef = useRef<HTMLDivElement>(null);
-    const [isMapModalOpen, setIsMapModalOpen] = useState(false);
-
-    // Modals for actions
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
     const [isBlacklistModalOpen, setIsBlacklistModalOpen] = useState(false);
+    const [newStatus, setNewStatus] = useState<CandidateStatus>();
+    const [aiScriptTab, setAiScriptTab] = useState<'whatsapp' | 'phone' | 'email'>('whatsapp');
     
-    // State for AI script tabs
-    const [activeScriptTab, setActiveScriptTab] = useState<'whatsapp' | 'phone' | 'email'>('whatsapp');
-    
-    useOutsideAlerter(goalDropdownRef, setIsGoalOpen);
-    useOutsideAlerter(productDropdownRef, setIsProductOpen);
-
     useEffect(() => {
         if (candidate) {
+            setCurrentCandidate(candidate);
+            setNewStatus(candidate.status);
             const hasViewed = candidate.activityLog.some(log => log.type === 'Vista de Perfil' && log.userId === currentUser.id);
-            if (!hasViewed) {
-                const viewLog: ActivityLog = { id: `log-${Date.now()}`, candidateId: candidate.id, type: 'Vista de Perfil', description: `perfil visto`, userId: currentUser.id, createdAt: new Date().toISOString() };
-                setCurrentCandidate({...candidate, activityLog: [viewLog, ...candidate.activityLog]});
-            } else {
-                 setCurrentCandidate(candidate);
-            }
+            if (!hasViewed) addActivityLog('Vista de Perfil', 'Perfil visto', candidate.id);
         }
     }, [candidate, currentUser.id]);
     
-    const addActivityLog = async (type: ActivityLog['type'], description: string) => {
-        if (!currentCandidate) return;
-        const log: ActivityLog = {
-            id: `log-${Date.now()}`,
-            candidateId: currentCandidate.id,
-            type,
-            description,
-            userId: currentUser.id,
-            createdAt: new Date().toISOString()
-        };
+    const addActivityLog = async (type: ActivityLog['type'], description: string, candidateId: string) => {
+        const log: ActivityLog = { id: `log-${Date.now()}`, candidateId, type, description, userId: currentUser.id, createdAt: new Date().toISOString() };
         await api.addDoc('activities', log);
         setCurrentCandidate(prev => prev ? { ...prev, activityLog: [log, ...prev.activityLog] } : null);
     };
 
+    const handleNoteAdded = (note: Note) => {
+         setCurrentCandidate(prev => prev ? { ...prev, notes: [note, ...prev.notes] } : null);
+    };
+
+    const handleStatusChange = async (status: CandidateStatus, description: string) => {
+        if (!currentCandidate) return;
+        const oldStatus = currentCandidate.status;
+        await api.updateDoc('candidates', currentCandidate.id, { status });
+        setCurrentCandidate(prev => prev ? { ...prev, status } : null);
+        addActivityLog('Cambio de Estado', `cambió el estado de "${oldStatus}" a "${description}"`, currentCandidate.id);
+    };
+    
+    const handleSaveStatus = () => {
+        if (!currentCandidate || !newStatus || newStatus === currentCandidate.status) return;
+        if (newStatus === CandidateStatus.Aprobado) handleApprove();
+        else if (newStatus === CandidateStatus.Rechazado) setIsRejectModalOpen(true);
+        else if (newStatus === CandidateStatus.ListaNegra) setIsBlacklistModalOpen(true);
+        else handleStatusChange(newStatus, `cambió el estado a "${newStatus}"`);
+    };
+    
     const handleApprove = async () => {
         if (!currentCandidate) return;
-
-        const newProspect: Prospect = {
-            id: `prospect-${Date.now()}`,
-            name: currentCandidate.name,
-            stage: ProspectStage.Nueva,
-            ownerId: currentUser.id,
-            createdById: currentUser.id,
-            estValue: 0,
-            createdAt: new Date().toISOString(),
-            origin: 'Prospección IA',
-        };
-
+        const newProspect: Prospect = { id: `prospect-${Date.now()}`, name: currentCandidate.name, stage: ProspectStage.Nueva, ownerId: currentUser.id, createdById: currentUser.id, estValue: 0, createdAt: new Date().toISOString(), origin: 'Prospección IA' };
         await api.addDoc('prospects', newProspect);
         await handleStatusChange(CandidateStatus.Aprobado, 'Aprobado y convertido en prospecto');
-
         alert('Candidato Aprobado. Redirigiendo al nuevo prospecto...');
         navigate(`/crm/prospects/${newProspect.id}`);
     };
 
-    const handleReject = (reason: string) => {
-        handleStatusChange(CandidateStatus.Rechazado, `Rechazado (Motivo: ${reason})`);
+    const handleReject = (reason: string, notes?: string) => {
+        handleStatusChange(CandidateStatus.Rechazado, `Rechazado (Motivo: ${reason})` + (notes ? ` - ${notes}` : ''));
         setIsRejectModalOpen(false);
     };
 
     const handleBlacklist = (reason: string, notes?: string) => {
-        const description = `Añadido a Lista Negra (Motivo: ${reason})` + (notes ? ` - ${notes}` : '');
-        handleStatusChange(CandidateStatus.ListaNegra, description);
+        handleStatusChange(CandidateStatus.ListaNegra, `Añadido a Lista Negra (Motivo: ${reason})` + (notes ? ` - ${notes}` : ''));
         setIsBlacklistModalOpen(false);
     };
-
-    const handleStatusChange = async (newStatus: CandidateStatus, description: string) => {
-        if (!currentCandidate) return;
-        const oldStatus = currentCandidate.status;
-        await api.updateDoc('candidates', currentCandidate.id, { status: newStatus });
-        setCurrentCandidate(prev => prev ? { ...prev, status: newStatus } : null);
-        addActivityLog('Cambio de Estado', `cambió el estado de "${oldStatus}" a "${description}"`);
-    };
-
-    const handleManualUpdate = (field: 'assignedCompanyId' | 'manuallyAssignedProductId', value: string) => {
-        if (!currentCandidate) return;
-        const oldValue = currentCandidate[field];
-        setCurrentCandidate(prev => prev ? { ...prev, [field]: value } : null);
-        const fieldName = field === 'assignedCompanyId' ? 'Objetivo' : 'Producto';
-        const prettyValue = field === 'assignedCompanyId' ? MOCK_MY_COMPANIES.find(c => c.id === value)?.name : products?.find(p => p.id === value)?.name;
-        addActivityLog('Sistema', `cambió ${fieldName} a "${prettyValue || value}"`);
-    };
-
-    const handleAddNote = (text: string) => {
-        if (!currentCandidate) return;
-        const note: Note = {
-            id: `note-${Date.now()}`,
-            candidateId: currentCandidate.id,
-            text,
-            userId: currentUser.id,
-            createdAt: new Date().toISOString(),
-        };
-        setCurrentCandidate(prev => prev ? { ...prev, notes: [note, ...prev.notes] } : null);
-        addActivityLog('Nota', 'agregó una nota');
-    };
-
-    const handleAddTag = (tag: CandidateTag) => {
-        if (tag.trim() && currentCandidate && !currentCandidate.tags.includes(tag)) {
-            const updatedTags = [...currentCandidate.tags, tag];
-            setCurrentCandidate(prev => prev ? { ...prev, tags: updatedTags } : null);
-            addActivityLog('Sistema', `agregó la etiqueta "${tag}"`);
-        }
-        setNewTag('');
-    };
-
-    const handleRemoveTag = (tagToRemove: CandidateTag) => {
-        if (!currentCandidate) return;
-        const updatedTags = currentCandidate.tags.filter(tag => tag !== tagToRemove);
-        setCurrentCandidate(prev => prev ? { ...prev, tags: updatedTags } : null);
-        addActivityLog('Sistema', `eliminó la etiqueta "${tagToRemove}"`);
-    };
     
-    const handleAiQualification = async () => {
+    const allEmails = useMemo(() => Array.from(new Set([currentCandidate?.email, ...(currentCandidate?.aiAnalysis?.additionalEmails || [])].filter(Boolean))), [currentCandidate]);
+    const allPhones = useMemo(() => Array.from(new Set([currentCandidate?.phone, ...(currentCandidate?.aiAnalysis?.additionalPhones || [])].filter(Boolean))), [currentCandidate]);
+
+    const profileCompleteness = useMemo(() => {
+        if (!currentCandidate) return 0;
+        let score = 0;
+        if (currentCandidate.email || currentCandidate.aiAnalysis?.additionalEmails?.length) score += 20;
+        if (currentCandidate.phone || currentCandidate.aiAnalysis?.additionalPhones?.length) score += 20;
+        if (currentCandidate.website) score += 20;
+        if (currentCandidate.aiAnalysis?.socialMediaLinks?.length) score += 10;
+        if (currentCandidate.aiAnalysis) score += 30;
+        return Math.min(100, score);
+    }, [currentCandidate]);
+
+    const handleRunAiAnalysis = async () => {
         if (!currentCandidate) return;
         setIsLoadingAI(true);
         setAiError('');
 
         try {
-            const context = `
-                - Nombre: ${currentCandidate.name}
-                - Dirección: ${currentCandidate.address}
-                - Teléfono: ${currentCandidate.phone}
-                - Email: ${currentCandidate.email}
-                - Sitio Web: ${currentCandidate.website}
-                - Categorías de Google: ${currentCandidate.rawCategories?.join(', ')}
-                - Reseñas de Google: ${currentCandidate.reviews?.map(r => `- "${r.text}" (${r.rating} estrellas)`).join('\n') || 'Ninguna'}
-            `;
-            const prompt = `
-                Actúa como un analista de negocios experto para un CRM que vende productos para estas 3 empresas: Puredef (enfocada en transporte y logística), Trade Aitirik (insumos agrícolas), y Santzer (insumos agrícolas).
-                Nuestras macro categorías son: 'Puredef: Transporte y Logística', 'Trade Aitirik: Insumos Agrícolas', 'Industrial Revenue: Industria y Manufactura', 'Commerce and resale for distributors'.
-
-                Basado en la siguiente información de un negocio extraído de Google Maps, proporciona un análisis estructurado en formato JSON. Si el negocio tiene un sitio web, visítalo para extraer información de contacto adicional.
-
-                Información del Negocio:
-                ${context}
-
-                Tu análisis debe incluir:
-                1. "suggestedCategory": Una de nuestras macro categorías.
-                2. "suggestedSubCategory": Una subcategoría más específica (ej: 'Transporte de Carga', 'Vivero').
-                3. "relevantProducts": Un array de strings con productos relevantes (ej: 'Urea líquida para SCR', 'Urea agrícola', 'Sulfato de Amonio').
-                4. "profileSummary": Un resumen de 2-3 frases describiendo el negocio y su potencial.
-                5. "confidenceScore": Un número del 0 al 100 de tu confianza en la calificación.
-                6. "nextActionSuggestion": Una sugerencia clara y accionable.
-                7. "communicationScripts": Un objeto con tres guiones cortos y directos para un primer contacto: "whatsapp", "phone", y "email".
-                8. "socialMediaLinks": Un array de strings con URLs de redes sociales.
-                9. "additionalEmails": Un array de strings con todos los emails de contacto encontrados.
-                10. "additionalPhones": Un array de strings con todos los teléfonos de contacto encontrados.
-            `;
+            const prompt = `Analiza el siguiente perfil de un candidato de negocio y genera un JSON con la siguiente estructura:
+            - profileSummary: Un resumen conciso del perfil del negocio.
+            - suggestedCategory: Una categoría sugerida para este negocio (ej. "Industrial", "Agricultura", "Transporte").
+            - nextActionSuggestion: Una sugerencia clara de la próxima acción a tomar con este candidato.
+            - communicationScripts: Un objeto con guiones para contactar al candidato a través de "whatsapp", "phone", y "email".
+            - socialMediaLinks: Un array de strings con URLs a perfiles de redes sociales (LinkedIn, Facebook, etc.) si las encuentras.
             
+            Datos del Candidato:
+            Nombre: ${currentCandidate.name}
+            Dirección: ${currentCandidate.address || 'No disponible'}
+            Categorías Originales: ${currentCandidate.rawCategories?.join(', ') || 'No disponible'}
+            Sitio Web: ${currentCandidate.website || 'No disponible'}`;
+
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
@@ -461,95 +244,160 @@ const CandidateDetailPage: React.FC = () => {
                     responseSchema: {
                         type: Type.OBJECT,
                         properties: {
-                            suggestedCategory: { type: Type.STRING },
-                            suggestedSubCategory: { type: Type.STRING },
-                            relevantProducts: { type: Type.ARRAY, items: { type: Type.STRING } },
                             profileSummary: { type: Type.STRING },
-                            confidenceScore: { type: Type.NUMBER },
+                            suggestedCategory: { type: Type.STRING },
                             nextActionSuggestion: { type: Type.STRING },
-                            communicationScripts: { 
+                            communicationScripts: {
                                 type: Type.OBJECT,
                                 properties: {
                                     whatsapp: { type: Type.STRING },
                                     phone: { type: Type.STRING },
                                     email: { type: Type.STRING },
                                 },
-                                required: ['whatsapp', 'phone', 'email'],
+                                required: ['whatsapp', 'phone', 'email']
                             },
                             socialMediaLinks: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            additionalEmails: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            additionalPhones: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        }
-                    }
-                }
+                        },
+                         required: ['profileSummary', 'suggestedCategory', 'nextActionSuggestion', 'communicationScripts']
+                    },
+                },
             });
             
-            const result: CandidateAiAnalysis = JSON.parse(response.text);
-            setCurrentCandidate(prev => prev ? {...prev, aiAnalysis: result} : null);
-            addActivityLog('Análisis IA', 'realizó un análisis con IA');
+            const jsonStr = response.text.trim();
+            const analysisResult: CandidateAiAnalysis = JSON.parse(jsonStr);
 
-        } catch (error) {
-            console.error("Error with Gemini AI qualification:", error);
-            setAiError("No se pudo obtener el análisis de la IA. Inténtalo de nuevo.");
+            await api.updateDoc('candidates', currentCandidate.id, { aiAnalysis: analysisResult });
+            setCurrentCandidate(prev => prev ? { ...prev, aiAnalysis: analysisResult } : null);
+            addActivityLog('Análisis IA', 'Análisis de perfil ejecutado', currentCandidate.id);
+        } catch (err) {
+            console.error("Error with Gemini AI:", err);
+            setAiError("No se pudo completar el análisis. Inténtalo de nuevo.");
         } finally {
             setIsLoadingAI(false);
         }
     };
     
-    const allEmails = useMemo(() => {
-        const emails = new Set<string>();
-        if (currentCandidate?.email) emails.add(currentCandidate.email);
-        currentCandidate?.aiAnalysis?.additionalEmails?.forEach(email => emails.add(email));
-        return Array.from(emails);
-    }, [currentCandidate]);
-
-    const allPhones = useMemo(() => {
-        const phones = new Set<string>();
-        if (currentCandidate?.phone) phones.add(currentCandidate.phone);
-        currentCandidate?.aiAnalysis?.additionalPhones?.forEach(phone => phones.add(phone));
-        return Array.from(phones);
-    }, [currentCandidate]);
-
-    const availableTags: CandidateTag[] = ['Alto Potencial', 'Potencial Distribuidor', 'Consumidor Directo', 'Para seguimiento', 'No Relevante'];
-    const suggestedTags = availableTags.filter(t => !currentCandidate?.tags.includes(t));
-
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (error || !currentCandidate) return <div className="text-center p-12">Candidato no encontrado</div>;
     
+    const googleMapEmbedUrl = `https://www.google.com/maps/embed/v1/place?key=${process.env.API_KEY}&q=${encodeURIComponent(currentCandidate.googlePlaceId || currentCandidate.name + ',' + currentCandidate.address)}`;
+
+    const statusOptions = Object.values(CandidateStatus).map(s => ({ value: s, name: s }));
+
     return (
         <>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Left Sidebar */}
-            <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-                <InfoCard title="Información de Contacto" icon="info">
-                    <p className="text-sm"><strong>Teléfono:</strong> {currentCandidate.phone || 'N/A'}</p>
-                    <p className="text-sm"><strong>Email:</strong> {currentCandidate.email || 'N/A'}</p>
-                    <p className="text-sm">
-                        <strong>Sitio Web:</strong>{' '}
-                        {currentCandidate.website ? (
-                            <a href={currentCandidate.website} target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline truncate block">
-                                {currentCandidate.website}
-                            </a>
-                        ) : (
-                            'N/A'
-                        )}
-                    </p>
-                    <p className="text-sm"><strong>Dirección:</strong> {currentCandidate.address || 'N/A'}</p>
-                    
-                    <div className="border-t border-slate-200 dark:border-slate-700 mt-3 pt-3 space-y-2">
-                        <button onClick={() => setIsMapModalOpen(true)} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
-                            <span className="material-symbols-outlined text-base">wysiwyg</span>
-                            Ver ficha interactiva
-                        </button>
-                        {currentCandidate.googleMapsUrl && (
-                            <a href={currentCandidate.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
-                                <span className="material-symbols-outlined text-base">open_in_new</span>
-                                Abrir en Google Maps
-                            </a>
-                        )}
+            <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-200">{currentCandidate.name}</h1>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 w-full md:w-auto">
+                    <div className="w-full md:w-40">
+                       <CustomSelect options={statusOptions} value={newStatus || ''} onChange={(val) => setNewStatus(val as CandidateStatus)} />
                     </div>
-                </InfoCard>
+                    <button onClick={handleSaveStatus} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 h-[42px]">Guardar</button>
+                </div>
+            </div>
 
-                <InfoCard title="Acciones Rápidas" icon="bolt">
-                    <div className="flex flex-col space-y-2">
-                        <button onClick={handleApprove} className="w-full bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-green-200 dark:hover:bg-green-500
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                    <InfoCard title="Contacto y Enlaces" icon="contact_page">
+                         <div className="space-y-3">
+                            {currentCandidate.website && (
+                                <a href={currentCandidate.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                                    <span className="material-symbols-outlined text-xl text-slate-500">language</span>
+                                    {currentCandidate.website}
+                                </a>
+                            )}
+                             {allEmails.map(email => (
+                                <a key={email} href={`mailto:${email}`} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                                    <span className="material-symbols-outlined text-xl text-slate-500">email</span>
+                                    {email}
+                                </a>
+                            ))}
+                             {allPhones.map(phone => (
+                                <a key={phone} href={`tel:${phone}`} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                                    <span className="material-symbols-outlined text-xl text-slate-500">phone</span>
+                                    {phone}
+                                </a>
+                            ))}
+                        </div>
+                        {currentCandidate.aiAnalysis?.socialMediaLinks && currentCandidate.aiAnalysis.socialMediaLinks.length > 0 && (
+                            <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-4 flex items-center gap-4">
+                                <span className="material-symbols-outlined text-xl text-slate-500">groups</span>
+                                {currentCandidate.aiAnalysis.socialMediaLinks.map(link => <SocialIcon key={link} url={link} />)}
+                            </div>
+                        )}
+                    </InfoCard>
+
+                    <InfoCard title="Análisis con IA" icon="auto_awesome">
+                        {isLoadingAI ? <div className="flex justify-center items-center h-48"><Spinner /></div> : 
+                         aiError ? <p className="text-red-500 text-sm text-center">{aiError}</p> :
+                         currentCandidate.aiAnalysis ? (
+                            <div className="space-y-4 text-sm">
+                                <div><h4 className="font-semibold text-slate-500 dark:text-slate-400">Resumen del Perfil</h4><p>{currentCandidate.aiAnalysis.profileSummary}</p></div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><h4 className="font-semibold text-slate-500 dark:text-slate-400">Categoría Sugerida</h4><p><Badge text={currentCandidate.aiAnalysis.suggestedCategory} color="blue"/></p></div>
+                                    <div><h4 className="font-semibold text-slate-500 dark:text-slate-400">Próxima Acción</h4><p>{currentCandidate.aiAnalysis.nextActionSuggestion}</p></div>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-slate-500 dark:text-slate-400 mb-2">Guiones de Comunicación</h4>
+                                    <div className="border-b border-slate-200 dark:border-slate-700"><nav className="-mb-px flex space-x-4"><button onClick={()=>setAiScriptTab('whatsapp')} className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${aiScriptTab==='whatsapp'?'border-indigo-500 text-indigo-600':'border-transparent text-slate-500 hover:text-slate-700'}`}>WhatsApp</button><button onClick={()=>setAiScriptTab('phone')} className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${aiScriptTab==='phone'?'border-indigo-500 text-indigo-600':'border-transparent text-slate-500 hover:text-slate-700'}`}>Llamada</button><button onClick={()=>setAiScriptTab('email')} className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${aiScriptTab==='email'?'border-indigo-500 text-indigo-600':'border-transparent text-slate-500 hover:text-slate-700'}`}>Email</button></nav></div>
+                                    <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md text-xs"><p className="whitespace-pre-wrap font-mono">{currentCandidate.aiAnalysis.communicationScripts[aiScriptTab]}</p></div>
+                                </div>
+                            </div>
+                         ) :
+                         <div className="text-center py-4">
+                             <p className="text-sm text-slate-500 mb-4">No se ha ejecutado un análisis para este candidato.</p>
+                             <button onClick={handleRunAiAnalysis} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700"><span className="material-symbols-outlined mr-2">psychology</span>Calificar con IA</button>
+                         </div>
+                        }
+                    </InfoCard>
+                    <ActivityFeed activities={currentCandidate.activityLog} />
+                </div>
+
+                <div className="lg:col-span-1 space-y-6">
+                    {currentCandidate.imageUrl && (
+                        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                            <img src={currentCandidate.imageUrl} alt={`${currentCandidate.name} logo`} className="rounded-lg object-contain max-h-40 w-full" />
+                        </div>
+                    )}
+
+                    <InfoCard>
+                        <h4 className="font-semibold text-slate-500 dark:text-slate-400">Puntuación de Perfil</h4>
+                        <div className="flex items-center gap-3">
+                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5"><div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${profileCompleteness}%` }}></div></div>
+                            <span className="font-bold text-lg">{profileCompleteness}%</span>
+                        </div>
+                        <CompletenessCriteria candidate={currentCandidate} />
+                    </InfoCard>
+
+                    <InfoCard title="Ubicación" icon="location_on">
+                        <p className="font-semibold text-slate-700 dark:text-slate-300">{currentCandidate.address}</p>
+                        <div className="h-48 w-full rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                             <iframe title={`Mapa de ${currentCandidate.name}`} width="100%" height="100%" frameBorder="0" style={{ border: 0 }} src={googleMapEmbedUrl} allowFullScreen></iframe>
+                        </div>
+                    </InfoCard>
+
+                    <InfoCard title="Etiquetas" icon="label">
+                         <div className="flex flex-wrap gap-2">
+                             {currentCandidate.tags.map(tag => <Badge key={tag} text={tag} color="blue" />)}
+                             <button className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">+ Añadir etiqueta</button>
+                         </div>
+                    </InfoCard>
+                    
+                    <NotesSection
+                        entityId={currentCandidate.id}
+                        entityType="candidate"
+                        notes={currentCandidate.notes}
+                        onNoteAdded={handleNoteAdded}
+                    />
+                </div>
+            </div>
+            
+            <ActionModal isOpen={isRejectModalOpen} onClose={() => { setIsRejectModalOpen(false); setNewStatus(currentCandidate.status); }} title="Rechazar Candidato" reasons={Object.values(RejectionReason)} onConfirm={handleReject}/>
+            <ActionModal isOpen={isBlacklistModalOpen} onClose={() => { setIsBlacklistModalOpen(false); setNewStatus(currentCandidate.status); }} title="Añadir a Lista Negra" reasons={Object.values(BlacklistReason)} onConfirm={handleBlacklist}/>
+        </>
+    );
+};
+
+export default CandidateDetailPage;

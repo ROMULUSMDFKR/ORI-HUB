@@ -1,3 +1,4 @@
+
 import { ProspectStage, SampleStatus, QuotePipelineStage, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm } from './types';
 
 export const NAV_LINKS = [
@@ -9,55 +10,63 @@ export const NAV_LINKS = [
     name: 'Prospección IA', 
     icon: 'travel_explore', 
     sublinks: [
-      { name: 'Candidatos', path: '/prospecting/candidates' },
-      { name: 'Importar Datos', path: '/prospecting/upload' },
+      { name: 'Candidatos', path: '/prospecting/candidates', icon: 'person_search' },
+      { name: 'Importar Datos', path: '/prospecting/upload', icon: 'upload_file' },
     ]
   },
-  { name: 'Ventas', path: '/crm/lists', icon: 'point_of_sale' },
   { 
-    name: 'Hubs', 
+    name: 'Ventas', 
     icon: 'hub', 
     sublinks: [
-      { name: 'Prospectos', path: '/hubs/prospects' },
-      { name: 'Muestras', path: '/hubs/samples' },
-      { name: 'Cotizaciones', path: '/hubs/quotes' },
-      { name: 'Órdenes de Venta', path: '/hubs/sales-orders' },
-      { name: 'Empresas', path: '/hubs/companies' },
+      { name: 'Prospectos', path: '/hubs/prospects', icon: 'trending_up' },
+      { name: 'Muestras', path: '/hubs/samples', icon: 'science' },
+      { name: 'Cotizaciones', path: '/hubs/quotes', icon: 'request_quote' },
+      { name: 'Órdenes de Venta', path: '/hubs/sales-orders', icon: 'receipt_long' },
+      { name: 'Empresas', path: '/hubs/companies', icon: 'business_center' },
+    ]
+  },
+  {
+    name: 'Listas CRM',
+    icon: 'list_alt',
+    sublinks: [
+      { name: 'Clientes', path: '/crm/clients/list', icon: 'groups' },
+      { name: 'Contactos', path: '/crm/contacts/list', icon: 'contacts' },
     ]
   },
   { 
     name: 'Productos', 
     icon: 'inventory_2',
     sublinks: [
-        { name: 'Lista de Productos', path: '/products/list' },
-        { name: 'Categorías', path: '/products/categories' },
+        { name: 'Panel de Productos', path: '/products/dashboard', icon: 'dashboard' },
+        { name: 'Lista de Productos', path: '/products/list', icon: 'inventory' },
+        { name: 'Categorías', path: '/products/categories', icon: 'category' },
     ]
   },
   { 
     name: 'Compras', 
     icon: 'shopping_cart',
     sublinks: [
-        { name: 'Órdenes de Compra', path: '/purchase-orders' },
-        { name: 'Proveedores', path: '/purchase/suppliers' },
+        { name: 'Órdenes de Compra', path: '/purchase/orders', icon: 'shopping_basket' },
+        { name: 'Proveedores', path: '/purchase/suppliers', icon: 'factory' },
     ]
   },
   { 
     name: 'Inventario', 
     icon: 'warehouse',
     sublinks: [
-        { name: 'Stock Actual', path: '/inventory/stock' },
-        { name: 'Movimientos', path: '/inventory/movements' },
-        { name: 'Alertas', path: '/inventory/alerts' },
-        { name: 'Ubicaciones', path: '/inventory/locations' },
+        { name: 'Stock Actual', path: '/inventory/stock', icon: 'inventory' },
+        { name: 'Movimientos', path: '/inventory/movements', icon: 'multiple_stop' },
+        { name: 'Alertas', path: '/inventory/alerts', icon: 'notification_important' },
+        { name: 'Ubicaciones', path: '/inventory/locations', icon: 'pin_drop' },
     ]
   },
   { 
     name: 'Logística', 
     icon: 'local_shipping',
     sublinks: [
-        { name: 'Entregas', path: '/logistics/deliveries' },
-        { name: 'Transportistas', path: '/logistics/providers' },
-        { name: 'Precios de Flete', path: '/logistics/pricing' },
+        { name: 'Entregas', path: '/logistics/deliveries', icon: 'local_shipping' },
+        { name: 'Transportistas', path: '/logistics/providers', icon: 'group' },
+        { name: 'Precios de Flete', path: '/logistics/pricing', icon: 'price_change' },
     ]
   },
 
@@ -67,10 +76,10 @@ export const NAV_LINKS = [
     name: 'Tareas', 
     icon: 'task_alt',
     sublinks: [
-      { name: 'Mis Tareas', path: '/tasks?view=mine' },
-      { name: 'Tablero', path: '/tasks?view=board' },
-      { name: 'Todas las Tareas', path: '/tasks?view=all' },
-      { name: 'Proyectos', path: '/tasks/projects' },
+      { name: 'Mis Tareas', path: '/tasks?view=mine', icon: 'person' },
+      { name: 'Tablero', path: '/tasks?view=board', icon: 'view_kanban' },
+      { name: 'Todas las Tareas', path: '/tasks?view=all', icon: 'list' },
+      { name: 'Proyectos', path: '/tasks/projects', icon: 'workspaces' },
     ]
   },
   { name: 'Calendario', path: '/calendar', icon: 'calendar_month' },
@@ -78,9 +87,9 @@ export const NAV_LINKS = [
     name: 'Comunicación', 
     icon: 'chat', 
     sublinks: [
-      { name: 'Chat Interno', path: '/communication/chat' },
-      { name: 'Correos', path: '/communication/emails' },
-      { name: 'Asistente IA', path: '/communication/ai-assistant' },
+      { name: 'Chat Interno', path: '/communication/chat', icon: 'forum' },
+      { name: 'Correos', path: '/communication/emails', icon: 'mail' },
+      { name: 'Asistente IA', path: '/communication/ai-assistant', icon: 'smart_toy' },
     ]
   },
   
@@ -90,11 +99,12 @@ export const NAV_LINKS = [
     name: 'Finanzas',
     icon: 'monitoring',
     sublinks: [
-      { name: 'Pagos Pendientes', path: '/finance/pending-payments' },
-      { name: 'Pagos Recibidos', path: '/finance/payments-received' },
-      { name: 'Gastos', path: '/finance/expenses' },
-      { name: 'Flujo de Caja', path: '/finance/cash-flow' },
-      { name: 'Comisiones', path: '/finance/commissions' },
+      { name: 'Panel de Ventas', path: '/finance/sales-dashboard', icon: 'query_stats' },
+      { name: 'Pagos Pendientes', path: '/finance/pending-payments', icon: 'hourglass_top' },
+      { name: 'Pagos Recibidos', path: '/finance/payments-received', icon: 'price_check' },
+      { name: 'Gastos', path: '/finance/expenses', icon: 'payments' },
+      { name: 'Flujo de Caja', path: '/finance/cash-flow', icon: 'show_chart' },
+      { name: 'Comisiones', path: '/finance/commissions', icon: 'percent' },
     ]
   },
 
@@ -102,7 +112,20 @@ export const NAV_LINKS = [
 
   { name: 'Archivos', path: '/archives', icon: 'archive' },
   { name: 'Auditoría', path: '/insights/audit', icon: 'history' },
-  { name: 'Configuración', path: '/settings', icon: 'settings' },
+  { 
+    name: 'Configuración', 
+    icon: 'settings',
+    sublinks: [
+      { name: 'Usuarios y Permisos', path: '/settings/users', icon: 'manage_accounts' },
+      { name: 'Equipos', path: '/settings/teams', icon: 'groups' },
+      { name: 'Seguridad', path: '/settings/security', icon: 'security' },
+      { name: 'Cuentas de Correo', path: '/settings/email-accounts', icon: 'alternate_email' },
+      { name: 'Industrias', path: '/settings/industries', icon: 'factory' },
+      { name: 'Etapas de Venta', path: '/settings/pipelines', icon: 'view_carousel' },
+      { name: 'Acceso de IA', path: '/settings/ai-access', icon: 'neurology' },
+      { name: 'Apariencia de Email', path: '/settings/appearance/email', icon: 'palette' },
+    ] 
+  },
 ];
 
 export const PIPELINE_COLUMNS = [
@@ -132,15 +155,18 @@ export const SAMPLES_PIPELINE_COLUMNS = [
     { stage: SampleStatus.Recibida, group: 'FLUJO DE MUESTRAS', objective: 'Confirmar recepción y pruebas.' },
     { stage: SampleStatus.ConFeedback, group: 'FLUJO DE MUESTRAS', objective: 'Obtener retroalimentación.' },
     { stage: SampleStatus.Cerrada, group: 'FLUJO DE MUESTRAS', objective: 'Muestra finalizada.' },
+    { stage: SampleStatus.Archivada, group: 'FINALIZADO', objective: 'Muestras archivadas y fuera del flujo activo.' },
 ];
 
 export const QUOTES_PIPELINE_COLUMNS = [
-    { stage: QuotePipelineStage.Borrador, group: 'FLUJO DE COTIZACIONES', objective: 'Completar y revisar.' },
-    { stage: QuotePipelineStage.Enviada, group: 'FLUJO DE COTIZACIONES', objective: 'Confirmar recepción.' },
-    { stage: QuotePipelineStage.EnRevision, group: 'FLUJO DE COTIZACIONES', objective: 'Cliente está revisando.' },
-    { stage: QuotePipelineStage.Negociacion, group: 'FLUJO DE COTIZACIONES', objective: 'Ajustar términos.' },
-    { stage: QuotePipelineStage.Aprobada, group: 'FLUJO DE COTIZACIONES', objective: 'Generar orden de venta.' },
-    { stage: QuotePipelineStage.Perdida, group: 'FLUJO DE COTIZACIONES', objective: 'Archivar y aprender.' },
+    { stage: QuotePipelineStage.Borrador, group: 'PREPARACIÓN', objective: 'Vendedor crea o ajusta la cotización.' },
+    { stage: QuotePipelineStage.EnAprobacionInterna, group: 'PREPARACIÓN', objective: 'Esperando validación de precios y términos.' },
+    { stage: QuotePipelineStage.AjustesRequeridos, group: 'PREPARACIÓN', objective: 'Regresada al vendedor para correcciones.' },
+    { stage: QuotePipelineStage.ListaParaEnviar, group: 'FLUJO CON CLIENTE', objective: 'Aprobada internamente, lista para el cliente.' },
+    { stage: QuotePipelineStage.EnviadaAlCliente, group: 'FLUJO CON CLIENTE', objective: 'Confirmar recepción y esperar respuesta.' },
+    { stage: QuotePipelineStage.EnNegociacion, group: 'FLUJO CON CLIENTE', objective: 'Cliente solicitó cambios o está negociando.' },
+    { stage: QuotePipelineStage.AprobadaPorCliente, group: 'RESULTADOS', objective: '¡Éxito! Generar orden de venta.' },
+    { stage: QuotePipelineStage.Rechazada, group: 'RESULTADOS', objective: 'Archivar y registrar motivo de pérdida.' },
 ];
 
 export const SALES_ORDERS_PIPELINE_COLUMNS = [

@@ -56,11 +56,7 @@ const LogisticsProvidersPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Proveedores de Transporte</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona tu red de transportistas.</p>
-                </div>
+            <div className="flex justify-end items-center">
                 <Link
                     to="/logistics/providers/new"
                     className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">

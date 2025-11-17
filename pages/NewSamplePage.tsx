@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sample, SampleStatus, Prospect, Company, Product } from '../types';
@@ -12,7 +13,7 @@ const NewSamplePage: React.FC = () => {
     const [sample, setSample] = useState<Partial<Sample>>({
         name: '',
         status: SampleStatus.Solicitada,
-        ownerId: MOCK_USERS.natalia.id,
+        ownerId: MOCK_USERS['user-1'].id,
         requestDate: new Date().toISOString().split('T')[0],
     });
 

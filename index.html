@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CRM Studio</title>
+    <title>ORI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,7 +35,7 @@
   }
   
   /* Base styles for all form elements using plain CSS for reliability */
-  input, select, textarea {
+  input:not(.search-input-field):not(.login-input), select, textarea {
     appearance: none; /* remove default styling */
     background-color: #fff;
     border-color: #cbd5e1; /* slate-300 */
@@ -60,14 +60,14 @@
     padding-right: 2.5rem;
   }
 
-  input::placeholder,
+  input:not(.search-input-field):not(.login-input)::placeholder,
   textarea::placeholder {
     color: #94a3b8; /* slate-400 */
     opacity: 1; /* Firefox adds a lower opacity by default */
   }
 
   /* Focus styles */
-  input:focus,
+  input:not(.search-input-field):not(.login-input):focus,
   select:focus,
   textarea:focus {
     outline: 2px solid transparent;
@@ -78,7 +78,7 @@
   }
 
   /* Dark mode overrides to force white background and dark text */
-  .dark input, 
+  .dark input:not(.search-input-field):not(.login-input), 
   .dark select, 
   .dark textarea {
     background-color: #fff;
@@ -86,16 +86,79 @@
     color: #0f172a; 
   }
   
-  .dark input::placeholder,
+  .dark input:not(.search-input-field):not(.login-input)::placeholder,
   .dark textarea::placeholder {
     color: #94a3b8; /* dark:placeholder:text-slate-400 */
   }
+
+  /* NEW STYLES for dark-on-dark login inputs */
+  .login-input {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 0.5rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: #ffffff;
+    width: 100%;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .login-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+    opacity: 1;
+  }
+
+  .login-input:focus {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    --tw-ring-color: #8a5cff;
+    box-shadow: 0 0 0 2px var(--tw-ring-color);
+    border-color: #8a5cff;
+  }
   
-  .dark input:focus,
+  .dark input:not(.search-input-field):not(.login-input):focus,
   .dark select:focus,
   .dark textarea:focus {
     --tw-ring-color: #6366f1; /* dark:focus:ring-indigo-500 */
     border-color: #6366f1;
+  }
+
+  /* ANIMATION STYLES */
+  @keyframes zoomIn {
+    from {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(40px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-zoom-in {
+    animation: zoomIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    animation-delay: 1000ms;
+    opacity: 0; /* Start hidden before animation */
+  }
+
+  .animate-slide-in-up {
+    animation: slideInUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    animation-delay: 1500ms; /* 1000ms (initial delay) + 500ms (stagger) */
+    opacity: 0; /* Start hidden before animation */
   }
 </style>
 <script type="importmap">
@@ -105,7 +168,9 @@
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.5",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0"
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
+    "ogl": "https://aistudiocdn.com/ogl@^1.0.11",
+    "three": "https://aistudiocdn.com/three@^0.166.1"
   }
 }
 </script>

@@ -37,6 +37,7 @@ const QuickTaskModal: React.FC<QuickTaskModalProps> = ({ isOpen, onClose, onSave
                 status: TaskStatus.PorHacer, 
                 priority: Priority.Media 
             });
+            onClose();
         }
     };
 

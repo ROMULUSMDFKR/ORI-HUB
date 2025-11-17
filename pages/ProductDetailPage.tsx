@@ -3,10 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { Product, ProductLot, Category, Note } from '../types';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-// FIX: Changed import path to a dedicated api module.
-import { api, MOCK_USERS } from '../data/mockData';
+import { api } from '../data/mockData';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
+import NotesSection from '../components/shared/NotesSection';
 
 const InfoCard: React.FC<{ title: string; children: React.ReactNode, className?: string }> = ({ title, children, className }) => (
     <div className={`bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm ${className}`}>
@@ -67,93 +67,12 @@ const LotCard: React.FC<{lot: ProductLot, unit: string, locationsMap: Map<string
     );
 };
 
-const NoteCard: React.FC<{ note: Note }> = ({ note }) => {
-    const [menuOpen, setMenuOpen] = useState(false);
-    const user = MOCK_USERS[note.userId];
-
-    return (
-        <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg relative">
-            <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{note.text}</p>
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mt-2">
-                <div className="flex items-center">
-                    {user && <img src={user.avatarUrl} alt={user.name} className="w-5 h-5 rounded-full mr-2" />}
-                    <span>{user?.name} &bull; {new Date(note.createdAt).toLocaleString()}</span>
-                </div>
-            </div>
-            <div className="absolute top-2 right-2">
-                <button onClick={() => setMenuOpen(!menuOpen)} onBlur={() => setTimeout(() => setMenuOpen(false), 150)} className="p-1 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-slate-600">
-                    <span className="material-symbols-outlined text-base">more_vert</span>
-                </button>
-                {menuOpen && (
-                    <div className="absolute right-0 mt-1 w-32 bg-white dark:bg-slate-800 rounded-md shadow-lg z-10 border border-slate-200 dark:border-slate-700">
-                        <button onClick={() => alert('Editando nota...')} className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><span className="material-symbols-outlined text-base mr-2">edit</span>Editar</button>
-                        <button onClick={() => alert('Eliminando nota...')} className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"><span className="material-symbols-outlined text-base mr-2">delete</span>Eliminar</button>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-const NotesSection: React.FC<{ productId: string }> = ({ productId }) => {
-    const { data: allNotes } = useCollection<Note>('notes');
-    const [notes, setNotes] = useState<Note[]>([]);
-    const [newNote, setNewNote] = useState('');
-
-    useEffect(() => {
-        if (allNotes) {
-            const productNotes = allNotes
-                .filter(n => n.productId === productId)
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            setNotes(productNotes);
-        }
-    }, [allNotes, productId]);
-
-    const handleAddNote = () => {
-        if (newNote.trim() === '') return;
-        const note: Note = {
-            id: `note-${Date.now()}`,
-            productId: productId,
-            text: newNote,
-            userId: 'natalia', // Assuming current user is Natalia
-            createdAt: new Date().toISOString(),
-        };
-        setNotes([note, ...notes]);
-        setNewNote('');
-    };
-
-    return (
-        <InfoCard title="Notas y Actividad">
-            <div className="space-y-4">
-                <div>
-                    <textarea
-                        rows={3}
-                        value={newNote}
-                        onChange={(e) => setNewNote(e.target.value)}
-                        placeholder="Escribe una nueva nota..."
-                    />
-                    <div className="text-right mt-2">
-                        <button onClick={handleAddNote} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:opacity-90">
-                            Agregar Nota
-                        </button>
-                    </div>
-                </div>
-                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                    {notes.length > 0 ? notes.map(note => (
-                       <NoteCard key={note.id} note={note} />
-                    )) : <p className="text-sm text-gray-500 text-center py-4">No hay notas para este producto.</p>}
-                </div>
-            </div>
-        </InfoCard>
-    );
-};
-
-
 const ProductDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const { data: product, loading: productLoading, error: productError } = useDoc<Product>('products', id || '');
     const { data: categories } = useCollection<Category>('categories');
     const { data: locations } = useCollection<any>('locations');
+    const { data: allNotes } = useCollection<Note>('notes');
     const [lots, setLots] = useState<ProductLot[]>([]);
     const [lotsLoading, setLotsLoading] = useState(true);
 
@@ -183,6 +102,19 @@ const ProductDetailPage: React.FC = () => {
             productSum + lot.stock.reduce((lotSum, s) => lotSum + s.qty, 0), 
         0);
     }, [lots]);
+
+    const productNotes = useMemo(() => {
+        if (!allNotes || !id) return [];
+        return allNotes
+            .filter(n => n.productId === id)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [allNotes, id]);
+
+    const handleNoteAdded = (note: Note) => {
+        if (allNotes) {
+            (allNotes as Note[]).unshift(note);
+        }
+    };
 
     if (productLoading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (productError || !product) return <div className="text-center p-12">Producto no encontrado</div>;
@@ -233,7 +165,12 @@ const ProductDetailPage: React.FC = () => {
                         <InfoRow label="Precio Mín. Default" value={`$${product.pricing.min.toFixed(2)}`} />
                         <InfoRow label="Estado" value={product.isActive ? <Badge text="Activo" color="green" /> : <Badge text="Inactivo" color="red" />} />
                     </InfoCard>
-                     <NotesSection productId={product.id} />
+                     <NotesSection 
+                        entityId={product.id}
+                        entityType="product"
+                        notes={productNotes}
+                        onNoteAdded={handleNoteAdded}
+                    />
                 </div>
             </div>
         </div>

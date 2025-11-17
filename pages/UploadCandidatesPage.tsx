@@ -1,44 +1,38 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ProspectingGoal, Product } from '../types';
+import { ProspectingGoal, Product, CandidateTag } from '../types';
 import { useCollection } from '../hooks/useCollection';
 import Spinner from '../components/ui/Spinner';
+import ToggleSwitch from '../components/ui/ToggleSwitch';
+import CustomSelect from '../components/ui/CustomSelect';
 
 const UploadCandidatesPage: React.FC = () => {
     const navigate = useNavigate();
     const [isProcessing, setIsProcessing] = useState(false);
     const [status, setStatus] = useState('');
     const [prospectingGoal, setProspectingGoal] = useState<ProspectingGoal>('General');
-    const [isGoalDropdownOpen, setIsGoalDropdownOpen] = useState(false);
-    const goalDropdownRef = useRef<HTMLDivElement>(null);
     const [importUrl, setImportUrl] = useState('');
+    const [runAiAnalysis, setRunAiAnalysis] = useState(true);
+    const [deduplicationStrategy, setDeduplicationStrategy] = useState<'skip' | 'update'>('skip');
+    const [initialTags, setInitialTags] = useState<CandidateTag[]>([]);
 
-    // New state for product selection
     const { data: products, loading: productsLoading } = useCollection<Product>('products');
     const [selectedProductId, setSelectedProductId] = useState<string>('');
-    const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
-    const productDropdownRef = useRef<HTMLDivElement>(null);
     
-    const goals: ProspectingGoal[] = ['General', 'Puredef', 'Trade Aitirik', 'Santzer'];
+    const goalOptions = (['General', 'Puredef', 'Trade Aitirik', 'Santzer'] as ProspectingGoal[]).map(g => ({ value: g, name: g }));
+    const productOptions = [{ value: '', name: 'Ninguno' }, ...(products || []).map(p => ({ value: p.id, name: p.name }))];
+    const deduplicationOptions = [
+        { value: 'skip', name: 'Omitir duplicados' },
+        { value: 'update', name: 'Actualizar existentes (no recomendado)' },
+    ];
 
-    // Custom hook for closing dropdowns on outside click
-    const useOutsideAlerter = (ref: React.RefObject<HTMLDivElement>, setOpen: React.Dispatch<React.SetStateAction<boolean>>) => {
-        useEffect(() => {
-            const handleClickOutside = (event: MouseEvent) => {
-                if (ref.current && !ref.current.contains(event.target as Node)) {
-                    setOpen(false);
-                }
-            };
-            document.addEventListener("mousedown", handleClickOutside);
-            return () => {
-                document.removeEventListener("mousedown", handleClickOutside);
-            };
-        }, [ref, setOpen]);
-    }
+    const availableTags: CandidateTag[] = ['Alto Potencial', 'Potencial Distribuidor', 'Consumidor Directo'];
 
-    useOutsideAlerter(goalDropdownRef, setIsGoalDropdownOpen);
-    useOutsideAlerter(productDropdownRef, setIsProductDropdownOpen);
-
+    const handleToggleTag = (tag: CandidateTag) => {
+        setInitialTags(prev => 
+            prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+        );
+    };
 
     const handleImportFromUrl = async () => {
         if (!importUrl.trim()) {
@@ -46,20 +40,26 @@ const UploadCandidatesPage: React.FC = () => {
             return;
         }
         setIsProcessing(true);
-        const selectedProduct = products?.find(p => p.id === selectedProductId);
-        let statusMessage = `Iniciando importación para el objetivo: ${prospectingGoal}`;
-        if (selectedProduct) {
-            statusMessage += ` (Producto: ${selectedProduct.name})`;
-        }
-        statusMessage += '...';
-        setStatus(statusMessage);
+        setStatus(`Iniciando importación para el objetivo: ${prospectingGoal}...`);
         
-        // Simulate API fetch and processing
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setStatus('Descargando registros desde la URL...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setStatus('1/5 - Descargando 150 registros desde la URL...');
         await new Promise(resolve => setTimeout(resolve, 2000));
-        setStatus('Procesando y guardando candidatos en la base de datos...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        setStatus(`2/5 - Verificando duplicados (Estrategia: ${deduplicationStrategy})...`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setStatus('3/5 - Guardando 145 nuevos candidatos en la base de datos...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        if (runAiAnalysis) {
+            setStatus('4/5 - Ejecutando análisis con IA para los nuevos candidatos...');
+            await new Promise(resolve => setTimeout(resolve, 4000));
+        } else {
+            setStatus('4/5 - Omitiendo análisis con IA...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        setStatus('5/5 - Finalizando importación y aplicando etiquetas...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         setIsProcessing(false);
         setStatus('¡Importación completada! Los candidatos han sido añadidos.');
@@ -67,133 +67,73 @@ const UploadCandidatesPage: React.FC = () => {
         navigate('/prospecting/candidates');
     };
     
-    const selectedProduct = products?.find(p => p.id === selectedProductId);
-
     return (
         <div className="max-w-4xl mx-auto space-y-8">
             <div>
                 <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Importar Candidatos</h1>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Carga nuevos candidatos a tu base de datos desde un archivo o una URL.
+                    Carga nuevos candidatos a tu base de datos desde una URL.
                 </p>
             </div>
 
             <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Paso 1: Establecer Objetivo y Perfil</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                    Selecciona un perfil y un producto (opcional) para este dataset. Esto ayudará a la IA a categorizar y asignar los candidatos correctamente.
-                </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Prospecting Goal */}
-                    <div className="relative" ref={goalDropdownRef}>
-                        <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Objetivo de Prospección *</label>
-                        <button
-                            type="button"
-                            onClick={() => setIsGoalDropdownOpen(!isGoalDropdownOpen)}
-                            className="flex w-full items-center justify-between gap-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 text-sm font-medium py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600"
-                        >
-                            <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-base text-slate-500 dark:text-slate-400">ads_click</span>
-                                <span>{prospectingGoal}</span>
-                            </div>
-                            <span className="material-symbols-outlined text-base text-slate-500 dark:text-slate-400">
-                                {isGoalDropdownOpen ? 'expand_less' : 'expand_more'}
-                            </span>
-                        </button>
-                        {isGoalDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-slate-800 rounded-lg shadow-lg z-20 border border-slate-200 dark:border-slate-700 py-1">
-                                {goals.map(goal => (
-                                    <button
-                                        key={goal}
-                                        onClick={() => { setProspectingGoal(goal); setIsGoalDropdownOpen(false); }}
-                                        className={`w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 ${prospectingGoal === goal ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}`}
-                                    >
-                                        {goal}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Product Profile */}
-                    {productsLoading ? <Spinner /> : (
-                        <div className="relative" ref={productDropdownRef}>
-                             <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Perfilar por Producto (Opcional)</label>
-                            <button
-                                type="button"
-                                onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
-                                className="flex w-full items-center justify-between gap-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 text-sm font-medium py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-base text-slate-500 dark:text-slate-400">inventory_2</span>
-                                    <span className="truncate">{selectedProduct?.name || 'Seleccionar producto...'}</span>
-                                </div>
-                                <span className="material-symbols-outlined text-base text-slate-500 dark:text-slate-400">
-                                    {isProductDropdownOpen ? 'expand_less' : 'expand_more'}
-                                </span>
-                            </button>
-                            {isProductDropdownOpen && (
-                                <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-slate-800 rounded-lg shadow-lg z-20 border border-slate-200 dark:border-slate-700 py-1 max-h-60 overflow-y-auto">
-                                    <button
-                                        onClick={() => { setSelectedProductId(''); setIsProductDropdownOpen(false); }}
-                                        className={`w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 ${selectedProductId === '' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}`}
-                                    >
-                                        Ninguno
-                                    </button>
-                                    {products?.map(product => (
-                                        <button
-                                            key={product.id}
-                                            onClick={() => { setSelectedProductId(product.id); setIsProductDropdownOpen(false); }}
-                                            className={`w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 ${selectedProductId === product.id ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}`}
-                                        >
-                                            {product.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                    <CustomSelect 
+                        label="Objetivo de Prospección *"
+                        options={goalOptions}
+                        value={prospectingGoal}
+                        onChange={(val) => setProspectingGoal(val as ProspectingGoal)}
+                    />
+                     {productsLoading ? <Spinner /> : (
+                        <CustomSelect 
+                            label="Perfilar por Producto (Opcional)"
+                            options={productOptions}
+                            value={selectedProductId}
+                            onChange={setSelectedProductId}
+                            placeholder="Seleccionar producto..."
+                        />
                     )}
                 </div>
             </div>
 
             <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Paso 2: Importar desde URL</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                    Pega la URL del dataset JSON para importar los candidatos.
-                </p>
-                <div className="flex gap-4 items-center">
-                    <input
-                        type="text"
-                        value={importUrl}
-                        onChange={(e) => setImportUrl(e.target.value)}
-                        placeholder="https://..."
-                        className="flex-grow w-full"
-                    />
-                    <button
-                        onClick={handleImportFromUrl}
-                        disabled={isProcessing}
-                        className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 disabled:opacity-50 flex-shrink-0"
-                    >
-                        {isProcessing ? 'Procesando...' : 'Iniciar Importación'}
-                    </button>
-                </div>
-                 {status && (
-                    <p className="text-sm text-indigo-600 dark:text-indigo-400 mt-4 animate-pulse">{status}</p>
-                )}
+                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Paso 2: Opciones de Importación y Enriquecimiento</h3>
+                 <div className="space-y-4">
+                     <div>
+                        <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Aplicar etiquetas iniciales</label>
+                        <div className="flex flex-wrap gap-2">
+                            {availableTags.map(tag => (
+                                <button key={tag} onClick={() => handleToggleTag(tag)} className={`px-3 py-1 text-sm rounded-full border-2 ${initialTags.includes(tag) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}>
+                                    {tag}
+                                </button>
+                            ))}
+                        </div>
+                     </div>
+                     <div className="flex items-center justify-between">
+                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Ejecutar análisis con IA al importar</label>
+                         <ToggleSwitch enabled={runAiAnalysis} onToggle={setRunAiAnalysis} />
+                     </div>
+                     <div className="w-full md:w-1/2">
+                        <CustomSelect
+                            label="Estrategia de duplicados"
+                            options={deduplicationOptions}
+                            value={deduplicationStrategy}
+                            onChange={(val) => setDeduplicationStrategy(val as any)}
+                        />
+                    </div>
+                 </div>
             </div>
 
             <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Opcional: Subir Archivo</h3>
-                 <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-center">
-                    <span className="material-symbols-outlined text-5xl text-slate-400 dark:text-slate-500">cloud_upload</span>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-4">
-                        Arrastra y suelta un archivo <span className="font-semibold">.JSON</span> o <span className="font-semibold">.CSV</span> aquí, o haz clic para seleccionarlo.
-                    </p>
-                    <button className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 text-sm font-semibold py-2 px-4 rounded-md flex items-center gap-2 mt-4 hover:bg-slate-50 dark:hover:bg-slate-600">
-                        <span className="material-symbols-outlined text-base">upload_file</span>
-                        Seleccionar Archivo
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Paso 3: Importar desde URL</h3>
+                <div className="flex gap-4 items-center">
+                    <input type="text" value={importUrl} onChange={(e) => setImportUrl(e.target.value)} placeholder="https://..." className="flex-grow w-full" />
+                    <button onClick={handleImportFromUrl} disabled={isProcessing} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 disabled:opacity-50 flex-shrink-0">
+                        {isProcessing ? (<><Spinner/> Procesando...</>) : 'Iniciar Importación'}
                     </button>
                 </div>
+                 {status && <p className={`text-sm mt-4 ${isProcessing ? 'text-indigo-600 dark:text-indigo-400 animate-pulse' : 'text-green-600'}`}>{status}</p>}
             </div>
         </div>
     );

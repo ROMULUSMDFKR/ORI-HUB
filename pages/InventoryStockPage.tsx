@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -91,29 +90,24 @@ const InventoryStockPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Stock Actual</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Vista consolidada de tu inventario disponible.</p>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center justify-between gap-4 border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center flex-grow bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
+                        <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">search</span>
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre o SKU..."
+                            value={filter}
+                            onChange={e => setFilter(e.target.value)}
+                            className="w-full bg-transparent pr-4 py-2 text-sm focus:outline-none search-input-field"
+                        />
+                    </div>
+                    <FilterButton label="Categoría" options={categoryOptions} selectedValue={categoryFilter} onSelect={setCategoryFilter} allLabel="Todas" />
                 </div>
                 <button className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Nuevo Movimiento
                 </button>
-            </div>
-            
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
-                 <div className="flex items-center flex-grow bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
-                    <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">search</span>
-                    <input
-                        type="text"
-                        placeholder="Buscar por nombre o SKU..."
-                        value={filter}
-                        onChange={e => setFilter(e.target.value)}
-                        className="w-full bg-transparent pr-4 py-2 text-sm focus:outline-none"
-                    />
-                </div>
-                <FilterButton label="Categoría" options={categoryOptions} selectedValue={categoryFilter} onSelect={setCategoryFilter} allLabel="Todas" />
             </div>
 
             {loading ? <div className="flex justify-center py-12"><Spinner /></div> : <Table columns={columns} data={filteredStockData} />}

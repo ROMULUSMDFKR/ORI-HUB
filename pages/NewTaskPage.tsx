@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Task, TaskStatus, Priority, Project, Subtask, User, Team } from '../types';
@@ -8,6 +9,7 @@ import Badge from '../components/ui/Badge';
 import Checkbox from '../components/ui/Checkbox';
 import UserSelector from '../components/ui/UserSelector';
 import CustomSelect from '../components/ui/CustomSelect';
+import LinkEntityDrawer from '../components/tasks/LinkEntityDrawer';
 
 const FormCard: React.FC<{ title: string, children: React.ReactNode}> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
@@ -33,16 +35,27 @@ const NewTaskPage: React.FC = () => {
         tags: [],
         teamId: '',
         estimationHours: 0,
-        attachments: []
+        attachments: [],
+        links: {},
     });
     const [newTag, setNewTag] = useState('');
     const [newSubtask, setNewSubtask] = useState({ text: '', notes: '' });
+    const [isLinkDrawerOpen, setIsLinkDrawerOpen] = useState(false);
     
     const DESCRIPTION_MAX_LENGTH = 2000;
 
     const handleFieldChange = (field: keyof Task, value: any) => {
         setTask(prev => ({ ...prev, [field]: value }));
     };
+
+    const handleLinkEntities = (links: any) => {
+        handleFieldChange('links', links);
+    };
+
+    const linkedEntitiesCount = useMemo(() => {
+        if (!task.links) return 0;
+        return Object.keys(task.links).length;
+    }, [task.links]);
 
     const handleSave = () => {
         if (!task.title?.trim()) {
@@ -215,8 +228,23 @@ const NewTaskPage: React.FC = () => {
 
                  <FormCard title="Vínculos a entidades">
                     <div className="flex items-center justify-between p-4 bg-slate-100 dark:bg-slate-700/50 rounded-md">
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Sin vínculos. Conecta esta tarea con clientes, cotizaciones, etc.</p>
-                        <button className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold py-1 px-3 rounded-md flex items-center gap-1"><span className="material-symbols-outlined text-base">link</span>Vincular</button>
+                        {linkedEntitiesCount > 0 ? (
+                            <p className="text-sm text-slate-700 dark:text-slate-300">
+                                {linkedEntitiesCount} entidad(es) vinculada(s).
+                            </p>
+                        ) : (
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                Sin vínculos. Conecta esta tarea con clientes, cotizaciones, etc.
+                            </p>
+                        )}
+                        <button 
+                            type="button"
+                            onClick={() => setIsLinkDrawerOpen(true)}
+                            className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold py-1 px-3 rounded-md flex items-center gap-1 hover:bg-slate-50 dark:hover:bg-slate-600"
+                        >
+                            <span className="material-symbols-outlined text-base">link</span>
+                            {linkedEntitiesCount > 0 ? 'Editar Vínculos' : 'Vincular'}
+                        </button>
                     </div>
                 </FormCard>
                 
@@ -233,6 +261,12 @@ const NewTaskPage: React.FC = () => {
                     </div>
                 </FormCard>
             </div>
+            <LinkEntityDrawer 
+                isOpen={isLinkDrawerOpen}
+                onClose={() => setIsLinkDrawerOpen(false)}
+                onLink={handleLinkEntities}
+                linkedEntities={task.links || {}}
+            />
         </div>
     );
 };

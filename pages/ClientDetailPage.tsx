@@ -1,13 +1,15 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { Company, Note, ActivityLog, Contact, SalesOrder, SalesOrderStatus } from '../types';
+import { Company, Note, ActivityLog, Contact, SalesOrder, SalesOrderStatus, CompanyPipelineStage, Quote, Sample, QuoteStatus, SampleStatus } from '../types';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import { MOCK_USERS } from '../data/mockData';
 import { GoogleGenAI } from '@google/genai';
+import CustomSelect from '../components/ui/CustomSelect';
+import NotesSection from '../components/shared/NotesSection';
+import { COMPANIES_PIPELINE_COLUMNS } from '../constants';
 
 
 // --- Reusable UI Components ---
@@ -95,143 +97,71 @@ const InfoRow: React.FC<{ label: string, value: React.ReactNode }> = ({label, va
     </div>
 );
 
-const NoteCard: React.FC<{ note: Note }> = ({ note }) => {
-    const user = MOCK_USERS[note.userId];
+const HubItem: React.FC<{ item: any, type: 'quote' | 'sales-order' | 'sample', onStatusChange: (itemId: string, newStatus: any) => void }> = ({ item, type, onStatusChange }) => {
+    let title = '', link = '#', options: {value: string, name: string}[] = [];
+    if (type === 'quote') { 
+        title = item.folio; 
+        link=`/hubs/quotes/${item.id}`; 
+        options = Object.values(QuoteStatus).map(s => ({value: s, name: s})); 
+    }
+    if (type === 'sales-order') { 
+        title = item.id; 
+        link=`/hubs/sales-orders/${item.id}`; 
+        options = Object.values(SalesOrderStatus).map(s => ({value: s, name: s})); 
+    }
+    if (type === 'sample') { 
+        title = item.name; 
+        link=`/hubs/samples/${item.id}`; 
+        options = Object.values(SampleStatus).map(s => ({value: s, name: s})); 
+    }
+
     return (
-        <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg">
-            <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{note.text}</p>
-            <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mt-2">
-                {user && <img src={user.avatarUrl} alt={user.name} className="w-5 h-5 rounded-full mr-2" />}
-                <span>{user?.name} &bull; {new Date(note.createdAt).toLocaleString()}</span>
+        <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
+            <Link to={link} className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{title}</Link>
+            <div className="w-36">
+                <CustomSelect 
+                    options={options} 
+                    value={item.status} 
+                    onChange={(newStatus) => onStatusChange(item.id, newStatus)}
+                    buttonClassName="w-full text-xs font-medium rounded-md px-2 py-1 border-none focus:ring-0 appearance-none bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"
+                    dropdownClassName="w-40"
+                />
             </div>
         </div>
-    );
+    )
 };
 
-const NotesSection: React.FC<{ companyId: string }> = ({ companyId }) => {
-    const { data: allNotes } = useCollection<Note>('notes');
-    const [notes, setNotes] = useState<Note[]>([]);
-    const [newNote, setNewNote] = useState('');
-
-    useEffect(() => {
-        if (allNotes) {
-            const companyNotes = allNotes
-                .filter(n => n.companyId === companyId)
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            setNotes(companyNotes);
-        }
-    }, [allNotes, companyId]);
-
-    const handleAddNote = () => {
-        if (newNote.trim() === '') return;
-        const note: Note = {
-            id: `note-${Date.now()}`,
-            companyId: companyId,
-            text: newNote,
-            userId: 'natalia', // Assuming current user is Natalia
-            createdAt: new Date().toISOString(),
-        };
-        setNotes([note, ...notes]);
-        setNewNote('');
-    };
-
-    return (
-        <InfoCard title="Notas">
-            <div className="space-y-4">
-                <div>
-                    <textarea
-                        rows={3}
-                        value={newNote}
-                        onChange={(e) => setNewNote(e.target.value)}
-                        placeholder="Escribe una nueva nota..."
-                    />
-                    <div className="text-right mt-2">
-                        <button onClick={handleAddNote} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:bg-indigo-700">
-                            Agregar Nota
-                        </button>
-                    </div>
-                </div>
-                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                    {notes.length > 0 ? notes.map(note => (
-                       <NoteCard key={note.id} note={note} />
-                    )) : <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No hay notas para esta empresa.</p>}
-                </div>
-            </div>
-        </InfoCard>
-    );
-};
-
-const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) => {
-    // FIX: Corrected iconMap to align with ActivityLog['type'] and prevent type errors.
-    const iconMap: Record<ActivityLog['type'], string> = {
-        'Llamada': 'call',
-        'Email': 'email',
-        'Reunión': 'groups',
-        'Nota': 'note',
-        'Vista de Perfil': 'visibility',
-        'Análisis IA': 'auto_awesome',
-        'Cambio de Estado': 'change_circle',
-        'Sistema': 'dns'
-    };
-    
-    if (!activities.length) {
-        return (
-            <InfoCard title="Actividad Reciente">
-                <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No hay actividades registradas.</p>
-            </InfoCard>
-        );
-    }
-    
-    return (
-        <InfoCard title="Actividad Reciente">
-            <div className="flow-root">
-                <ul role="list" className="-mb-8">
-                    {activities.map((activity, activityIdx) => (
-                        <li key={activity.id}>
-                            <div className="relative pb-8">
-                                {activityIdx !== activities.length - 1 ? (
-                                    <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-slate-200 dark:bg-slate-700" aria-hidden="true" />
-                                ) : null}
-                                <div className="relative flex space-x-3">
-                                    <div>
-                                        <span className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center ring-8 ring-white dark:ring-slate-800">
-                                            <span className="material-symbols-outlined text-slate-500 dark:text-slate-400">{iconMap[activity.type]}</span>
-                                        </span>
-                                    </div>
-                                    <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
-                                        <div>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                                                {activity.description} por <span className="font-medium text-slate-900 dark:text-slate-200">{MOCK_USERS[activity.userId]?.name}</span>
-                                            </p>
-                                        </div>
-                                        <div className="text-right text-sm whitespace-nowrap text-slate-500 dark:text-slate-400">
-                                            <time dateTime={activity.createdAt}>{new Date(activity.createdAt).toLocaleDateString()}</time>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        </InfoCard>
-    );
-};
 
 const ClientDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const { data: company, loading, error } = useDoc<Company>('companies', id || '');
+    const { data: initialCompany, loading, error } = useDoc<Company>('companies', id || '');
     const { data: allContacts } = useCollection<Contact>('contacts');
     const { data: allSalesOrders } = useCollection<SalesOrder>('salesOrders');
     const { data: allActivities } = useCollection<ActivityLog>('activities');
+    const { data: allNotes } = useCollection<Note>('notes');
+    const { data: allQuotes } = useCollection<Quote>('quotes');
+    const { data: allSamples } = useCollection<Sample>('samples');
 
-    const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
-    const [suggestion, setSuggestion] = useState('');
-    const [suggestionLoading, setSuggestionLoading] = useState(false);
-    const [suggestionError, setSuggestionError] = useState('');
+    const [company, setCompany] = useState<Company | null>(null);
+    const [currentStage, setCurrentStage] = useState<CompanyPipelineStage | undefined>();
 
-    const { activities, contacts, salesOrders, totalRevenue, lastActivityDate } = useMemo(() => {
-        if (!id) return { activities: [], contacts: [], salesOrders: [], totalRevenue: 0, lastActivityDate: null };
+    useEffect(() => {
+        if(initialCompany) {
+            setCompany(initialCompany);
+            setCurrentStage(initialCompany.stage);
+        }
+    }, [initialCompany]);
+    
+    const handleSaveStatus = () => {
+        if (currentStage && company) {
+            setCompany(c => c ? { ...c, stage: currentStage } : null);
+            alert('Estado de la empresa guardado.');
+        }
+    };
+
+    const { activities, contacts, salesOrders, totalRevenue, lastActivityDate, notes, quotes, samples } = useMemo(() => {
+        if (!id) return { activities: [], contacts: [], salesOrders: [], totalRevenue: 0, lastActivityDate: null, notes: [], quotes: [], samples: [] };
+        
         const filteredActivities = (allActivities || [])
             .filter(a => a.companyId === id)
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -241,73 +171,31 @@ const ClientDetailPage: React.FC = () => {
         const filteredSalesOrders = (allSalesOrders || [])
             .filter(so => so.companyId === id && so.status !== SalesOrderStatus.Cancelada)
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        const filteredNotes = (allNotes || [])
+            .filter(n => n.companyId === id)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        const filteredQuotes = (allQuotes || []).filter(q => q.companyId === id).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const filteredSamples = (allSamples || []).filter(s => s.companyId === id).sort((a,b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
 
         const revenue = filteredSalesOrders.reduce((sum, so) => sum + so.total, 0);
         const lastActivity = filteredActivities[0]?.createdAt ? new Date(filteredActivities[0].createdAt) : null;
 
-        return { activities: filteredActivities, contacts: filteredContacts, salesOrders: filteredSalesOrders, totalRevenue: revenue, lastActivityDate: lastActivity };
-    }, [id, allActivities, allContacts, allSalesOrders]);
+        return { activities: filteredActivities, contacts: filteredContacts, salesOrders: filteredSalesOrders, totalRevenue: revenue, lastActivityDate: lastActivity, notes: filteredNotes, quotes: filteredQuotes, samples: filteredSamples };
+    }, [id, allActivities, allContacts, allSalesOrders, allNotes, allQuotes, allSamples]);
 
-    const companyAnalysis = useMemo(() => {
-        if (!company || !lastActivityDate) return null;
-        
-        const lastActivityDays = (new Date().getTime() - lastActivityDate.getTime()) / (1000 * 3600 * 24);
-        const healthScore = company.healthScore?.score || 50;
-
-        const alerts: string[] = [];
-        if (lastActivityDays > 30) alerts.push(`Sin contacto en más de ${Math.floor(lastActivityDays)} días.`);
-        if (healthScore < 50) alerts.push(`Puntuación de salud en riesgo (${healthScore}/100).`);
-
-        return { alerts };
-    }, [company, lastActivityDate]);
-
-
-     const handleSuggestAction = async () => {
-        if (!company || !companyAnalysis) return;
-        setIsSuggestionModalOpen(true);
-        setSuggestionLoading(true);
-        setSuggestion('');
-        setSuggestionError('');
-
-        try {
-            const context = `
-                Cliente: ${company.name} (${company.shortName})
-                Etapa: ${company.stage}
-                Puntuación de Salud: ${company.healthScore?.score}/100 (${company.healthScore?.label})
-                Valor Total (Ventas): $${totalRevenue.toLocaleString()}
-                Alertas Actuales: ${companyAnalysis.alerts.join(', ') || 'Ninguna'}
-                Últimas 3 actividades:
-                ${activities.slice(0, 3).map(a => `- ${new Date(a.createdAt).toLocaleDateString()}: ${a.type} - ${a.description}`).join('\n')}
-                Perfil de Compra: ${company.profile?.purchaseProcess?.purchaseType}, Frecuencia ${company.profile?.useCase?.frequency}.
-            `;
-            const prompt = `
-                Eres un asistente de IA experto en gestión de cuentas para un CRM. Tu nombre es "Studio AI".
-                Basado en el siguiente contexto de un cliente, proporciona un análisis para el vendedor. Tu respuesta debe estar en español y formateada en Markdown. Incluye:
-                1. **Resumen Ejecutivo:** Un párrafo corto resumiendo el estado actual de la cuenta, su valor y si requiere atención.
-                2. **Puntos de Oportunidad:** Una lista de 2-3 oportunidades o riesgos basados en su historial y perfil.
-                3. **Próxima Acción Sugerida:** Una sugerencia clara y accionable para mantener o crecer la cuenta.
-
-                Contexto del Cliente:
-                ${context}
-
-                Análisis de la Cuenta:
-            `;
-
-            const ai = new GoogleGenAI({apiKey: process.env.API_KEY as string});
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-pro',
-                contents: prompt,
-            });
-            
-            // FIX: The `text` property on the response should be accessed directly, not called as a function.
-            setSuggestion(response.text);
-
-        } catch (error) {
-            console.error("Error fetching suggestion:", error);
-            setSuggestionError('No se pudo contactar al servicio de IA. Inténtalo de nuevo.');
-        } finally {
-            setSuggestionLoading(false);
+    const handleNoteAdded = (note: Note) => {
+        if (allNotes) {
+            (allNotes as Note[]).unshift(note);
+            setCompany(prev => prev ? { ...prev } : null);
         }
+    };
+    
+    const handleHubItemStatusChange = (itemId: string, newStatus: any, type: string) => {
+        // This is a simulation. In a real app, you would update the state in your data store.
+        console.log(`Updating ${type} ${itemId} to status ${newStatus}`);
+        alert(`Estado actualizado a ${newStatus} (simulación).`);
     };
 
 
@@ -315,100 +203,76 @@ const ClientDetailPage: React.FC = () => {
     if (error || !company) return <div className="text-center p-12">Cliente no encontrado</div>;
     
     const owner = MOCK_USERS[company.ownerId];
+    const stageOptions = COMPANIES_PIPELINE_COLUMNS.map(s => ({ value: s.stage, name: s.stage }));
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Left Sidebar */}
-            <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-                <div className="bg-indigo-600 text-white p-5 rounded-xl relative overflow-hidden shadow-lg">
-                    <div className="text-white"><WavyBg /></div>
-                    <div className="relative z-10">
-                        <div className="flex justify-between items-start">
-                             <div>
-                                <h3 className="text-xl font-bold">{company.shortName || company.name}</h3>
-                                <p className="text-xs text-white/80">{company.name}</p>
-                            </div>
-                            <Badge text={company.stage} color="blue" />
-                        </div>
-                        <p className="mt-4 text-sm text-white/80">Valor Total</p>
-                        <p className="text-4xl font-bold mt-1">${totalRevenue.toLocaleString('en-US', {maximumFractionDigits: 0})}</p>
+        <div>
+            <div className="flex justify-between items-start mb-6">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-200">{company.shortName || company.name}</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{company.name}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-48">
+                        <CustomSelect 
+                            options={stageOptions}
+                            value={currentStage || ''}
+                            onChange={(newStage) => setCurrentStage(newStage as CompanyPipelineStage)}
+                        />
                     </div>
+                    <button onClick={handleSaveStatus} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 h-[42px]">
+                        Guardar
+                    </button>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left Column */}
+                <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+                     <InfoCard title="Contactos">
+                        {contacts.length > 0 ? (
+                            <ul className="divide-y divide-slate-200 dark:divide-slate-700">
+                                {contacts.map(contact => (
+                                    <li key={contact.id} className="py-3 flex items-center space-x-4">
+                                        <span className="material-symbols-outlined text-slate-400 dark:text-slate-500">person</span>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-slate-900 dark:text-slate-200">{contact.name}</p>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">{contact.role}</p>
+                                        </div>
+                                        <a href={`mailto:${contact.email}`} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">{contact.email}</a>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No hay contactos asociados.</p>
+                        )}
+                    </InfoCard>
+
+                    <NotesSection 
+                        entityId={company.id}
+                        entityType="company"
+                        notes={notes}
+                        onNoteAdded={handleNoteAdded}
+                    />
                 </div>
 
-                {companyAnalysis && <AlertsPanel alerts={companyAnalysis.alerts} />}
-                
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Datos Generales</h3>
-                    <div className="space-y-1">
+                {/* Right Sidebar */}
+                <div className="lg:col-span-4 xl:col-span-3 space-y-6">
+                    <InfoCard title="Detalles">
                         <InfoRow label="Responsable" value={owner?.name || 'N/A'} />
                         <InfoRow label="Industria" value={company.industry || 'N/A'} />
                         <InfoRow label="Prioridad" value={<Badge text={company.priority} color={company.priority === 'Alta' ? 'red' : company.priority === 'Media' ? 'yellow' : 'gray'} />} />
-                        <InfoRow label="Salud de Cuenta" value={<span className="font-semibold">{company.healthScore?.score}/100 ({company.healthScore?.label})</span>} />
-                    </div>
-                    <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
-                         <div className="flex items-center gap-3">
-                            <Link to={`/crm/clients/${company.id}/edit`} className="flex-1 text-center bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
-                                Editar
-                            </Link>
-                             <Link to="/hubs/quotes/new" className="flex-1 text-center bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors">
-                                Cotizar
-                            </Link>
-                        </div>
-                        <button 
-                            onClick={handleSuggestAction}
-                            disabled={suggestionLoading}
-                            className="w-full text-center bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-                            <span className="material-symbols-outlined mr-2">{suggestionLoading ? 'hourglass_top' : 'auto_awesome'}</span>
-                            {suggestionLoading ? 'Analizando...' : 'Análisis con IA'}
-                        </button>
-                    </div>
+                    </InfoCard>
+                    <InfoCard title="Cotizaciones">
+                        {quotes.map(q => <HubItem key={q.id} item={q} type="quote" onStatusChange={(id, status) => handleHubItemStatusChange(id, status, 'quote')} />)}
+                    </InfoCard>
+                     <InfoCard title="Órdenes de Venta">
+                        {salesOrders.map(so => <HubItem key={so.id} item={so} type="sales-order" onStatusChange={(id, status) => handleHubItemStatusChange(id, status, 'sales-order')} />)}
+                    </InfoCard>
+                     <InfoCard title="Muestras">
+                        {samples.map(s => <HubItem key={s.id} item={s} type="sample" onStatusChange={(id, status) => handleHubItemStatusChange(id, status, 'sample')} />)}
+                    </InfoCard>
                 </div>
             </div>
-
-            {/* Right Content */}
-            <div className="lg:col-span-8 xl:col-span-9 space-y-6">
-                 <InfoCard title="Contactos">
-                    {contacts.length > 0 ? (
-                        <ul className="divide-y divide-slate-200 dark:divide-slate-700">
-                            {contacts.map(contact => (
-                                <li key={contact.id} className="py-3 flex items-center space-x-4">
-                                    <span className="material-symbols-outlined text-slate-400 dark:text-slate-500">person</span>
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-200">{contact.name}</p>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400">{contact.role}</p>
-                                    </div>
-                                    <a href={`mailto:${contact.email}`} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">{contact.email}</a>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No hay contactos asociados.</p>
-                    )}
-                </InfoCard>
-
-                <ActivityFeed activities={activities} />
-                <NotesSection companyId={company.id} />
-            </div>
-            
-            <SuggestionModal
-                isOpen={isSuggestionModalOpen}
-                onClose={() => setIsSuggestionModalOpen(false)}
-                title="Análisis con IA por Studio AI"
-            >
-                {suggestionLoading ? (
-                    <div className="flex flex-col items-center justify-center h-32">
-                        <Spinner />
-                        <p className="mt-2 text-slate-500 dark:text-slate-400">Analizando datos del cliente...</p>
-                    </div>
-                ) : suggestionError ? (
-                    <div className="text-red-600">
-                        <p className="font-semibold">Error al generar sugerencia:</p>
-                        <p>{suggestionError}</p>
-                    </div>
-                ) : (
-                    <SimpleMarkdown text={suggestion} />
-                )}
-            </SuggestionModal>
         </div>
     );
 };

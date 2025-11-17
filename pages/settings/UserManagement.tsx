@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
 import { User, Team, Company } from '../../types';
@@ -139,12 +140,13 @@ const UserManagement: React.FC = () => {
         const userToAdd: User = {
             ...newUser,
             id: `user-${Date.now()}`,
+            // FIX: Add missing properties 'avatarUrl' and 'isActive' to satisfy the User type.
+            avatarUrl: `https://i.pravatar.cc/150?u=${newUser.name.toLowerCase().replace(/\s/g, '')}`,
             isActive: true,
-            avatarUrl: `https://i.pravatar.cc/150?u=${Date.now()}`,
         };
-        setUsers(prev => [...(prev || []), userToAdd]);
+        setUsers(prev => (prev ? [...prev, userToAdd] : [userToAdd]));
     };
-    
+
     const handleAction = (action: string, userId: string) => {
         if (!users) return;
 
@@ -158,75 +160,68 @@ const UserManagement: React.FC = () => {
                 }
                 break;
             case 'reset-password':
-                alert(`Se ha enviado un correo para restablecer la contraseña al usuario ${userId}.`);
+                alert(`(Simulación) Correo para restablecer contraseña enviado al usuario ${userId}.`);
                 break;
             case 'force-logout':
-                alert(`Se ha forzado el cierre de sesión para el usuario ${userId}.`);
+                 alert(`(Simulación) Se ha forzado el cierre de sesión para el usuario ${userId}.`);
                 break;
+            default:
+                console.warn(`Acción desconocida: ${action}`);
         }
-    }
+    };
 
     const columns = [
-        {
-            header: 'Usuario',
+        { 
+            header: 'Nombre', 
             accessor: (user: User) => (
                 <div className="flex items-center">
-                    <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full mr-4" />
+                    <img className="h-8 w-8 rounded-full object-cover mr-3" src={user.avatarUrl} alt={user.name} />
                     <div>
-                        <p className="font-semibold text-slate-800 dark:text-slate-200">{user.name}</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">{user.email}</p>
+                        <p className="font-medium text-slate-800 dark:text-slate-200">{user.name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{user.email}</p>
                     </div>
                 </div>
             )
         },
-        {
-            header: 'Rol',
-            accessor: (user: User) => <Badge text={user.role} color={getRoleBadgeColor(user.role)} />
-        },
-        {
-            header: 'Equipo',
-            accessor: (user: User) => user.teamId ? teamsMap.get(user.teamId) || 'N/A' : '-'
-        },
-        {
-            header: 'Estado',
-            accessor: (user: User) => <Badge text={user.isActive ? 'Activo' : 'Inactivo'} color={user.isActive ? "green" : "gray"} />
+        { header: 'Rol', accessor: (user: User) => <Badge text={user.role} color={getRoleBadgeColor(user.role)} /> },
+        { header: 'Equipo', accessor: (user: User) => user.teamId ? teamsMap.get(user.teamId) || 'N/A' : '-' },
+        { 
+            header: 'Estado', 
+            accessor: (user: User) => <Badge text={user.isActive ? 'Activo' : 'Inactivo'} color={user.isActive ? 'green' : 'gray'} />
         },
         {
             header: 'Acciones',
             accessor: (user: User) => (
-                <div className="flex items-center justify-end space-x-2">
-                    <button onClick={() => handleEditUser(user.id)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><span className="material-symbols-outlined text-slate-500 dark:text-slate-400">edit</span></button>
+                <div className="flex items-center justify-end gap-2">
+                    <button onClick={() => handleEditUser(user.id)} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+                        Editar
+                    </button>
                     <DropdownMenu user={user} onSelectAction={handleAction} />
                 </div>
             ),
             className: 'text-right'
         }
     ];
-    
-    const loading = usersLoading || teamsLoading || companiesLoading || !users;
+
+    const loading = usersLoading || teamsLoading || companiesLoading;
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Usuarios y Permisos</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Gestiona quién tiene acceso a tu espacio de trabajo.</p>
+                    {/* Title and description managed by SecondarySidebar and Layout */}
                 </div>
-                <button onClick={() => setIsInviteDrawerOpen(true)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
+                <button onClick={() => setIsInviteDrawerOpen(true)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Invitar Usuario
                 </button>
             </div>
             
-            {loading ? (
-                <div className="flex justify-center py-12"><Spinner /></div>
-            ) : (
-                <Table columns={columns} data={users || []} />
-            )}
+            {loading ? <Spinner /> : <Table columns={columns} data={users || []} />}
 
-            <InviteUserDrawer
-                isOpen={isInviteDrawerOpen}
-                onClose={() => setIsInviteDrawerOpen(false)}
+            <InviteUserDrawer 
+                isOpen={isInviteDrawerOpen} 
+                onClose={() => setIsInviteDrawerOpen(false)} 
                 teams={teams || []}
                 companies={companies || []}
                 onInvite={handleInviteUser}

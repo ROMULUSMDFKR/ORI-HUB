@@ -9,19 +9,19 @@ import Checkbox from '../components/ui/Checkbox';
 
 // --- Helper Components ---
 const DetailInfoRow: React.FC<{ icon: string; label: string; children: React.ReactNode }> = ({ icon, label, children }) => (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
-        <div className="flex items-center text-sm text-on-surface-secondary">
+    <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+        <div className="flex items-center text-sm text-slate-500 dark:text-slate-400">
             <span className="material-symbols-outlined text-base w-6 mr-2">{icon}</span>
             <span>{label}</span>
         </div>
-        <div className="text-sm font-semibold text-on-surface text-right">{children}</div>
+        <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 text-right">{children}</div>
     </div>
 );
 
 const PeopleRow: React.FC<{ user: User }> = ({ user }) => (
     <div className="flex items-center gap-2 py-1">
         <img src={user.avatarUrl} alt={user.name} className="w-6 h-6 rounded-full" />
-        <span className="text-sm text-on-surface">{user.name}</span>
+        <span className="text-sm text-slate-800 dark:text-slate-200">{user.name}</span>
     </div>
 );
 
@@ -78,12 +78,12 @@ const TaskDetailPage: React.FC = () => {
         <div>
             <div className="flex justify-between items-start mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold text-on-surface">{task.title}</h1>
-                    <p className="font-mono text-sm text-on-surface-secondary mt-1">ID: {task.id}</p>
+                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-200">{task.title}</h1>
+                    <p className="font-mono text-sm text-slate-500 dark:text-slate-400 mt-1">ID: {task.id}</p>
                 </div>
                 <Link 
                     to={`/tasks/${task.id}/edit`} 
-                    className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
+                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
                     <span className="material-symbols-outlined mr-2 text-base">edit</span>
                     Editar Tarea
                 </Link>
@@ -93,37 +93,37 @@ const TaskDetailPage: React.FC = () => {
                 {/* Left Column */}
                 <div className="lg:col-span-2 space-y-6">
                     {task.description && (
-                        <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                             <h3 className="text-lg font-semibold mb-2">Descripción</h3>
-                            <p className="text-on-surface-secondary whitespace-pre-wrap">{task.description}</p>
+                            <p className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{task.description}</p>
                         </div>
                     )}
 
                     {totalSubtasks > 0 && (
-                        <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                             <h3 className="text-lg font-semibold mb-2">Checklist</h3>
                             <div className="flex justify-between mb-1">
-                                <span className="text-xs font-medium text-gray-700">{completedSubtasks} de {totalSubtasks} completadas</span>
-                                <span className="text-xs font-medium text-gray-700">{progress.toFixed(0)}%</span>
+                                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{completedSubtasks} de {totalSubtasks} completadas</span>
+                                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{progress.toFixed(0)}%</span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
-                                <div className="bg-accent h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 mb-4">
+                                <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
                             </div>
                             <div className="space-y-2">
                                 {task.subtasks?.map(st => (
                                      <Checkbox key={st.id} id={`subtask-detail-${st.id}`} checked={st.isCompleted} onChange={() => handleToggleSubtask(st.id)}>
-                                        <span className={`text-sm ${st.isCompleted ? 'line-through text-on-surface-secondary' : ''}`}>{st.text}</span>
+                                        <span className={`text-sm ${st.isCompleted ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>{st.text}</span>
                                     </Checkbox>
                                 ))}
                             </div>
                         </div>
                     )}
                     
-                    <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                         <h3 className="text-lg font-semibold mb-4">Comentarios</h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-on-surface-secondary mb-1">Nuevo comentario</label>
+                                <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Nuevo comentario</label>
                                 <textarea
                                     rows={3}
                                     value={newComment}
@@ -131,24 +131,24 @@ const TaskDetailPage: React.FC = () => {
                                     placeholder="Escribe una nota interna..."
                                 />
                                 <div className="text-right mt-2">
-                                    <button onClick={handleAddComment} className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:opacity-90">
+                                    <button onClick={handleAddComment} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:opacity-90">
                                         Guardar nota
                                     </button>
                                 </div>
                             </div>
-                            <div className="space-y-4 max-h-96 overflow-y-auto pr-2 border-t pt-4">
+                            <div className="space-y-4 max-h-96 overflow-y-auto pr-2 border-t border-slate-200 dark:border-slate-700 pt-4">
                                 {(task.comments && task.comments.length > 0) ? task.comments.map(comment => { 
                                     const user = Object.values(MOCK_USERS).find(u => u.id === comment.userId); 
                                     return (
                                         <div key={comment.id} className="flex items-start gap-3">
                                             <img src={user?.avatarUrl} alt={user?.name} className="w-8 h-8 rounded-full mt-1" />
-                                            <div className="flex-1 bg-surface-inset p-3 rounded-lg">
-                                                <p className="text-xs font-semibold">{user?.name} <span className="font-normal text-on-surface-secondary ml-2">{new Date(comment.createdAt).toLocaleString()}</span></p>
+                                            <div className="flex-1 bg-slate-100 dark:bg-slate-700 p-3 rounded-lg">
+                                                <p className="text-xs font-semibold">{user?.name} <span className="font-normal text-slate-500 dark:text-slate-400 ml-2">{new Date(comment.createdAt).toLocaleString()}</span></p>
                                                 <p className="text-sm mt-1 whitespace-pre-wrap">{comment.text}</p>
                                             </div>
                                         </div>
                                     );
-                                }) : <p className="text-sm text-center text-on-surface-secondary py-4">Aún no hay comentarios para este registro.</p>}
+                                }) : <p className="text-sm text-center text-slate-500 dark:text-slate-400 py-4">Aún no hay comentarios para este registro.</p>}
                             </div>
                         </div>
                     </div>
@@ -156,7 +156,7 @@ const TaskDetailPage: React.FC = () => {
 
                 {/* Right Column */}
                 <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                         <h3 className="text-lg font-semibold mb-2">Detalles</h3>
                         <div className="space-y-1">
                             <DetailInfoRow icon="fiber_manual_record" label="Estado"><Badge text={task.status} color="blue" /></DetailInfoRow>
@@ -166,15 +166,15 @@ const TaskDetailPage: React.FC = () => {
                             {task.dueAt && <DetailInfoRow icon="event" label="Vencimiento">{new Date(task.dueAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</DetailInfoRow>}
                         </div>
                     </div>
-                    <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                         <h3 className="text-lg font-semibold mb-4">Personas</h3>
                         <div>
-                            <h4 className="text-xs font-bold uppercase text-on-surface-secondary tracking-wider mb-2">Asignados</h4>
+                            <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider mb-2">Asignados</h4>
                             {assignees.map(user => <PeopleRow key={user.id} user={user} />)}
                         </div>
                          <div className="mt-4">
-                            <h4 className="text-xs font-bold uppercase text-on-surface-secondary tracking-wider mb-2">Observadores</h4>
-                            {watchers.length > 0 ? watchers.map(user => <PeopleRow key={user.id} user={user} />) : <p className="text-sm text-on-surface-secondary">Nadie observando</p>}
+                            <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider mb-2">Observadores</h4>
+                            {watchers.length > 0 ? watchers.map(user => <PeopleRow key={user.id} user={user} />) : <p className="text-sm text-slate-500 dark:text-slate-400">Nadie observando</p>}
                         </div>
                     </div>
                 </div>

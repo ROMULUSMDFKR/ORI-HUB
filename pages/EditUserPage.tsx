@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { useDoc } from '../hooks/useDoc';
@@ -34,28 +35,18 @@ const EditUserPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState('general');
     const [scope, setScope] = useState('team');
     const [permissions, setPermissions] = useState<Record<string, Record<string, string[]>>>({});
+    const [isViewAsUserModalOpen, setIsViewAsUserModalOpen] = useState(false);
     
     useEffect(() => {
         if (user) {
             setEditedUser(user);
-            // Initialize permissions based on user role when user data is loaded
+            // Initialize permissions with all switches off by default.
             const initialPerms: Record<string, Record<string, string[]>> = {};
             Object.entries(PAGE_PERMISSIONS_CONFIG).forEach(([moduleName, pages]) => {
                 initialPerms[moduleName] = {};
-                Object.entries(pages).forEach(([pageName, availableActions]) => {
-                    // A simple default logic based on role for demonstration
-                    if (user.role === 'Admin') {
-                        initialPerms[moduleName][pageName] = [...availableActions];
-                    } else if (user.role === 'Ventas') {
-                        initialPerms[moduleName][pageName] = availableActions.filter(a => a !== 'delete');
-                    } else { // Logística
-                         // Give more specific permissions for logistics
-                        if (['Inventario', 'Logística'].includes(moduleName)) {
-                             initialPerms[moduleName][pageName] = [...availableActions];
-                        } else {
-                             initialPerms[moduleName][pageName] = availableActions.filter(a => a === 'view');
-                        }
-                    }
+                Object.entries(pages).forEach(([pageName]) => {
+                    // Set the initial permissions for each page to an empty array (all off).
+                    initialPerms[moduleName][pageName] = [];
                 });
             });
             setPermissions(initialPerms);
@@ -109,6 +100,13 @@ const EditUserPage: React.FC = () => {
                     <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Editar Usuario: {user?.name}</h1>
                 </div>
                 <div className="flex gap-2">
+                    <button 
+                        onClick={() => setIsViewAsUserModalOpen(true)}
+                        className="bg-white dark:bg-slate-800 border border-indigo-500 text-indigo-600 font-semibold py-2 px-4 rounded-lg shadow-sm flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-base">visibility</span>
+                        Ver como usuario
+                    </button>
                     <button onClick={() => navigate('/settings')} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
                     <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Cambios</button>
                 </div>
@@ -137,8 +135,8 @@ const EditUserPage: React.FC = () => {
                 )}
                 {activeTab === 'permisos' && (
                      <div className="space-y-6">
-                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm"><h4 className="font-semibold text-slate-800 dark:text-slate-200">Alcance de Datos</h4><fieldset className="mt-2 space-y-2"><Radio id="scope-own" name="scope" value="own" checked={scope === 'own'} onChange={setScope}>Ver solo datos propios</Radio><Radio id="scope-team" name="scope" value="team" checked={scope === 'team'} onChange={setScope}>Ver datos del equipo</Radio><Radio id="scope-all" name="scope" value="all" checked={scope === 'all'} onChange={setScope}>Ver todos los datos</Radio></fieldset></div>
-                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm"><h4 className="font-semibold text-slate-800 dark:text-slate-200">Permisos por Página</h4><div className="mt-4 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-slate-50 dark:bg-slate-700/50"><tr><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider w-2/5">Página</th>{ALL_ACTIONS.map(action => (<th key={action} scope="col" className="px-6 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{ACTION_TRANSLATIONS[action]}</th>))}</tr></thead>{Object.entries(PAGE_PERMISSIONS_CONFIG).map(([moduleName, pages]) => (<tbody key={moduleName} className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700"><tr><td colSpan={5} className="px-4 py-2 bg-slate-100 dark:bg-slate-700/50"><h5 className="text-sm font-bold text-slate-600 dark:text-slate-300">{moduleName}</h5></td></tr>{Object.entries(pages).map(([pageName, availableActions]) => (<tr key={pageName}><td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-slate-100">{pageName}</td>{ALL_ACTIONS.map(action => {const isActionPossible = availableActions.includes(action); const hasPermission = permissions[moduleName]?.[pageName]?.includes(action) ?? false; return (<td key={action} className="px-6 py-4 whitespace-nowrap text-center"><div className={`flex justify-center ${!isActionPossible ? 'opacity-40 cursor-not-allowed' : ''}`}><ToggleSwitch enabled={hasPermission} onToggle={() => {if (isActionPossible) {handlePermissionToggle(moduleName, pageName, action);}}}/></div></td>);})}</tr>))}</tbody>))}</table></div></div>
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm"><h4 className="font-semibold text-slate-800 dark:text-slate-200">Alcance de Datos</h4><fieldset className="mt-4 flex items-center space-x-6"><Radio id="scope-own" name="scope" value="own" checked={scope === 'own'} onChange={setScope}>Ver solo datos propios</Radio><Radio id="scope-team" name="scope" value="team" checked={scope === 'team'} onChange={setScope}>Ver datos del equipo</Radio><Radio id="scope-all" name="scope" value="all" checked={scope === 'all'} onChange={setScope}>Ver todos los datos</Radio></fieldset></div>
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm"><h4 className="font-semibold text-slate-800 dark:text-slate-200">Permisos por Página</h4><div className="mt-4 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-slate-50 dark:bg-slate-700/50"><tr><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider w-2/5">Página</th>{ALL_ACTIONS.map(action => (<th key={action} scope="col" className="px-6 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{ACTION_TRANSLATIONS[action]}</th>))}</tr></thead>{Object.entries(PAGE_PERMISSIONS_CONFIG).map(([moduleName, pages]) => (<tbody key={moduleName} className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700"><tr><td colSpan={5} className="px-4 py-2 bg-slate-100 dark:bg-slate-700/50"><h5 className="text-sm font-bold text-slate-600 dark:text-slate-300">{moduleName}</h5></td></tr>{Object.entries(pages).map(([pageName, availableActions]) => (<tr key={pageName}><td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-slate-100">{pageName}</td>{ALL_ACTIONS.map(action => {const isActionPossible = availableActions.includes(action); const hasPermission = permissions[moduleName]?.[pageName]?.includes(action) ?? false; return (<td key={action} className="px-6 py-4 whitespace-nowrap text-center"><div className="flex justify-center"><ToggleSwitch enabled={hasPermission} onToggle={() => {handlePermissionToggle(moduleName, pageName, action);}}/></div></td>);})}</tr>))}</tbody>))}</table></div></div>
                     </div>
                 )}
                 {activeTab === 'actividad' && (
@@ -159,6 +157,23 @@ const EditUserPage: React.FC = () => {
                     </div>
                 )}
             </div>
+             {isViewAsUserModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center" onClick={() => setIsViewAsUserModalOpen(false)}>
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl m-4 w-full max-w-md p-6 text-center" onClick={e => e.stopPropagation()}>
+                        <span className="material-symbols-outlined text-5xl text-indigo-500">visibility</span>
+                        <h3 className="text-xl font-bold mt-4 text-slate-800 dark:text-slate-200">Simular Vista como Usuario</h3>
+                        <p className="mt-2 text-slate-600 dark:text-slate-400">
+                            Estás a punto de simular la vista como <strong>{editedUser.name}</strong>. En un entorno de producción, esto te permitiría navegar la aplicación con sus permisos exactos para verificar la configuración.
+                        </p>
+                        <button
+                            onClick={() => setIsViewAsUserModalOpen(false)}
+                            className="mt-6 w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors"
+                        >
+                            Entendido
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

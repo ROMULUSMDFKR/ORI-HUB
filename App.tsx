@@ -1,10 +1,13 @@
 
 
-import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Sidebar from './components/layout/Sidebar';
+import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
+import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Header from './components/layout/Header';
 import QuickTaskModal from './components/layout/QuickTaskModal';
+import PrimarySidebar from './components/layout/PrimarySidebar';
+import ContentLayout from './components/layout/ContentLayout';
+import { NAV_LINKS } from './constants';
+import SecondarySidebar from './components/layout/SecondarySidebar';
 
 const PageLoader: React.FC = () => (
   <div className="w-full h-full flex items-center justify-center">
@@ -14,207 +17,338 @@ const PageLoader: React.FC = () => (
 
 // Lazy load all page components
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const CrmPage = lazy(() => import('./pages/CrmPage'));
+
+// Prospecting
+const CandidatesPage = lazy(() => import('./pages/CandidatesPage'));
+const CandidateDetailPage = lazy(() => import('./pages/CandidateDetailPage'));
+const UploadCandidatesPage = lazy(() => import('./pages/UploadCandidatesPage'));
+
+// Hubs
 const CrmPipelinePage = lazy(() => import('./pages/CrmPipelinePage'));
-const CrmClientsListPage = lazy(() => import('./pages/CrmClientsListPage'));
-const CrmContactsListPage = lazy(() => import('./pages/CrmContactsListPage'));
-const EditClientPage = lazy(() => import('./pages/EditClientPage'));
-const NewQuotePage = lazy(() => import('./pages/NewQuotePage'));
-const ArchivesPage = lazy(() => import('./pages/ArchivesPage'));
 const SamplesPipelinePage = lazy(() => import('./pages/SamplesPipelinePage'));
 const QuotesPipelinePage = lazy(() => import('./pages/QuotesPipelinePage'));
 const SalesOrdersPipelinePage = lazy(() => import('./pages/SalesOrdersPipelinePage'));
 const CompaniesPipelinePage = lazy(() => import('./pages/CompaniesPipelinePage'));
-const ProductsListPage = lazy(() => import('./pages/ProductsListPage'));
-const ProductCategoriesPage = lazy(() => import('./pages/ProductCategoriesPage'));
-const NewProductPage = lazy(() => import('./pages/NewProductPage'));
-const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'));
-const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage'));
-const NewProspectPage = lazy(() => import('./pages/NewProspectPage'));
+
+// Hubs Details
 const ProspectDetailPage = lazy(() => import('./pages/ProspectDetailPage'));
-const SupplierDetailPage = lazy(() => import('./pages/SupplierDetailPage'));
+const NewProspectPage = lazy(() => import('./pages/NewProspectPage'));
 const EditProspectPage = lazy(() => import('./pages/EditProspectPage'));
+const SampleDetailPage = lazy(() => import('./pages/SampleDetailPage'));
+const NewSamplePage = lazy(() => import('./pages/NewSamplePage'));
+const QuoteDetailPage = lazy(() => import('./pages/QuoteDetailPage'));
+const NewQuotePage = lazy(() => import('./pages/NewQuotePage'));
+const SalesOrderDetailPage = lazy(() => import('./pages/SalesOrderDetailPage'));
+const NewSalesOrderPage = lazy(() => import('./pages/NewSalesOrderPage'));
+
+// CRM Lists
+const CrmClientsListPage = lazy(() => import('./pages/CrmClientsListPage'));
 const ClientDetailPage = lazy(() => import('./pages/ClientDetailPage'));
-const EditSupplierPage = lazy(() => import('./pages/EditSupplierPage'));
-const CrmSuppliersListPage = lazy(() => import('./pages/CrmSuppliersListPage'));
-const TasksPage = lazy(() => import('./pages/TasksPage'));
-const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
+const EditClientPage = lazy(() => import('./pages/EditClientPage'));
+const NewClientPage = lazy(() => import('./pages/NewClientPage'));
+const CrmContactsListPage = lazy(() => import('./pages/CrmContactsListPage'));
 const ContactDetailPage = lazy(() => import('./pages/ContactDetailPage'));
-const AuditPage = lazy(() => import('./pages/AuditPage'));
-const LogisticsDeliveriesPage = lazy(() => import('./pages/LogisticsDeliveriesPage'));
-const LogisticsProvidersPage = lazy(() => import('./pages/LogisticsProvidersPage'));
-const LogisticsPricingPage = lazy(() => import('./pages/LogisticsPricingPage'));
+
+// Products
+const ProductDashboardPage = lazy(() => import('./pages/ProductDashboardPage'));
+const ProductsListPage = lazy(() => import('./pages/ProductsListPage'));
+const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'));
+const EditProductPage = lazy(() => import('./pages/EditProductPage'));
+const NewProductPage = lazy(() => import('./pages/NewProductPage'));
+const ProductCategoriesPage = lazy(() => import('./pages/ProductCategoriesPage'));
+
+// Purchases
+const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage'));
+const CrmSuppliersListPage = lazy(() => import('./pages/CrmSuppliersListPage'));
+const SupplierDetailPage = lazy(() => import('./pages/SupplierDetailPage'));
+const EditSupplierPage = lazy(() => import('./pages/EditSupplierPage'));
+
+// Inventory
 const InventoryStockPage = lazy(() => import('./pages/InventoryStockPage'));
 const InventoryMovementsPage = lazy(() => import('./pages/InventoryMovementsPage'));
 const InventoryAlertsPage = lazy(() => import('./pages/InventoryAlertsPage'));
 const InventoryLocationsPage = lazy(() => import('./pages/InventoryLocationsPage'));
-const CalendarPage = lazy(() => import('./pages/CalendarPage'));
-const InternalChatPage = lazy(() => import('./pages/InternalChatPage'));
-const AiAssistantPage = lazy(() => import('./pages/AiAssistantPage'));
-const EmailsPage = lazy(() => import('./pages/EmailsPage'));
-const SettingsPage = lazy(() => import('./pages/SettingsPage'));
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const EditProductPage = lazy(() => import('./pages/EditProductPage'));
-const LoginPage = lazy(() => import('./pages/LoginPage'));
-const SignupPage = lazy(() => import('./pages/SignupPage'));
+
+// Logistics
+const LogisticsDeliveriesPage = lazy(() => import('./pages/LogisticsDeliveriesPage'));
+const LogisticsProvidersPage = lazy(() => import('./pages/LogisticsProvidersPage'));
+const LogisticsPricingPage = lazy(() => import('./pages/LogisticsPricingPage'));
+
+// Productivity
+const TasksPage = lazy(() => import('./pages/TasksPage'));
 const NewTaskPage = lazy(() => import('./pages/NewTaskPage'));
 const TaskDetailPage = lazy(() => import('./pages/TaskDetailPage'));
 const EditTaskPage = lazy(() => import('./pages/EditTaskPage'));
+const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
 const NewProjectPage = lazy(() => import('./pages/NewProjectPage'));
 const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage'));
 const EditProjectPage = lazy(() => import('./pages/EditProjectPage'));
-const CommissionsPage = lazy(() => import('./pages/finance/CommissionsPage'));
-const CandidatesPage = lazy(() => import('./pages/CandidatesPage'));
-const UploadCandidatesPage = lazy(() => import('./pages/UploadCandidatesPage'));
-const CandidateDetailPage = lazy(() => import('./pages/CandidateDetailPage'));
-const NewSalesOrderPage = lazy(() => import('./pages/NewSalesOrderPage'));
-const NewClientPage = lazy(() => import('./pages/NewClientPage'));
-const NewSamplePage = lazy(() => import('./pages/NewSamplePage'));
+const CalendarPage = lazy(() => import('./pages/CalendarPage'));
+
+// Communication
+const InternalChatPage = lazy(() => import('./pages/InternalChatPage'));
+const EmailsPage = lazy(() => import('./pages/EmailsPage'));
+const AiAssistantPage = lazy(() => import('./pages/AiAssistantPage'));
+
+// Finance
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const NewInvoicePage = lazy(() => import('./pages/NewInvoicePage'));
 const InvoiceDetailPage = lazy(() => import('./pages/InvoiceDetailPage'));
+const SalesDashboardPage = lazy(() => import('./pages/finance/SalesDashboardPage'));
 const PendingPaymentsPage = lazy(() => import('./pages/finance/PendingPaymentsPage'));
 const ReceivedPaymentsPage = lazy(() => import('./pages/finance/ReceivedPaymentsPage'));
 const ExpensesPage = lazy(() => import('./pages/finance/ExpensesPage'));
 const CashFlowPage = lazy(() => import('./pages/finance/CashFlowPage'));
+const CommissionsPage = lazy(() => import('./pages/finance/CommissionsPage'));
+
+// System & Settings
+const ArchivesPage = lazy(() => import('./pages/ArchivesPage'));
+const AuditPage = lazy(() => import('./pages/AuditPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+
+// Settings Pages
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const UserManagementPage = lazy(() => import('./pages/settings/UserManagement'));
 const EditUserPage = lazy(() => import('./pages/EditUserPage'));
+const TeamManagementPage = lazy(() => import('./pages/settings/TeamManagement'));
+const SecuritySettingsPage = lazy(() => import('./pages/settings/SecuritySettings'));
+const EmailSettingsPage = lazy(() => import('./pages/settings/EmailSettings'));
+const IndustryManagementPage = lazy(() => import('./pages/settings/IndustryManagement'));
+const PipelineManagementPage = lazy(() => import('./pages/settings/PipelineManagement'));
+const AiAccessSettingsPage = lazy(() => import('./pages/settings/AiAccessSettings'));
+const EmailAppearancePage = lazy(() => import('./pages/CrmPage'));
 
-const App: React.FC = () => {
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-    const [isAuthenticated, setIsAuthenticated] = useState(true);
+// Auth & Onboarding
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const SignupPage = lazy(() => import('./pages/SignupPage'));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 
-    const toggleSidebar = useCallback(() => {
-        setIsSidebarCollapsed(prev => !prev);
+const useAuth = () => {
+    const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
+
+    const login = useCallback(() => {
+        localStorage.setItem('isAuthenticated', 'true');
+        setIsAuthenticated(true);
     }, []);
 
-    const useApplyTheme = () => {
-        useLayoutEffect(() => {
-            const theme = localStorage.getItem('crm-theme-mode');
-            if (theme === 'dark') {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
-        }, []);
-    };
-    
-    useApplyTheme();
+    const logout = useCallback(() => {
+        localStorage.removeItem('isAuthenticated');
+        setIsAuthenticated(false);
+    }, []);
 
-    if (!isAuthenticated) {
-        return (
-             <HashRouter>
-                <Suspense fallback={<PageLoader />}>
-                    <Routes>
-                        <Route path="/login" element={<LoginPage onLogin={() => setIsAuthenticated(true)} />} />
-                        <Route path="/signup" element={<SignupPage onSignup={() => setIsAuthenticated(true)} />} />
-                        <Route path="*" element={<Navigate to="/login" />} />
-                    </Routes>
-                </Suspense>
-            </HashRouter>
-        )
-    }
+    return { isAuthenticated, login, logout };
+};
+
+const AppContent: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+    const location = useLocation();
+    const [isQuickTaskOpen, setIsQuickTaskOpen] = useState(false);
+    const [headerTitle, setHeaderTitle] = useState('Hoy');
+
+    const secondarySidebarContent = useMemo(() => {
+        const currentTopLevelPath = `/${location.pathname.split('/')[1]}`;
+        const mainLink = NAV_LINKS.find(link => 
+            (link.sublinks && link.sublinks.some(sub => sub.path.startsWith(currentTopLevelPath))) ||
+            (link.path && link.path.startsWith(currentTopLevelPath))
+        );
+
+        if (mainLink?.path === '/today') return null;
+
+        if (mainLink && mainLink.sublinks) {
+            return {
+                title: mainLink.name,
+                sublinks: mainLink.sublinks,
+            };
+        }
+        return null;
+    }, [location.pathname]);
+
+    useLayoutEffect(() => {
+        const currentTopLevelPath = `/${location.pathname.split('/')[1]}`;
+        const mainLink = NAV_LINKS.find(link => 
+            (link.sublinks && link.sublinks.some(sub => sub.path.startsWith(currentTopLevelPath))) ||
+            (link.path && link.path.startsWith(currentTopLevelPath))
+        );
+        
+        if (secondarySidebarContent) {
+            setHeaderTitle('');
+        } else if (mainLink) {
+            setHeaderTitle(mainLink.name);
+        } else {
+            // Fallback for things like profile page which might not be in nav
+            setHeaderTitle('Hoy');
+        }
+    }, [location.pathname, secondarySidebarContent]);
+    
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+                event.preventDefault();
+                setIsQuickTaskOpen(prev => !prev);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     return (
-        <HashRouter>
-            <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
-                <Sidebar isCollapsed={isSidebarCollapsed} onToggle={toggleSidebar} />
-                <div className="flex-1 flex flex-col overflow-hidden">
-                    <Header onLogout={() => setIsAuthenticated(false)} />
-                    <main className="flex-1 overflow-x-hidden overflow-y-auto p-6">
-                        <Suspense fallback={<PageLoader />}>
-                            <Routes>
-                                <Route path="/" element={<Navigate to="/today" />} />
-                                <Route path="/today" element={<DashboardPage />} />
-
-                                {/* Prospecting */}
-                                <Route path="/prospecting/candidates" element={<CandidatesPage />} />
-                                <Route path="/prospecting/candidates/:id" element={<CandidateDetailPage />} />
-                                <Route path="/prospecting/upload" element={<UploadCandidatesPage />} />
-                                
-                                <Route path="/crm/lists" element={<CrmPage />} />
-                                <Route path="/crm/clients/new" element={<NewClientPage />} />
-                                <Route path="/crm/clients/:id" element={<ClientDetailPage />} />
-                                <Route path="/crm/clients/:id/edit" element={<EditClientPage />} />
-                                <Route path="/crm/contacts/:id" element={<ContactDetailPage />} />
-                                
-                                <Route path="/crm/prospects/new" element={<NewProspectPage />} />
-                                <Route path="/crm/prospects/:id" element={<ProspectDetailPage />} />
-                                <Route path="/crm/prospects/:id/edit" element={<EditProspectPage />} />
-
-                                {/* Hubs */}
-                                <Route path="/hubs/prospects" element={<CrmPipelinePage />} />
-                                <Route path="/hubs/samples" element={<SamplesPipelinePage />} />
-                                <Route path="/hubs/samples/new" element={<NewSamplePage />} />
-                                <Route path="/hubs/quotes" element={<QuotesPipelinePage />} />
-                                <Route path="/hubs/quotes/new" element={<NewQuotePage />} />
-                                <Route path="/hubs/sales-orders" element={<SalesOrdersPipelinePage />} />
-                                <Route path="/hubs/sales-orders/new" element={<NewSalesOrderPage />} />
-                                <Route path="/hubs/companies" element={<CompaniesPipelinePage />} />
-
-                                {/* Products */}
-                                <Route path="/products/list" element={<ProductsListPage />} />
-                                <Route path="/products/categories" element={<ProductCategoriesPage />} />
-                                <Route path="/products/new" element={<NewProductPage />} />
-                                <Route path="/products/:id" element={<ProductDetailPage />} />
-                                <Route path="/products/:id/edit" element={<EditProductPage />} />
-
-                                {/* Purchase */}
-                                <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
-                                <Route path="/purchase/suppliers" element={<CrmSuppliersListPage />} />
-                                <Route path="/purchase/suppliers/:id" element={<SupplierDetailPage />} />
-                                <Route path="/purchase/suppliers/:id/edit" element={<EditSupplierPage />} />
-                                
-                                {/* Inventory */}
-                                <Route path="/inventory/stock" element={<InventoryStockPage />} />
-                                <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
-                                <Route path="/inventory/alerts" element={<InventoryAlertsPage />} />
-                                <Route path="/inventory/locations" element={<InventoryLocationsPage />} />
-
-                                {/* Logistics */}
-                                <Route path="/logistics/deliveries" element={<LogisticsDeliveriesPage />} />
-                                <Route path="/logistics/providers" element={<LogisticsProvidersPage />} />
-                                <Route path="/logistics/pricing" element={<LogisticsPricingPage />} />
-
-                                {/* Productivity */}
-                                <Route path="/tasks" element={<TasksPage />} />
-                                <Route path="/tasks/new" element={<NewTaskPage />} />
-                                <Route path="/tasks/projects" element={<ProjectsPage />} />
-                                <Route path="/tasks/projects/new" element={<NewProjectPage />} />
-                                <Route path="/tasks/projects/:id" element={<ProjectDetailPage />} />
-                                <Route path="/tasks/projects/:id/edit" element={<EditProjectPage />} />
-                                <Route path="/tasks/:id" element={<TaskDetailPage />} />
-                                <Route path="/tasks/:id/edit" element={<EditTaskPage />} />
-
-                                <Route path="/calendar" element={<CalendarPage />} />
-                                <Route path="/communication/chat" element={<InternalChatPage />} />
-                                <Route path="/communication/emails" element={<EmailsPage />} />
-                                <Route path="/communication/ai-assistant" element={<AiAssistantPage />} />
-
-                                {/* Finance */}
-                                <Route path="/billing" element={<BillingPage />} />
-                                <Route path="/billing/new" element={<NewInvoicePage />} />
-                                <Route path="/billing/:id" element={<InvoiceDetailPage />} />
-                                <Route path="/finance/pending-payments" element={<PendingPaymentsPage />} />
-                                <Route path="/finance/payments-received" element={<ReceivedPaymentsPage />} />
-                                <Route path="/finance/expenses" element={<ExpensesPage />} />
-                                <Route path="/finance/cash-flow" element={<CashFlowPage />} />
-                                <Route path="/finance/commissions" element={<CommissionsPage />} />
-                                
-                                {/* System */}
-                                <Route path="/archives" element={<ArchivesPage />} />
-                                <Route path="/insights/audit" element={<AuditPage />} />
-                                <Route path="/settings" element={<SettingsPage />} />
-                                <Route path="/settings/users/:id/edit" element={<EditUserPage />} />
-                                <Route path="/profile" element={<ProfilePage />} />
-                            </Routes>
-                        </Suspense>
-                    </main>
-                </div>
-                {isTaskModalOpen && <QuickTaskModal isOpen={isTaskModalOpen} onClose={() => setIsTaskModalOpen(false)} onSave={(task) => console.log('Quick task saved', task)} />}
+        <div className="flex h-screen bg-slate-100 dark:bg-slate-900">
+            <PrimarySidebar />
+            {secondarySidebarContent && (
+                <SecondarySidebar
+                    title={secondarySidebarContent.title}
+                    sublinks={secondarySidebarContent.sublinks}
+                />
+            )}
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <Header onLogout={onLogout} pageTitle={headerTitle} />
+                <ContentLayout>
+                    <Suspense fallback={<PageLoader />}>
+                        <Routes>
+                            <Route path="/" element={<Navigate to="/today" replace />} />
+                            <Route path="/today" element={<DashboardPage />} />
+                            {/* Prospecting */}
+                            <Route path="/prospecting/candidates" element={<CandidatesPage />} />
+                            <Route path="/prospecting/candidates/:id" element={<CandidateDetailPage />} />
+                            <Route path="/prospecting/upload" element={<UploadCandidatesPage />} />
+                            {/* Hubs */}
+                            <Route path="/hubs/prospects" element={<CrmPipelinePage />} />
+                            <Route path="/hubs/prospects/new" element={<NewProspectPage />} />
+                            <Route path="/hubs/prospects/:id" element={<ProspectDetailPage />} />
+                            <Route path="/hubs/prospects/:id/edit" element={<EditProspectPage />} />
+                            <Route path="/hubs/samples" element={<SamplesPipelinePage />} />
+                            <Route path="/hubs/samples/new" element={<NewSamplePage />} />
+                            <Route path="/hubs/samples/:id" element={<SampleDetailPage />} />
+                            <Route path="/hubs/quotes" element={<QuotesPipelinePage />} />
+                            <Route path="/hubs/quotes/new" element={<NewQuotePage />} />
+                            <Route path="/hubs/quotes/:id" element={<QuoteDetailPage />} />
+                            <Route path="/hubs/sales-orders" element={<SalesOrdersPipelinePage />} />
+                            <Route path="/hubs/sales-orders/new" element={<NewSalesOrderPage />} />
+                            <Route path="/hubs/sales-orders/:id" element={<SalesOrderDetailPage />} />
+                            <Route path="/hubs/companies" element={<CompaniesPipelinePage />} />
+                            {/* CRM Lists */}
+                            <Route path="/crm/clients/list" element={<CrmClientsListPage />} />
+                            <Route path="/crm/clients/new" element={<NewClientPage />} />
+                            <Route path="/crm/clients/:id" element={<ClientDetailPage />} />
+                            <Route path="/crm/clients/:id/edit" element={<EditClientPage />} />
+                            <Route path="/crm/contacts/list" element={<CrmContactsListPage />} />
+                            <Route path="/crm/contacts/:id" element={<ContactDetailPage />} />
+                            {/* Products */}
+                            <Route path="/products/dashboard" element={<ProductDashboardPage />} />
+                            <Route path="/products/list" element={<ProductsListPage />} />
+                            <Route path="/products/new" element={<NewProductPage />} />
+                            <Route path="/products/:id" element={<ProductDetailPage />} />
+                            <Route path="/products/:id/edit" element={<EditProductPage />} />
+                            <Route path="/products/categories" element={<ProductCategoriesPage />} />
+                            {/* Purchases */}
+                            <Route path="/purchase/orders" element={<PurchaseOrdersPage />} />
+                            <Route path="/purchase/suppliers" element={<CrmSuppliersListPage />} />
+                            <Route path="/purchase/suppliers/:id" element={<SupplierDetailPage />} />
+                            <Route path="/purchase/suppliers/:id/edit" element={<EditSupplierPage />} />
+                            {/* Inventory */}
+                            <Route path="/inventory/stock" element={<InventoryStockPage />} />
+                            <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
+                            <Route path="/inventory/alerts" element={<InventoryAlertsPage />} />
+                            <Route path="/inventory/locations" element={<InventoryLocationsPage />} />
+                            {/* Logistics */}
+                            <Route path="/logistics/deliveries" element={<LogisticsDeliveriesPage />} />
+                            <Route path="/logistics/providers" element={<LogisticsProvidersPage />} />
+                            <Route path="/logistics/pricing" element={<LogisticsPricingPage />} />
+                            {/* Productivity */}
+                            <Route path="/tasks" element={<TasksPage />} />
+                            <Route path="/tasks/new" element={<NewTaskPage />} />
+                            <Route path="/tasks/:id" element={<TaskDetailPage />} />
+                            <Route path="/tasks/:id/edit" element={<EditTaskPage />} />
+                            <Route path="/tasks/projects" element={<ProjectsPage />} />
+                            <Route path="/tasks/projects/new" element={<NewProjectPage />} />
+                            <Route path="/tasks/projects/:id" element={<ProjectDetailPage />} />
+                            <Route path="/tasks/projects/:id/edit" element={<EditProjectPage />} />
+                            <Route path="/calendar" element={<CalendarPage />} />
+                            {/* Communication */}
+                            <Route path="/communication/chat" element={<InternalChatPage />} />
+                            <Route path="/communication/chat/:type/:id" element={<InternalChatPage />} />
+                            <Route path="/communication/emails" element={<EmailsPage />} />
+                            <Route path="/communication/ai-assistant" element={<AiAssistantPage />} />
+                             {/* Finance */}
+                            <Route path="/billing" element={<BillingPage />} />
+                            <Route path="/billing/new" element={<NewInvoicePage />} />
+                            <Route path="/billing/:id" element={<InvoiceDetailPage />} />
+                            <Route path="/finance/sales-dashboard" element={<SalesDashboardPage />} />
+                            <Route path="/finance/pending-payments" element={<PendingPaymentsPage />} />
+                            <Route path="/finance/payments-received" element={<ReceivedPaymentsPage />} />
+                            <Route path="/finance/expenses" element={<ExpensesPage />} />
+                            <Route path="/finance/cash-flow" element={<CashFlowPage />} />
+                            <Route path="/finance/commissions" element={<CommissionsPage />} />
+                            {/* System */}
+                            <Route path="/archives" element={<ArchivesPage />} />
+                            <Route path="/profile" element={<ProfilePage />} />
+                            <Route path="/insights/audit" element={<AuditPage />} />
+                             {/* Settings */}
+                            <Route path="/settings" element={<Navigate to="/settings/users" replace />} />
+                            <Route path="/settings/users" element={<UserManagementPage />} />
+                            <Route path="/settings/users/:id/edit" element={<EditUserPage />} />
+                            <Route path="/settings/teams" element={<TeamManagementPage />} />
+                            <Route path="/settings/security" element={<SecuritySettingsPage />} />
+                            <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />
+                            <Route path="/settings/industries" element={<IndustryManagementPage />} />
+                            <Route path="/settings/pipelines" element={<PipelineManagementPage />} />
+                            <Route path="/settings/ai-access" element={<AiAccessSettingsPage />} />
+                            <Route path="/settings/appearance/email" element={<EmailAppearancePage />} />
+                            {/* 404 */}
+                            <Route path="*" element={<div>404 Not Found</div>} />
+                        </Routes>
+                    </Suspense>
+                </ContentLayout>
+                <QuickTaskModal isOpen={isQuickTaskOpen} onClose={() => setIsQuickTaskOpen(false)} onSave={() => {}} />
             </div>
-        </HashRouter>
+        </div>
     );
 };
+
+
+const AuthRoutes: React.FC = () => {
+    const { isAuthenticated, login, logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogin = () => {
+        login();
+        navigate('/today', { replace: true });
+    };
+    
+    const handleSignup = () => {
+        login(); // Auto-login after signup for simplicity
+        navigate('/onboarding', { replace: true });
+    };
+
+    const handleOnboardingComplete = () => {
+        navigate('/today', { replace: true });
+    };
+
+    return (
+        <Suspense fallback={<PageLoader />}>
+            <Routes>
+                {!isAuthenticated ? (
+                    <>
+                        <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+                        <Route path="/signup" element={<SignupPage onSignup={handleSignup} />} />
+                        <Route path="*" element={<Navigate to="/login" replace />} />
+                    </>
+                ) : (
+                    <>
+                        <Route path="/onboarding" element={<OnboardingPage onComplete={handleOnboardingComplete} />} />
+                        <Route path="/login" element={<Navigate to="/today" replace />} />
+                        <Route path="/signup" element={<Navigate to="/today" replace />} />
+                        <Route path="/*" element={<AppContent onLogout={logout} />} />
+                    </>
+                )}
+            </Routes>
+        </Suspense>
+    );
+};
+
+const App: React.FC = () => (
+    <HashRouter>
+        <AuthRoutes />
+    </HashRouter>
+);
 
 export default App;

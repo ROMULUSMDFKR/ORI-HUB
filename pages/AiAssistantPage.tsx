@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, FunctionDeclaration, Type } from '@google/genai';
 import { useCollection } from '../hooks/useCollection';
@@ -68,7 +70,7 @@ const AiAssistantPage: React.FC = () => {
     const { data: salesOrders } = useCollection<SalesOrder>('salesOrders');
     const { data: prospects } = useCollection<Prospect>('prospects');
     const { data: tasks } = useCollection<Task>('tasks');
-    const currentUser = MOCK_USERS.natalia;
+    const currentUser = MOCK_USERS['user-1'];
 
     // Initialize Speech Recognition
     useEffect(() => {

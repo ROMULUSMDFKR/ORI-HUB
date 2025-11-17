@@ -55,20 +55,18 @@ const CashFlowPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-on-surface">Flujo de Caja</h1>
-
             {loading ? <div className="flex justify-center py-12"><Spinner /></div> : (
                 <>
-                    <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                        <p className="text-sm font-semibold text-on-surface-secondary">Balance Neto (Últimos 6 meses)</p>
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Balance Neto (Últimos 6 meses)</p>
                         <p className={`text-4xl font-bold mt-1 ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             ${netBalance.toLocaleString('en-US', {minimumFractionDigits: 0})}
                         </p>
                     </div>
 
-                    <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                        <h3 className="text-lg font-semibold mb-4">Ingresos vs. Gastos (Últimos 6 meses)</h3>
-                        <div className="flex items-end h-64 space-x-4 border-l border-b border-border p-4">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Ingresos vs. Gastos (Últimos 6 meses)</h3>
+                        <div className="flex items-end h-64 space-x-4 border-l border-b border-slate-200 dark:border-slate-700 p-4">
                             {monthlyData.map(({ month, income, expense }) => (
                                 <div key={month} className="flex-1 flex flex-col items-center justify-end h-full">
                                     <div className="flex items-end h-full w-full gap-1 justify-center">
@@ -83,27 +81,27 @@ const CashFlowPage: React.FC = () => {
                                             title={`Gastos: $${expense.toLocaleString()}`}
                                         ></div>
                                     </div>
-                                    <p className="text-xs mt-2 text-center text-on-surface-secondary capitalize">{month}</p>
+                                    <p className="text-xs mt-2 text-center text-slate-500 dark:text-slate-400 capitalize">{month}</p>
                                 </div>
                             ))}
                         </div>
                     </div>
                     
-                    <div className="bg-surface rounded-xl shadow-sm border border-border">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                          <table className="min-w-full text-sm">
-                            <thead className="bg-background"><tr>
-                                <th className="p-3 text-left font-semibold text-on-surface-secondary">Mes</th>
-                                <th className="p-3 text-right font-semibold text-on-surface-secondary">Ingresos</th>
-                                <th className="p-3 text-right font-semibold text-on-surface-secondary">Gastos</th>
-                                <th className="p-3 text-right font-semibold text-on-surface-secondary">Flujo Neto</th>
+                            <thead className="bg-slate-50 dark:bg-slate-700/50"><tr>
+                                <th className="p-3 text-left font-semibold text-slate-500 dark:text-slate-400">Mes</th>
+                                <th className="p-3 text-right font-semibold text-slate-500 dark:text-slate-400">Ingresos</th>
+                                <th className="p-3 text-right font-semibold text-slate-500 dark:text-slate-400">Gastos</th>
+                                <th className="p-3 text-right font-semibold text-slate-500 dark:text-slate-400">Flujo Neto</th>
                             </tr></thead>
-                            <tbody className="divide-y divide-border">
+                            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                                 {monthlyData.map(({ month, income, expense, net }) => (
                                     <tr key={month}>
-                                        <td className="p-3 font-medium capitalize">{month}</td>
+                                        <td className="p-3 font-medium capitalize text-slate-800 dark:text-slate-200">{month}</td>
                                         <td className="p-3 text-right text-green-600">${income.toLocaleString()}</td>
                                         <td className="p-3 text-right text-red-600">${expense.toLocaleString()}</td>
-                                        <td className={`p-3 text-right font-semibold ${net >= 0 ? 'text-on-surface' : 'text-red-600'}`}>${net.toLocaleString()}</td>
+                                        <td className={`p-3 text-right font-semibold ${net >= 0 ? 'text-slate-800 dark:text-slate-200' : 'text-red-600'}`}>${net.toLocaleString()}</td>
                                     </tr>
                                 ))}
                             </tbody>

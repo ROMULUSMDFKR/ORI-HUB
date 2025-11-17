@@ -1,187 +1,135 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { ChatMessage, User, Task } from '../types';
-import { MOCK_USERS } from '../../data/mockData';
+import { ChatMessage, User, Group, Task, ActivityLog } from '../types';
 import Spinner from '../components/ui/Spinner';
-import { Link } from 'react-router-dom';
+import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
+import Drawer from '../components/ui/Drawer';
+import Checkbox from '../components/ui/Checkbox';
+import ChatSidebar from '../components/layout/ChatSidebar';
+// FIX: Add missing import for `MOCK_USERS`.
+import { MOCK_USERS } from '../data/mockData';
 
-const InternalChatPage: React.FC = () => {
-    const { data: messagesData, loading: messagesLoading } = useCollection<ChatMessage>('messages');
-    const { data: tasks } = useCollection<Task>('tasks');
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-    const [newMessage, setNewMessage] = useState('');
-    const [taskSuggestions, setTaskSuggestions] = useState<Task[]>([]);
-    const [showTaskSuggestions, setShowTaskSuggestions] = useState(false);
-    const currentUser = MOCK_USERS.natalia; // Assume current user
+
+const ChatWindow: React.FC<{
+    chatId: string;
+    chatType: 'user' | 'group';
+    onSendMessage: (text: string) => void;
+}> = ({ chatId, chatType }) => {
     const chatEndRef = useRef<null | HTMLDivElement>(null);
-
-    useEffect(() => {
-      if (messagesData) {
-        setMessages(messagesData);
-      }
-    }, [messagesData]);
-
-    const users = Object.values(MOCK_USERS).filter(u => u.id !== currentUser.id && !u.name.includes(' ')); // Filter out users with spaces for simplicity
+    const [newMessage, setNewMessage] = useState('');
+    const { data: usersData } = useCollection<User>('users');
+    const { data: groupsData } = useCollection<Group>('groups');
+    const { data: messagesData, loading } = useCollection<ChatMessage>('messages');
+    
+    const currentUser = useMemo(() => usersData?.find(u => u.id === 'user-1'), [usersData]);
 
     const conversation = useMemo(() => {
-        if (!selectedUserId || !messages) return [];
-        return messages
-            .filter(msg =>
-                (msg.senderId === currentUser.id && msg.receiverId === selectedUserId) ||
-                (msg.senderId === selectedUserId && msg.receiverId === currentUser.id)
-            )
-            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    }, [messages, selectedUserId, currentUser.id]);
+        if (!messagesData || !currentUser) return [];
+        if (chatType === 'user') {
+            return messagesData.filter(msg =>
+                (msg.senderId === currentUser.id && msg.receiverId === chatId) ||
+                (msg.senderId === chatId && msg.receiverId === currentUser.id)
+            );
+        }
+        return messagesData.filter(msg => msg.receiverId === chatId);
+    }, [messagesData, chatId, chatType, currentUser]);
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, conversation]);
-    
+    }, [conversation]);
+
     const handleSendMessage = (e: React.FormEvent) => {
         e.preventDefault();
-        if (newMessage.trim() === '' || !selectedUserId) return;
-
-        const message: ChatMessage = {
-            id: `msg-${Date.now()}`,
-            senderId: currentUser.id,
-            receiverId: selectedUserId,
-            text: newMessage,
-            timestamp: new Date().toISOString(),
-        };
-        setMessages(prev => [...prev, message]);
+        // onSendMessage(newMessage); // This should be handled in parent
         setNewMessage('');
     };
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setNewMessage(value);
+    const usersMap = useMemo(() => new Map(usersData?.map(u => [u.id, u])), [usersData]);
 
-        if (value.includes('/task ')) {
-            const searchTerm = value.split('/task ')[1];
-            if (searchTerm && tasks) {
-                const suggestions = tasks.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 5);
-                setTaskSuggestions(suggestions);
-                setShowTaskSuggestions(true);
-            } else {
-                setShowTaskSuggestions(false);
-            }
-        } else {
-            setShowTaskSuggestions(false);
-        }
-    };
+    const chatTarget = useMemo(() => {
+        if (chatType === 'user') return usersMap.get(chatId);
+        return groupsData?.find(g => g.id === chatId);
+    }, [chatId, chatType, usersMap, groupsData]);
+
+    if (loading || !currentUser || !chatTarget) {
+        return <div className="flex-1 flex items-center justify-center"><Spinner /></div>;
+    }
     
-    const handleSuggestionClick = (task: Task) => {
-        const linkText = `[Task: ${task.title}]`;
-        const taskLink = `/tasks/${task.id}`;
-        const messageTextWithLink = newMessage.replace(/\/task .*/, `${linkText}(${taskLink})`);
-        setNewMessage(messageTextWithLink);
-        setShowTaskSuggestions(false);
-    };
-
-    const renderMessageText = (text: string): React.ReactNode => {
-        const regex = /\[Task: (.*?)\]\(\/tasks\/(.*?)\)/g;
-        let lastIndex = 0;
-        const parts: (string | React.ReactNode)[] = [];
-        let match;
-
-        while ((match = regex.exec(text)) !== null) {
-            if (match.index > lastIndex) {
-                parts.push(text.substring(lastIndex, match.index));
-            }
-            const [, title, id] = match;
-            parts.push(
-                <Link key={id} to={`/tasks/${id}`} className="text-blue-600 font-semibold hover:underline bg-blue-100 px-1 rounded">
-                    {`Tarea: ${title}`}
-                </Link>
-            );
-            lastIndex = regex.lastIndex;
-        }
-
-        if (lastIndex < text.length) {
-            parts.push(text.substring(lastIndex));
-        }
-
-        return <p>{parts}</p>;
-    };
-
-    const selectedUser = selectedUserId ? MOCK_USERS[selectedUserId] || Object.values(MOCK_USERS).find(u => u.id === selectedUserId) : null;
-
     return (
-        <div className="flex h-[calc(100vh-120px)] bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
-            {/* User List */}
-            <div className="w-1/3 border-r border-slate-200 dark:border-slate-700 flex flex-col">
-                <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                    <h2 className="text-lg font-semibold">Chats</h2>
-                </div>
-                <ul className="overflow-y-auto flex-1">
-                    {users.map(user => (
-                        <li key={user.id} onClick={() => setSelectedUserId(user.id)} className={`flex items-center p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 ${selectedUserId === user.id ? 'bg-indigo-100 dark:bg-indigo-500/10' : ''}`}>
-                            <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full mr-3" />
-                            <div>
-                                <p className="font-semibold">{user.name}</p>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-
-            {/* Chat Window */}
-            <div className="w-2/3 flex flex-col">
-                {selectedUser ? (
-                    <>
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center">
-                            <img src={selectedUser.avatarUrl} alt={selectedUser.name} className="w-10 h-10 rounded-full mr-3" />
-                            <h2 className="text-lg font-semibold">{selectedUser.name}</h2>
-                        </div>
-
-                        <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50 dark:bg-slate-900">
-                            {messagesLoading ? <Spinner /> : conversation.map(msg => (
-                                <div key={msg.id} className={`flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-xs lg:max-w-md p-3 rounded-lg ${msg.senderId === currentUser.id ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                                        {renderMessageText(msg.text)}
-                                        <p className="text-xs mt-1 opacity-70 text-right">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                                    </div>
-                                </div>
-                            ))}
-                             <div ref={chatEndRef} />
-                        </div>
-
-                        <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 relative">
-                             {showTaskSuggestions && (
-                                <div className="absolute bottom-full left-4 mb-2 w-3/4 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg z-10">
-                                    <p className="text-xs font-semibold p-2 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-600">Sugerencias de Tareas</p>
-                                    <ul>
-                                        {taskSuggestions.map(task => (
-                                            <li key={task.id} onClick={() => handleSuggestionClick(task)} className="p-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-600 cursor-pointer truncate">
-                                                {task.title}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                            <form onSubmit={handleSendMessage}>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={newMessage}
-                                        onChange={handleInputChange}
-                                        placeholder="Escribe un mensaje o '/task' para buscar una tarea..."
-                                        className="w-full"
-                                    />
-                                    <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-indigo-600 text-white hover:opacity-90">
-                                        <span className="material-symbols-outlined">send</span>
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </>
+        <div className="flex-1 flex flex-col">
+            <header className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center gap-3">
+                {chatType === 'user' ? (
+                     <img src={(chatTarget as User).avatarUrl} alt={chatTarget.name} className="w-10 h-10 rounded-full" />
                 ) : (
-                    <div className="flex-1 flex items-center justify-center text-gray-500">
-                        Selecciona un chat para empezar a conversar
+                    <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-slate-500">groups</span>
                     </div>
                 )}
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{chatTarget.name}</h2>
+            </header>
+            
+            <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-100 dark:bg-slate-900/50">
+                {conversation.map(msg => {
+                    const sender = usersMap.get(msg.senderId);
+                    const isMe = msg.senderId === currentUser.id;
+                    return (
+                        <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                            {chatType === 'group' && !isMe && (
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 ml-10">{sender?.name}</p>
+                            )}
+                             <div className={`flex items-end gap-2 max-w-lg ${isMe ? 'flex-row-reverse' : ''}`}>
+                                {sender && <img src={sender.avatarUrl} alt={sender.name} className="w-6 h-6 rounded-full mb-1" />}
+                                <div className={`p-3 rounded-lg ${isMe ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-700'}`}>
+                                    <p className="text-sm">{msg.text}</p>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+                <div ref={chatEndRef} />
             </div>
+
+            <footer className="p-4 border-t border-slate-200 dark:border-slate-700">
+                <form onSubmit={handleSendMessage}>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder={`Mensaje a ${chatTarget.name}...`}
+                            className="w-full pr-12"
+                        />
+                        <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-indigo-600 text-white hover:opacity-90 disabled:opacity-50" disabled={!newMessage.trim()}>
+                            <span className="material-symbols-outlined">send</span>
+                        </button>
+                    </div>
+                </form>
+            </footer>
+        </div>
+    );
+};
+
+const InternalChatPage: React.FC = () => {
+    const { type, id } = useParams();
+
+    return (
+        <div className="flex h-full">
+            <ChatSidebar />
+            {id ? (
+                <ChatWindow 
+                    chatId={id} 
+                    chatType={type as 'user' | 'group'} 
+                    onSendMessage={(text) => console.log('Send:', text)} // Placeholder
+                />
+            ) : (
+                <div className="flex-1 flex items-center justify-center bg-slate-100 dark:bg-slate-900/50">
+                    <div className="text-center">
+                        <span className="material-symbols-outlined text-6xl text-slate-400">forum</span>
+                        <p className="mt-2 text-lg text-slate-500">Selecciona una conversación para empezar</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

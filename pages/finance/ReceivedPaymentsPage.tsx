@@ -38,8 +38,6 @@ const ReceivedPaymentsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Historial de Pagos Recibidos</h1>
-
             {invoicesLoading || companiesLoading ? (
                 <div className="flex justify-center py-12"><Spinner /></div>
             ) : (

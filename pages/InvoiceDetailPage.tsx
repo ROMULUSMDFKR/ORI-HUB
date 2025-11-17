@@ -38,12 +38,12 @@ const InvoiceDetailPage: React.FC = () => {
     const balance = invoice.total - invoice.paidAmount;
 
     return (
-        <div className="max-w-4xl mx-auto bg-surface p-8 rounded-xl shadow-sm border">
+        <div className="max-w-4xl mx-auto bg-white dark:bg-slate-800 p-8 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b pb-6 mb-6">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b border-slate-200 dark:border-slate-700 pb-6 mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold">Factura {invoice.id}</h1>
-                    <p className="text-on-surface-secondary">Orden de Venta: <Link to={`/sales-orders/${invoice.salesOrderId}`} className="text-accent hover:underline">{invoice.salesOrderId}</Link></p>
+                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-200">Factura {invoice.id}</h1>
+                    <p className="text-slate-500 dark:text-slate-400">Orden de Venta: <Link to={`/sales-orders/${invoice.salesOrderId}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">{invoice.salesOrderId}</Link></p>
                 </div>
                 <div className="mt-4 sm:mt-0">
                     <Badge text={invoice.status} color={getStatusColor(invoice.status)} />
@@ -53,38 +53,38 @@ const InvoiceDetailPage: React.FC = () => {
             {/* Client and Dates */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8 text-sm">
                 <div>
-                    <p className="font-semibold text-on-surface-secondary">CLIENTE</p>
-                    <p className="font-bold text-on-surface text-base">{company?.shortName || 'N/A'}</p>
-                    <p>{company?.name}</p>
-                    <p>{company?.rfc}</p>
+                    <p className="font-semibold text-slate-500 dark:text-slate-400">CLIENTE</p>
+                    <p className="font-bold text-slate-800 dark:text-slate-200 text-base">{company?.shortName || 'N/A'}</p>
+                    <p className="text-slate-600 dark:text-slate-300">{company?.name}</p>
+                    <p className="text-slate-600 dark:text-slate-300">{company?.rfc}</p>
                 </div>
                 <div>
-                    <p className="font-semibold text-on-surface-secondary">FECHA DE EMISIÓN</p>
-                    <p className="font-medium text-on-surface">{new Date(invoice.createdAt).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p className="font-semibold text-slate-500 dark:text-slate-400">FECHA DE EMISIÓN</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-200">{new Date(invoice.createdAt).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 </div>
                 <div>
-                    <p className="font-semibold text-on-surface-secondary">FECHA DE VENCIMIENTO</p>
-                    <p className="font-medium text-on-surface">{new Date(invoice.dueDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p className="font-semibold text-slate-500 dark:text-slate-400">FECHA DE VENCIMIENTO</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-200">{new Date(invoice.dueDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 </div>
             </div>
 
             {/* Items Table */}
             <table className="w-full text-sm mb-8">
-                <thead className="bg-background">
+                <thead className="bg-slate-50 dark:bg-slate-700/50">
                     <tr>
-                        <th className="p-3 text-left font-semibold text-on-surface-secondary">Descripción</th>
-                        <th className="p-3 text-right font-semibold text-on-surface-secondary">Cantidad</th>
-                        <th className="p-3 text-right font-semibold text-on-surface-secondary">Precio Unit.</th>
-                        <th className="p-3 text-right font-semibold text-on-surface-secondary">Importe</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Descripción</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cantidad</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Precio Unit.</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Importe</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                     {invoice.items.map((item, index) => (
                         <tr key={index}>
-                            <td className="p-3 font-medium">{item.productName}</td>
-                            <td className="p-3 text-right">{item.qty} {item.unit}</td>
-                            <td className="p-3 text-right">${item.unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-medium">${item.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                            <td className="px-6 py-4 font-medium text-slate-800 dark:text-slate-200">{item.productName}</td>
+                            <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300">{item.qty} {item.unit}</td>
+                            <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300">${item.unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                            <td className="px-6 py-4 text-right font-medium text-slate-800 dark:text-slate-200">${item.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -93,21 +93,21 @@ const InvoiceDetailPage: React.FC = () => {
             {/* Totals */}
             <div className="flex justify-end mb-8">
                 <div className="w-full max-w-xs space-y-2 text-sm">
-                    <div className="flex justify-between"><span>Subtotal:</span><span>${invoice.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                    <div className="flex justify-between"><span>IVA ({(TAX_RATE * 100).toFixed(0)}%):</span><span>${invoice.tax.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                    <div className="flex justify-between font-bold text-base pt-2 border-t"><span>Total:</span><span>${invoice.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                    <div className="flex justify-between"><span>Pagado:</span><span>-${invoice.paidAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                    <div className="flex justify-between font-bold text-base pt-2 border-t text-accent"><span>Saldo:</span><span>${balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between text-slate-600 dark:text-slate-300"><span>Subtotal:</span><span>${invoice.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between text-slate-600 dark:text-slate-300"><span>IVA ({(TAX_RATE * 100).toFixed(0)}%):</span><span>${invoice.tax.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"><span>Total:</span><span>${invoice.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between text-slate-600 dark:text-slate-300"><span>Pagado:</span><span>-${invoice.paidAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400"><span>Saldo:</span><span>${balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
                 </div>
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t">
-                {invoice.notes && <p className="text-xs text-on-surface-secondary italic text-center sm:text-left">Notas: {invoice.notes}</p>}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-slate-200 dark:border-slate-700">
+                {invoice.notes && <p className="text-xs text-slate-500 dark:text-slate-400 italic text-center sm:text-left">Notas: {invoice.notes}</p>}
                 <div className="flex gap-2 flex-wrap justify-center">
-                    <button className="bg-surface border border-border text-on-surface font-semibold py-2 px-3 rounded-lg text-sm flex items-center gap-2"><span className="material-symbols-outlined text-base">download</span>Descargar PDF</button>
-                    <button className="bg-surface border border-border text-on-surface font-semibold py-2 px-3 rounded-lg text-sm flex items-center gap-2"><span className="material-symbols-outlined text-base">mail</span>Enviar por Correo</button>
-                    {balance > 0 && <button className="bg-primary text-on-primary font-semibold py-2 px-3 rounded-lg text-sm flex items-center gap-2"><span className="material-symbols-outlined text-base">payments</span>Registrar Pago</button>}
+                    <button className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-3 rounded-lg text-sm flex items-center gap-2"><span className="material-symbols-outlined text-base">download</span>Descargar PDF</button>
+                    <button className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-3 rounded-lg text-sm flex items-center gap-2"><span className="material-symbols-outlined text-base">mail</span>Enviar por Correo</button>
+                    {balance > 0 && <button className="bg-indigo-600 text-white font-semibold py-2 px-3 rounded-lg text-sm flex items-center gap-2"><span className="material-symbols-outlined text-base">payments</span>Registrar Pago</button>}
                     {invoice.status !== InvoiceStatus.Cancelada && <button className="bg-red-100 border border-red-200 text-red-700 font-semibold py-2 px-3 rounded-lg text-sm flex items-center gap-2"><span className="material-symbols-outlined text-base">cancel</span>Cancelar Factura</button>}
                 </div>
             </div>

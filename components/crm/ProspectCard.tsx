@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Prospect } from '../../types';
@@ -36,7 +38,7 @@ const InfoRow: React.FC<{ icon: string; text: React.ReactNode; isAlert?: boolean
 );
 
 const ProspectCard: React.FC<ProspectCardProps> = ({ prospect, onDragStart, onArchive }) => {
-  const owner = Object.values(MOCK_USERS).find(u => u.id === prospect.ownerId) || MOCK_USERS.admin;
+  const owner = Object.values(MOCK_USERS).find(u => u.id === prospect.ownerId) || MOCK_USERS['user-3'];
   const [menuOpen, setMenuOpen] = useState(false);
 
   const priorityColor = {
@@ -64,13 +66,11 @@ const ProspectCard: React.FC<ProspectCardProps> = ({ prospect, onDragStart, onAr
                 <span className="material-symbols-outlined text-sm">more_horiz</span>
             </button>
             {menuOpen && (
-                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-md shadow-lg z-10 border border-slate-200 dark:border-slate-700">
-                    <button onClick={() => alert('Funcionalidad para programar acción.')} className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
-                        <span className="material-symbols-outlined text-base mr-2">event</span>Programar acción
-                    </button>
-                    <Link to={`/crm/prospects/${prospect.id}`} onClick={e => e.stopPropagation()} className="flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
-                        <span className="material-symbols-outlined text-base mr-2">visibility</span>Abrir detalle
+                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-md shadow-lg z-10 border border-slate-200 dark:border-slate-700 py-1">
+                    <Link to={`/crm/prospects/${prospect.id}`} onClick={e => e.stopPropagation()} className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <span className="material-symbols-outlined text-base mr-2">visibility</span>Ver Detalle
                     </Link>
+                    <div className="my-1 h-px bg-slate-200 dark:bg-slate-700"></div>
                     <button onClick={() => onArchive(prospect.id)} className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
                         <span className="material-symbols-outlined text-base mr-2">archive</span>Archivar
                     </button>

@@ -1,17 +1,39 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { FreightPricingRule } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
+import NewFreightRuleDrawer from '../components/logistics/NewFreightRuleDrawer';
 
 const LogisticsPricingPage: React.FC = () => {
-    const { data: rules, loading, error } = useCollection<FreightPricingRule>('freightPricing');
+    const { data: initialRules, loading, error } = useCollection<FreightPricingRule>('freightPricing');
+    const [rules, setRules] = useState<FreightPricingRule[] | null>(null);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+    useEffect(() => {
+        if (initialRules) {
+            setRules(initialRules);
+        }
+    }, [initialRules]);
+
+    const handleSaveRule = (newRuleData: Omit<FreightPricingRule, 'id'>) => {
+        const newRule: FreightPricingRule = {
+            id: `rule-${Date.now()}`,
+            ...newRuleData
+        };
+        setRules(prev => [...(prev || []), newRule]);
+        setIsDrawerOpen(false);
+    };
 
     const columns = [
         {
-            header: 'Zona / Región',
-            accessor: (r: FreightPricingRule) => <span className="font-medium text-slate-800 dark:text-slate-200">{r.zone}</span>,
+            header: 'Origen',
+            accessor: (r: FreightPricingRule) => <span className="font-medium text-slate-800 dark:text-slate-200">{r.origin}</span>,
+        },
+        {
+            header: 'Destino',
+            accessor: (r: FreightPricingRule) => <span className="font-medium text-slate-800 dark:text-slate-200">{r.destination}</span>,
         },
         {
             header: 'Rango de Peso (kg)',
@@ -49,7 +71,7 @@ const LogisticsPricingPage: React.FC = () => {
                     title="No hay reglas de precios de flete"
                     message="Define tus primeras reglas para automatizar el cálculo de costos de envío."
                     actionText="Añadir Regla"
-                    onAction={() => alert('Abrir modal para nueva regla')}
+                    onAction={() => setIsDrawerOpen(true)}
                 />
             );
         }
@@ -58,13 +80,9 @@ const LogisticsPricingPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Reglas de Precios de Flete</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona los costos de envío por zona, peso y servicio.</p>
-                </div>
+            <div className="flex justify-end items-center">
                 <button
-                    onClick={() => alert('Abrir modal para nueva regla')}
+                    onClick={() => setIsDrawerOpen(true)}
                     className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Añadir Regla
@@ -72,6 +90,12 @@ const LogisticsPricingPage: React.FC = () => {
             </div>
 
             {renderContent()}
+
+            <NewFreightRuleDrawer 
+                isOpen={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                onSave={handleSaveRule}
+            />
         </div>
     );
 };

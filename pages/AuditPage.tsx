@@ -150,7 +150,7 @@ const AuditPage: React.FC = () => {
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Auditoría del Sistema</h2>
+                {/* Title is now in the main header */}
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Rastrea todos los cambios y acciones importantes realizadas en la plataforma.</p>
             </div>
 

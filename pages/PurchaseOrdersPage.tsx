@@ -40,8 +40,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Órdenes de Compra</h1>
+            <div className="flex justify-end items-center">
                 <Link to="/purchase-orders/new" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Nueva OC

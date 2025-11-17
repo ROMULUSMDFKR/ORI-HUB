@@ -50,3 +50,31 @@ export function convertQuantityToTon(quantity: number, fromUnit: Unit): number {
     // 'unidad' is not convertible in a generic way. Assuming 1 unit is negligible or handled elsewhere.
     return 0; 
 }
+
+
+/**
+ * Converts a quantity from a source unit to kilograms.
+ * Assumes 1 ton = 1000 kg and 1 L = 1 kg for simplicity.
+ * 'unidad' conversion is product-dependent and defaults to a rough estimate here.
+ * @param quantity The quantity to convert.
+ * @param fromUnit The source unit of the quantity.
+ * @returns The quantity in kilograms.
+ */
+export function convertQuantityToKg(quantity: number, fromUnit: Unit): number {
+    if (fromUnit === 'kg') {
+        return quantity;
+    }
+    if (fromUnit === 'ton') {
+        return quantity * 1000;
+    }
+    if (fromUnit === 'L') {
+        // Simplification for water-based products
+        return quantity;
+    }
+    if (fromUnit === 'unidad') {
+        // This is a placeholder. A real implementation would need product-specific weight.
+        // Assuming a generic unit is 25kg (like a bag).
+        return quantity * 25;
+    }
+    return 0;
+}

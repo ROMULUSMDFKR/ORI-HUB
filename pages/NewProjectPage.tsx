@@ -5,8 +5,8 @@ import UserSelector from '../components/ui/UserSelector';
 import CustomSelect from '../components/ui/CustomSelect';
 
 const FormCard: React.FC<{ title: string, children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-        <h3 className="text-xl font-bold mb-6 text-on-surface">{title}</h3>
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <h3 className="text-xl font-bold mb-6 text-slate-800 dark:text-slate-200">{title}</h3>
         <div className="space-y-6">
             {children}
         </div>
@@ -72,20 +72,20 @@ const NewProjectPage: React.FC = () => {
     return (
         <div className="max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-on-surface">Crear Nuevo Proyecto</h1>
+                <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Crear Nuevo Proyecto</h1>
                 <div className="flex gap-2">
-                    <button onClick={() => navigate(-1)} className="bg-surface border border-border text-on-surface font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
-                    <button onClick={handleSave} className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Proyecto</button>
+                    <button onClick={() => navigate(-1)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
+                    <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Proyecto</button>
                 </div>
             </div>
             <div className="space-y-6">
                 <FormCard title="Información del Proyecto">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Proyecto <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Proyecto <span className="text-red-500">*</span></label>
                         <input type="text" value={project.name} onChange={e => handleFieldChange('name', e.target.value)} />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descripción</label>
                         <textarea value={project.description} onChange={e => handleFieldChange('description', e.target.value)} rows={4} />
                     </div>
                 </FormCard>
@@ -103,12 +103,12 @@ const NewProjectPage: React.FC = () => {
                         onChange={val => handleFieldChange('status', val as Project['status'])}
                     />
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Vencimiento</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha de Vencimiento</label>
                         <div className="grid grid-cols-3 gap-2">
                             <select
                                 value={dueDateParts.day}
                                 onChange={e => setDueDateParts(p => ({ ...p, day: e.target.value }))}
-                                className="w-full bg-surface-inset border border-border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                className="w-full bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             >
                                 <option value="">Día</option>
                                 {dayOptions.map(d => <option key={d.value} value={d.value}>{d.name}</option>)}
@@ -116,7 +116,7 @@ const NewProjectPage: React.FC = () => {
                             <select
                                 value={dueDateParts.month}
                                 onChange={e => setDueDateParts(p => ({ ...p, month: e.target.value }))}
-                                className="w-full bg-surface-inset border border-border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                className="w-full bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             >
                                 <option value="">Mes</option>
                                 {monthOptions.map(m => <option key={m.value} value={m.value}>{m.name.charAt(0).toUpperCase() + m.name.slice(1)}</option>)}
@@ -124,7 +124,7 @@ const NewProjectPage: React.FC = () => {
                             <select
                                 value={dueDateParts.year}
                                 onChange={e => setDueDateParts(p => ({ ...p, year: e.target.value }))}
-                                className="w-full bg-surface-inset border border-border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                className="w-full bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             >
                                 <option value="">Año</option>
                                 {yearOptions.map(y => <option key={y.value} value={y.value}>{y.name}</option>)}

@@ -18,7 +18,13 @@ const extractState = (address?: string): string | null => {
     if (!address) return null;
     const parts = address.split(',').map(p => p.trim());
     if (parts.length > 2) {
-        return parts[parts.length - 2];
+        // Typically the second to last part is the state abbreviation, e.g., 'Qro.'
+        const statePart = parts[parts.length - 2];
+        // Handle cases like '76020 Santiago de Querétaro'
+        if (statePart.match(/^\d{5}\s/)) {
+            return parts[parts.length-1];
+        }
+        return statePart;
     }
     return null;
 }
@@ -27,7 +33,9 @@ const extractCity = (address?: string): string | null => {
     if (!address) return null;
     const parts = address.split(',').map(p => p.trim());
     if (parts.length > 2) {
+        // The city is often the third to last part, sometimes with a zip code.
         const cityWithZip = parts[parts.length - 3];
+        // Remove zip code if present
         return cityWithZip.replace(/^\d{5}\s/, '');
     }
     return null;
@@ -84,11 +92,17 @@ const CandidatesPage: React.FC = () => {
             )
         },
         { 
-            header: 'Ubicación', 
+            header: 'Ciudad', 
             accessor: (c: Candidate) => {
                 const city = extractCity(c.address);
+                return <span className="text-sm text-slate-500 dark:text-slate-400">{city || '-'}</span>;
+            }
+        },
+        { 
+            header: 'Estado', 
+            accessor: (c: Candidate) => {
                 const state = extractState(c.address);
-                return <span className="text-sm text-slate-500 dark:text-slate-400">{[city, state].filter(Boolean).join(', ')}</span> 
+                return <span className="text-sm text-slate-500 dark:text-slate-400">{state || '-'}</span>;
             }
         },
         {

@@ -74,7 +74,7 @@ const BillingPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Facturación</h1>
+                    {/* Title is now in the main header */}
                     <p className="text-slate-500 dark:text-slate-400 mt-1">Gestiona y monitorea el estado de tus facturas.</p>
                 </div>
                 <Link to="/billing/new" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700 transition-colors">

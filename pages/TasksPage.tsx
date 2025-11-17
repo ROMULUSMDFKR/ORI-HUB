@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -6,25 +8,75 @@ import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
-import TaskCard from '../components/tasks/TaskCard';
 import { MOCK_USERS } from '../data/mockData';
-import { getOverdueStatus } from '../utils/time';
 import FilterButton from '../components/ui/FilterButton';
+import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
+import { getOverdueStatus } from '../utils/time';
 
 type TaskView = 'mine' | 'board' | 'all';
+
+// --- Helper Functions ---
 const KANBAN_COLUMNS: { stage: TaskStatus, title: string }[] = [
     { stage: TaskStatus.PorHacer, title: 'Por Hacer' },
     { stage: TaskStatus.EnProgreso, title: 'En Progreso' },
     { stage: TaskStatus.Hecho, title: 'Hecho' },
 ];
 
-const getPriorityBadgeColor = (priority?: Priority) => {
+const getPriorityBadgeColor = (priority?: Priority): 'red' | 'yellow' | 'gray' => {
     switch (priority) {
         case Priority.Alta: return 'red';
         case Priority.Media: return 'yellow';
         case Priority.Baja: return 'gray';
         default: return 'gray';
     }
+};
+
+// --- Sub-components defined within the page file ---
+
+const TaskCard: React.FC<{ task: Task; onClick: () => void; }> = ({ task, onClick }) => {
+  const assignees = task.assignees.map(id => MOCK_USERS[id]).filter(Boolean);
+  const { isOverdue, overdueText } = getOverdueStatus(task.dueAt, task.status);
+  
+  const completedSubtasks = task.subtasks?.filter(st => st.isCompleted).length || 0;
+  const totalSubtasks = task.subtasks?.length || 0;
+
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing mb-4 group transition-shadow hover:shadow-md"
+    >
+      <h4 className="font-semibold text-sm text-slate-800 dark:text-slate-200 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{task.title}</h4>
+      
+      <div className="flex flex-wrap gap-1 mb-3">
+        {task.priority && <Badge text={task.priority} color={getPriorityBadgeColor(task.priority)} />}
+        {task.projectId && <Badge text="Proyecto" color="blue" />}
+      </div>
+
+      {totalSubtasks > 0 && (
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+              <span className="material-symbols-outlined !text-base">check_box</span>
+              <span>{completedSubtasks} de {totalSubtasks}</span>
+              <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-1">
+                  <div className="bg-indigo-500 h-1 rounded-full" style={{ width: `${(completedSubtasks / totalSubtasks) * 100}%` }}></div>
+              </div>
+          </div>
+      )}
+
+      <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-700 pt-2">
+        <div className="flex -space-x-2">
+          {assignees.map(user => (
+            user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-800" /> : null
+          ))}
+        </div>
+        {task.dueAt && (
+            <span className={`text-xs font-medium flex items-center ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                <span className="material-symbols-outlined !text-sm mr-1">event</span>
+                {overdueText}
+            </span>
+        )}
+      </div>
+    </div>
+  );
 };
 
 const TaskSummary: React.FC<{ counts: Partial<Record<TaskStatus, number>> }> = ({ counts }) => {
@@ -49,6 +101,92 @@ const TaskSummary: React.FC<{ counts: Partial<Record<TaskStatus, number>> }> = (
     );
 };
 
+interface TaskBoardViewProps {
+  tasks: Task[];
+  onTaskStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+}
+
+const TaskBoardView: React.FC<TaskBoardViewProps> = ({ tasks, onTaskStatusChange }) => {
+  const navigate = useNavigate();
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, taskId: string) => {
+    e.dataTransfer.setData('text/plain', taskId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const target = e.currentTarget as HTMLDivElement;
+    if (target.classList.contains('kanban-column-droppable')) {
+        target.classList.add('bg-slate-300/80', 'dark:bg-slate-700/80');
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    const target = e.currentTarget as HTMLDivElement;
+    if (target.classList.contains('kanban-column-droppable')) {
+        target.classList.remove('bg-slate-300/80', 'dark:bg-slate-700/80');
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStatus: TaskStatus) => {
+    e.preventDefault();
+    const target = e.currentTarget as HTMLDivElement;
+    if (target.classList.contains('kanban-column-droppable')) {
+        target.classList.remove('bg-slate-300/80', 'dark:bg-slate-700/80');
+    }
+    const taskId = e.dataTransfer.getData('text/plain');
+    if (taskId) {
+      onTaskStatusChange(taskId, targetStatus);
+    }
+  };
+
+  return (
+    <div className="flex gap-4 overflow-x-auto pb-4 h-full bg-slate-100 dark:bg-slate-900/50 -m-6 p-6">
+      {KANBAN_COLUMNS.map(col => {
+        const tasksInColumn = tasks.filter(t => t.status === col.stage);
+        return (
+          <div
+            key={col.stage}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, col.stage)}
+            className="flex-shrink-0 w-80 bg-slate-200/60 dark:bg-black/20 rounded-xl p-3 flex flex-col kanban-column-droppable transition-colors"
+          >
+            <div className="flex justify-between items-center mb-3 px-1 flex-shrink-0">
+              <h3 className="font-semibold text-md text-slate-800 dark:text-slate-200">{col.title}</h3>
+              <span className="text-sm font-medium text-slate-500 dark:text-slate-400 bg-slate-300/80 dark:bg-slate-700 px-2 py-0.5 rounded-full">{tasksInColumn.length}</span>
+            </div>
+            <div className="overflow-y-auto flex-1 -mx-1 px-1">
+              {tasksInColumn.map(task => (
+                <div 
+                  key={task.id} 
+                  draggable 
+                  onDragStart={(e) => handleDragStart(e, task.id)}
+                >
+                  <TaskCard
+                    task={task}
+                    onClick={() => navigate(`/tasks/${task.id}`)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+
+// --- Main Page Component ---
+
 const TasksPage: React.FC = () => {
     const { data: initialTasks, loading: tasksLoading, error } = useCollection<Task>('tasks');
     const { data: projects, loading: projectsLoading } = useCollection<Project>('projects');
@@ -57,7 +195,7 @@ const TasksPage: React.FC = () => {
 
     const [searchParams, setSearchParams] = useSearchParams();
     const activeView = (searchParams.get('view') as TaskView) || 'mine';
-    const currentUser = MOCK_USERS.natalia; 
+    const currentUser = MOCK_USERS['user-1']; 
 
     // Filters
     const [projectFilter, setProjectFilter] = useState('all');
@@ -70,29 +208,19 @@ const TasksPage: React.FC = () => {
         }
     }, [initialTasks]);
 
-    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, taskId: string) => {
-        e.dataTransfer.setData('taskId', taskId);
-    };
-
-    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-    };
-
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStatus: TaskStatus) => {
-        e.preventDefault();
-        const taskId = e.dataTransfer.getData('taskId');
-        if (taskId && tasks) {
-            setTasks(prevTasks =>
-                prevTasks!.map(t =>
-                  t.id === taskId ? { ...t, status: targetStatus } : t
-                )
+    const handleTaskStatusChange = (taskId: string, newStatus: TaskStatus) => {
+        setTasks(prevTasks => {
+            if (!prevTasks) return null;
+            return prevTasks.map(t =>
+                t.id === taskId ? { ...t, status: newStatus } : t
             );
-        }
+        });
     };
-
+    
+    // --- Data Memoization ---
     const filteredTasks = useMemo(() => {
         if (!tasks) return [];
-        let result = tasks;
+        let result = [...tasks];
 
         if (activeView === 'mine') {
             result = result.filter(t => t.assignees.includes(currentUser.id));
@@ -113,10 +241,7 @@ const TasksPage: React.FC = () => {
     const statusCounts = useMemo(() => {
         if (!filteredTasks) return { [TaskStatus.PorHacer]: 0, [TaskStatus.EnProgreso]: 0, [TaskStatus.Hecho]: 0 };
         return filteredTasks.reduce((acc, task) => {
-            if (!acc[task.status]) {
-                acc[task.status] = 0;
-            }
-            acc[task.status]++;
+            acc[task.status] = (acc[task.status] || 0) + 1;
             return acc;
         }, {} as Record<TaskStatus, number>);
     }, [filteredTasks]);
@@ -136,17 +261,14 @@ const TasksPage: React.FC = () => {
     const assigneeOptions = useMemo(() => uniqueUsers.map((u: User) => ({ value: u.id, label: u.name })), [uniqueUsers]);
 
     const columns = useMemo(() => [
-        { header: 'Título', accessor: (t: Task) => <Link to={`/tasks/${t.id}`} className="font-medium text-left hover:text-indigo-600 dark:hover:text-indigo-400">{t.title}</Link> },
+        { header: 'Título', accessor: (t: Task) => <Link to={`/tasks/${t.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{t.title}</Link> },
         { header: 'Estado', accessor: (t: Task) => <Badge text={t.status} color={t.status === TaskStatus.Hecho ? 'green' : 'blue'} /> },
         { header: 'Prioridad', accessor: (t: Task) => t.priority ? <Badge text={t.priority} color={getPriorityBadgeColor(t.priority)} /> : '-' },
         { 
             header: 'Vencimiento', 
             accessor: (t: Task) => {
-                const { isOverdue, overdueText } = getOverdueStatus(t.dueAt, t.status);
-                if (isOverdue) {
-                    return <span className="text-red-600 font-semibold">{overdueText}</span>;
-                }
-                return t.dueAt ? new Date(t.dueAt).toLocaleDateString() : '-';
+                const { isOverdue, overdueText: text } = getOverdueStatus(t.dueAt, t.status);
+                return <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>{text || new Date(t.dueAt!).toLocaleDateString()}</span>;
             }
         },
         { 
@@ -155,41 +277,30 @@ const TasksPage: React.FC = () => {
                 <div className="flex -space-x-2">
                     {t.assignees.map(userId => {
                         const user = MOCK_USERS[userId];
-                        return user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-7 h-7 rounded-full border-2 border-white" /> : null;
+                        return user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-7 h-7 rounded-full border-2 border-white dark:border-slate-800" /> : null;
                     })}
                 </div>
             )
         },
     ], []);
 
+    const taskViews: ViewOption[] = [
+        { id: 'mine', name: 'Mis Tareas', icon: 'person' },
+        { id: 'board', name: 'Tablero', icon: 'view_kanban' },
+        { id: 'all', name: 'Todas', icon: 'list' },
+    ];
+    
+    // --- Render Logic ---
     const renderContent = () => {
         if (tasksLoading || projectsLoading || !tasks) return <div className="flex justify-center py-12"><Spinner /></div>;
         if (error) return <p className="text-center text-red-500 py-12">Error al cargar las tareas.</p>;
 
         if (activeView === 'board') {
-            return (
-                <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
-                    {KANBAN_COLUMNS.map(col => (
-                        <div key={col.stage} className="flex-shrink-0 w-80 bg-slate-100 dark:bg-slate-800 rounded-xl p-3" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, col.stage)}>
-                            <div className="flex justify-between items-center mb-4 px-1">
-                                <h3 className="font-semibold text-md text-slate-800 dark:text-slate-200">{col.title}</h3>
-                                <span className="text-sm font-medium text-slate-500 dark:text-slate-400 bg-gray-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">
-                                    {filteredTasks.filter(t => t.status === col.stage).length}
-                                </span>
-                            </div>
-                            <div className="h-full overflow-y-auto pr-1" style={{maxHeight: 'calc(100vh - 350px)'}}>
-                                {filteredTasks.filter(t => t.status === col.stage).map(task => (
-                                    <TaskCard key={task.id} task={task} onDragStart={handleDragStart} onClick={() => navigate(`/tasks/${task.id}`)} />
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            );
+            return <TaskBoardView tasks={filteredTasks} onTaskStatusChange={handleTaskStatusChange} />;
         }
         
         if (filteredTasks.length === 0) {
-            return (
+             return (
                  <EmptyState
                     icon="task_alt"
                     title={activeView === 'mine' ? "No tienes tareas asignadas" : "No hay tareas que coincidan"}
@@ -199,34 +310,44 @@ const TasksPage: React.FC = () => {
                 />
             );
         }
-
         return <Table columns={columns} data={filteredTasks} />;
     };
 
     return (
         <div className="space-y-6 h-full flex flex-col">
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Tareas</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Organiza, colabora y completa el trabajo.</p>
+                <div className="flex-1">
+                    {/* Title is now in the main header */}
                 </div>
-                <Link 
-                    to="/tasks/new"
-                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-                    <span className="material-symbols-outlined mr-2">add</span>
-                    Nueva Tarea
-                </Link>
+                <div className="flex items-center gap-4">
+                    <ViewSwitcher 
+                        views={taskViews}
+                        activeView={activeView} 
+                        onViewChange={(viewId) => setSearchParams({ view: viewId })} 
+                    />
+                    <Link 
+                        to="/tasks/new"
+                        className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700 transition-colors">
+                        <span className="material-symbols-outlined mr-2">add</span>
+                        Nueva Tarea
+                    </Link>
+                </div>
             </div>
+            
+            {activeView !== 'board' && (
+                <>
+                    <TaskSummary counts={statusCounts} />
+                    <div className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
+                        <FilterButton label="Proyecto" options={projectOptions} selectedValue={projectFilter} onSelect={setProjectFilter} allLabel="Todos" />
+                        <FilterButton label="Prioridad" options={priorityOptions} selectedValue={priorityFilter} onSelect={setPriorityFilter} allLabel="Todas" />
+                        {activeView === 'all' && (
+                            <FilterButton label="Asignado a" options={assigneeOptions} selectedValue={assigneeFilter} onSelect={setAssigneeFilter} allLabel="Todos" />
+                        )}
+                    </div>
+                </>
+            )}
 
-            {(activeView === 'mine' || activeView === 'all') && <TaskSummary counts={statusCounts} />}
-
-            <div className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
-                <FilterButton label="Proyecto" options={projectOptions} selectedValue={projectFilter} onSelect={setProjectFilter} allLabel="Todos" />
-                <FilterButton label="Prioridad" options={priorityOptions} selectedValue={priorityFilter} onSelect={setPriorityFilter} allLabel="Todas" />
-                <FilterButton label="Asignado a" options={assigneeOptions} selectedValue={assigneeFilter} onSelect={setAssigneeFilter} allLabel="Todos" />
-            </div>
-
-            <div className="flex-1">
+            <div className="flex-1 min-h-0">
               {renderContent()}
             </div>
         </div>

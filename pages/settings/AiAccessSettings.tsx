@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { User } from '../../types';
@@ -42,15 +43,15 @@ const AiAccessSettings: React.FC = () => {
                     Controla a qué módulos de información puede acceder el Asistente de IA según el rol del usuario.
                 </p>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
-                <table className="min-w-full">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                     <thead className="bg-slate-50 dark:bg-slate-700/50">
                         <tr>
                             <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Módulo de Datos</th>
                             {ROLES.map(role => ( <th key={role} className="py-3 px-6 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{role}</th> ))}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
                         {MODULES.map(module => (
                             <tr key={module}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-slate-100">{module}</td>
@@ -73,15 +74,15 @@ const AiAccessSettings: React.FC = () => {
                     Controla qué acciones puede ejecutar el Asistente de IA en la plataforma.
                 </p>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
-                <table className="min-w-full">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                     <thead className="bg-slate-50 dark:bg-slate-700/50">
                         <tr>
                             <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Acción</th>
                             {ROLES.map(role => ( <th key={role} className="py-3 px-6 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{role}</th> ))}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
                         {AI_ACTIONS.map(action => (
                             <tr key={action.id}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-slate-100">

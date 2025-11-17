@@ -58,27 +58,25 @@ const CrmClientsListPage: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Clientes</h2>
+                <div className="flex items-center w-80 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
+                    <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">
+                        search
+                    </span>
+                    <input
+                        id="client-search"
+                        type="text"
+                        placeholder="Buscar por nombre..."
+                        value={filter}
+                        onChange={e => setFilter(e.target.value)}
+                        className="w-full bg-transparent pr-4 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none search-input-field"
+                    />
+                </div>
                 <Link to="/crm/clients/new" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Nuevo Cliente
                 </Link>
             </div>
 
-            <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 pointer-events-none">
-                    search
-                </span>
-                <input
-                    id="client-search"
-                    type="text"
-                    placeholder="Buscar por nombre..."
-                    value={filter}
-                    onChange={e => setFilter(e.target.value)}
-                    className="w-80 pl-10 pr-4"
-                />
-            </div>
-            
             {renderContent()}
         </div>
     );

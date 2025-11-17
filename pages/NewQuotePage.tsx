@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { Company, Prospect, Product, ProductLot, User, Unit, CommissionType, ManeuverType } from '../types';
+import { Company, Prospect, Product, ProductLot, User, Unit, CommissionType, ManeuverType, FreightPricingRule, QuoteHandling } from '../types';
 import { MOCK_MY_COMPANIES } from '../data/mockData';
 import { api } from '../data/mockData';
+import CustomSelect from '../components/ui/CustomSelect';
+import { convertQuantityToKg } from '../utils/calculations';
 
 // --- Reusable UI Components ---
 
@@ -51,6 +53,7 @@ const NewQuotePage: React.FC = () => {
     const { data: prospects } = useCollection<Prospect>('prospects');
     const { data: products } = useCollection<Product>('products');
     const { data: users } = useCollection<User>('users');
+    const { data: freightRules } = useCollection<FreightPricingRule>('freightPricing');
 
     // Form State
     const [attendingCompany, setAttendingCompany] = useState('');
@@ -69,7 +72,7 @@ const NewQuotePage: React.FC = () => {
 
     const [commissions, setCommissions] = useState<any[]>([]);
     
-    const [handling, setHandling] = useState<any[]>([]);
+    const [handling, setHandling] = useState<QuoteHandling[]>([]);
     
     const [freightEnabled, setFreightEnabled] = useState(false);
     const [freights, setFreights] = useState<any[]>([]);
@@ -149,13 +152,76 @@ const NewQuotePage: React.FC = () => {
     };
     
     const addHandling = () => {
-        setHandling([...handling, {id: Date.now(), type: 'ninguna', cost: 0}]);
+        setHandling([...handling, { id: String(Date.now()), type: 'Ninguna', costPerTon: 0 }]);
+    };
+    
+    const updateHandling = (index: number, field: keyof QuoteHandling, value: any) => {
+        const newHandling = [...handling];
+        (newHandling[index] as any)[field] = value;
+        setHandling(newHandling);
+    };
+    
+    const removeHandling = (index: number) => {
+        setHandling(handling.filter((_, i) => i !== index));
     };
 
     const setValidityDays = (days: number) => {
         const date = new Date();
         date.setDate(date.getDate() + days);
         setValidityDate(date.toISOString().split('T')[0]);
+    };
+
+    const handleCalculateFreight = () => {
+        if (quoteProducts.length === 0) {
+            alert("Añade productos a la cotización primero.");
+            return;
+        }
+        if (deliveryLocations.length === 0) {
+            alert("Añade al menos una dirección de entrega personalizada.");
+            setDeliveryInfoEnabled(true);
+            return;
+        }
+    
+        const totalWeightKg = quoteProducts.reduce((sum, p) => {
+            return sum + convertQuantityToKg(Number(p.quantity), p.unit as Unit);
+        }, 0);
+    
+        const origin = 'Almacén Principal (Veracruz)'; // Hardcoded as per prompt simulation
+        const destination = deliveryLocations[0].city;
+    
+        if (!destination) {
+            alert("La primera dirección de entrega debe tener una ciudad especificada.");
+            return;
+        }
+    
+        const matchingRule = (freightRules || []).find(rule => 
+            rule.origin.toLowerCase() === origin.toLowerCase() &&
+            rule.destination.toLowerCase() === destination.toLowerCase() &&
+            totalWeightKg >= rule.minWeightKg &&
+            totalWeightKg <= rule.maxWeightKg
+        );
+    
+        if (!matchingRule) {
+            alert(`No se encontró una regla de flete para la ruta ${origin} -> ${destination} con un peso de ${totalWeightKg.toLocaleString()} kg.`);
+            return;
+        }
+    
+        let cost = 0;
+        if (matchingRule.flatRate > 0) {
+            cost = matchingRule.flatRate;
+        } else if (matchingRule.pricePerKg > 0) {
+            cost = totalWeightKg * matchingRule.pricePerKg;
+        }
+    
+        setFreightEnabled(true);
+        const newFreight = {
+            id: Date.now(),
+            origin: origin,
+            destination: destination,
+            cost: cost
+        };
+        setFreights([newFreight]);
+        alert(`Flete calculado y añadido: $${cost.toFixed(2)}`);
     };
 
     return (
@@ -173,10 +239,7 @@ const NewQuotePage: React.FC = () => {
                     <QuoteSectionCard title="Información General">
                         <FormRow>
                              <InputGroup label="Empresa que Atiende">
-                                <select value={attendingCompany} onChange={e => setAttendingCompany(e.target.value)}>
-                                    <option value="">Seleccionar...</option>
-                                    {MOCK_MY_COMPANIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                <CustomSelect options={MOCK_MY_COMPANIES.map(c => ({ value: c.id, name: c.name }))} value={attendingCompany} onChange={setAttendingCompany} placeholder="Seleccionar..."/>
                             </InputGroup>
                         </FormRow>
                         <FormRow>
@@ -187,20 +250,12 @@ const NewQuotePage: React.FC = () => {
                                 </div>
                              </InputGroup>
                             <InputGroup label={`Seleccionar ${recipientType === 'client' ? 'Cliente' : 'Prospecto'}`}>
-                                <select value={selectedRecipient} onChange={e => setSelectedRecipient(e.target.value)}>
-                                    <option value="">Seleccionar...</option>
-                                    {(recipientType === 'client' ? companies : prospects)?.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                                </select>
+                                <CustomSelect options={(recipientType === 'client' ? companies : prospects)?.map(r => ({ value: r.id, name: r.name })) || []} value={selectedRecipient} onChange={setSelectedRecipient} placeholder="Seleccionar..."/>
                             </InputGroup>
                         </FormRow>
                         <FormRow>
                             <InputGroup label="Contacto">
-                                <select value={selectedContact} onChange={e => setSelectedContact(e.target.value)} disabled={!selectedRecipient}>
-                                    <option value="">Seleccionar contacto...</option>
-                                    {/* Dummy options */}
-                                    <option value="contact-1">Roberto Ortega</option>
-                                    <option value="contact-2">Ana Méndez</option>
-                                </select>
+                                <CustomSelect options={[{ value: 'contact-1', name: 'Roberto Ortega' }, { value: 'contact-2', name: 'Ana Méndez' }]} value={selectedContact} onChange={setSelectedContact} placeholder="Seleccionar contacto..."/>
                             </InputGroup>
                              <InputGroup label="Validez de la cotización">
                                 <input type="date" value={validityDate} onChange={e => setValidityDate(e.target.value)} />
@@ -221,26 +276,16 @@ const NewQuotePage: React.FC = () => {
                                     <button type="button" onClick={() => removeProduct(index)} className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-500"><span className="material-symbols-outlined">delete</span></button>
                                     <FormRow>
                                         <InputGroup label="Producto">
-                                            <select value={p.productId} onChange={e => handleProductChange(index, e.target.value)}>
-                                                <option value="">Seleccionar...</option>
-                                                {products?.map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
-                                            </select>
+                                            <CustomSelect options={products?.map(pr => ({ value: pr.id, name: pr.name })) || []} value={p.productId} onChange={val => handleProductChange(index, val)} placeholder="Seleccionar..."/>
                                         </InputGroup>
                                         <InputGroup label="Lote">
-                                            <select value={p.lotId} onChange={e => handleLotChange(index, e.target.value)} disabled={!p.productId}>
-                                                <option value="">Seleccionar...</option>
-                                                {(availableLots[p.productId] || []).map(l => <option key={l.id} value={l.id}>{l.code} ({l.stock.reduce((a, s) => a+s.qty, 0)} disp.)</option>)}
-                                            </select>
+                                            <CustomSelect options={(availableLots[p.productId] || []).map(l => ({ value: l.id, name: `${l.code} (${l.stock.reduce((a, s) => a+s.qty, 0)} disp.)`}))} value={p.lotId} onChange={val => handleLotChange(index, val)} placeholder="Seleccionar..."/>
                                         </InputGroup>
                                     </FormRow>
                                     <FormRow>
                                         <InputGroup label="Cantidad"><input type="number" value={p.quantity} onChange={e => updateProductField(index, 'quantity', e.target.value)} /></InputGroup>
                                         <InputGroup label="Unidad">
-                                            <select value={p.unit} onChange={e => updateProductField(index, 'unit', e.target.value)}>
-                                                <option value="ton">ton</option>
-                                                <option value="kg">kg</option>
-                                                <option value="L">L</option>
-                                            </select>
+                                            <CustomSelect options={[{value: 'ton', name: 'ton'}, {value: 'kg', name: 'kg'}, {value: 'L', name: 'L'}]} value={p.unit} onChange={val => updateProductField(index, 'unit', val)} />
                                         </InputGroup>
                                         <InputGroup label="Precio Mín. Sugerido"><input type="text" value={`$${p.minPrice.toFixed(2)}`} disabled className="bg-slate-100"/></InputGroup>
                                         <InputGroup label="Precio Unitario"><input type="number" /></InputGroup>
@@ -263,7 +308,7 @@ const NewQuotePage: React.FC = () => {
                              <div key={loc.id} className="p-4 border rounded-lg space-y-3 mt-4">
                                 <FormRow><InputGroup label="Nombre de quien recibe"><input type="text"/></InputGroup><InputGroup label="Email de contacto"><input type="email"/></InputGroup></FormRow>
                                 <FormRow><InputGroup label="Calle y número"><input type="text"/></InputGroup><InputGroup label="Teléfono de contacto"><input type="tel"/></InputGroup></FormRow>
-                                <FormRow><InputGroup label="Ciudad"><input type="text"/></InputGroup><InputGroup label="Estado"><input type="text"/></InputGroup><InputGroup label="Código Postal"><input type="text"/></InputGroup></FormRow>
+                                <FormRow><InputGroup label="Ciudad"><input type="text" onChange={e => { const newLocs = [...deliveryLocations]; newLocs[i].city = e.target.value; setDeliveryLocations(newLocs); }}/></InputGroup><InputGroup label="Estado"><input type="text"/></InputGroup><InputGroup label="Código Postal"><input type="text"/></InputGroup></FormRow>
                              </div>
                          ))}
                          {deliveryInfoEnabled && <button type="button" onClick={addDeliveryLocation} className="text-sm font-semibold text-indigo-600 flex items-center mt-2"><span className="material-symbols-outlined mr-1">add_circle</span>Añadir múltiples locaciones</button>}
@@ -274,7 +319,7 @@ const NewQuotePage: React.FC = () => {
                         {deliverySchedule.map((item, i) =>(
                             <div key={item.id} className="p-4 border rounded-lg space-y-3 mt-4">
                                 <FormRow>
-                                    <InputGroup label="Dirección de Entrega"><select><option>Dirección Principal</option></select></InputGroup>
+                                    <InputGroup label="Dirección de Entrega"><CustomSelect options={[{value: 'main', name: 'Dirección Principal'}]} value={'main'} onChange={()=>{}} /></InputGroup>
                                     <InputGroup label="Código Postal"><input type="text" /></InputGroup>
                                 </FormRow>
                                 <FormRow>
@@ -290,8 +335,8 @@ const NewQuotePage: React.FC = () => {
                     <QuoteSectionCard title="Comisiones">
                         {commissions.map((c, i) => (
                              <FormRow key={c.id} className="p-2 border-b last:border-b-0">
-                                <InputGroup label="Vendedor"><select><option>Abigail</option><option>David</option></select></InputGroup>
-                                <InputGroup label="Tipo"><select><option value="porcentaje">%</option><option value="tonelada">Por Tonelada</option><option value="litro">Por Litro</option></select></InputGroup>
+                                <InputGroup label="Vendedor"><CustomSelect options={[{value: 'abigail', name: 'Abigail'}, {value: 'david', name: 'David'}]} value={'abigail'} onChange={()=>{}} /></InputGroup>
+                                <InputGroup label="Tipo"><CustomSelect options={[{value: 'porcentaje', name: '%'}, {value: 'tonelada', name: 'Por Tonelada'}, {value: 'litro', name: 'Por Litro'}]} value={'porcentaje'} onChange={()=>{}} /></InputGroup>
                                 <InputGroup label="Valor"><input type="number" /></InputGroup>
                              </FormRow>
                         ))}
@@ -300,11 +345,31 @@ const NewQuotePage: React.FC = () => {
                     
                     {/* Tarjeta de Maniobras */}
                      <QuoteSectionCard title="Maniobras">
-                        {handling.map(h => (
-                            <FormRow key={h.id} className="p-2 border-b last:border-b-0">
-                                <InputGroup label="Tipo de Maniobra"><select><option>Ninguna</option><option>Carga</option><option>Descarga</option><option>Carga y Descarga</option></select></InputGroup>
-                                <InputGroup label="Costo por ton/L"><input type="number" /></InputGroup>
-                            </FormRow>
+                        {handling.map((h, index) => (
+                            <div key={h.id} className="p-4 border rounded-lg space-y-3 relative bg-slate-50 dark:bg-slate-800/50">
+                                <button type="button" onClick={() => removeHandling(index)} className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-500"><span className="material-symbols-outlined">delete</span></button>
+                                <FormRow>
+                                    <InputGroup label="Tipo de Maniobra">
+                                        <CustomSelect 
+                                            options={[
+                                                {value: 'Ninguna', name: 'Ninguna'}, 
+                                                {value: 'Carga', name: 'Carga'}, 
+                                                {value: 'Descarga', name: 'Descarga'},
+                                                {value: 'Carga y Descarga', name: 'Carga y Descarga'}
+                                            ]} 
+                                            value={h.type} 
+                                            onChange={(val) => updateHandling(index, 'type', val as ManeuverType)} 
+                                        />
+                                    </InputGroup>
+                                    <InputGroup label="Costo por ton/L">
+                                        <input 
+                                            type="number" 
+                                            value={h.costPerTon} 
+                                            onChange={e => updateHandling(index, 'costPerTon', Number(e.target.value))} 
+                                        />
+                                    </InputGroup>
+                                </FormRow>
+                            </div>
                         ))}
                         <button type="button" onClick={addHandling} className="text-sm font-semibold text-indigo-600 flex items-center mt-2"><span className="material-symbols-outlined mr-1">add_circle</span>Añadir Maniobra</button>
                     </QuoteSectionCard>
@@ -312,14 +377,21 @@ const NewQuotePage: React.FC = () => {
                     {/* Costos con Switch */}
                     <QuoteSectionCard title="Flete">
                         <div className="flex items-center gap-4 mb-4"><Switch enabled={freightEnabled} onToggle={setFreightEnabled} /><span className="text-sm font-medium">Activar costos de flete</span></div>
-                        {freightEnabled && freights.map(f => (
-                             <FormRow key={f.id} className="p-2 border-b last:border-b-0">
-                                <InputGroup label="Origen"><input type="text"/></InputGroup>
-                                <InputGroup label="Destino"><input type="text"/></InputGroup>
-                                <InputGroup label="Costo"><input type="number"/></InputGroup>
-                            </FormRow>
-                        ))}
-                        {freightEnabled && <button type="button" onClick={addFreight} className="text-sm font-semibold text-indigo-600 flex items-center mt-2"><span className="material-symbols-outlined mr-1">add_circle</span>Añadir Ruta</button>}
+                        {freightEnabled && (
+                            <>
+                                <button type="button" onClick={handleCalculateFreight} className="w-full text-center bg-blue-50 dark:bg-blue-900/50 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-100 dark:hover:bg-blue-900 mb-4">
+                                    Calcular Flete Automáticamente
+                                </button>
+                                {freights.map(f => (
+                                    <FormRow key={f.id} className="p-2 border-b last:border-b-0">
+                                        <InputGroup label="Origen"><input type="text" value={f.origin} disabled /></InputGroup>
+                                        <InputGroup label="Destino"><input type="text" value={f.destination} disabled /></InputGroup>
+                                        <InputGroup label="Costo"><input type="number" value={f.cost} /></InputGroup>
+                                    </FormRow>
+                                ))}
+                                <button type="button" onClick={addFreight} className="text-sm font-semibold text-indigo-600 flex items-center mt-2"><span className="material-symbols-outlined mr-1">add_circle</span>Añadir Ruta Manualmente</button>
+                            </>
+                        )}
                     </QuoteSectionCard>
 
                     <QuoteSectionCard title="Seguro">
@@ -332,7 +404,7 @@ const NewQuotePage: React.FC = () => {
                         {storageEnabled && (
                             <FormRow>
                                 <InputGroup label="Periodo"><input type="number" value={storage.period} onChange={e => setStorage(s=>({...s, period: parseInt(e.target.value)}))} /></InputGroup>
-                                <InputGroup label="Unidad"><select value={storage.unit} onChange={e => setStorage(s=>({...s, unit: e.target.value}))}><option>día</option><option>semana</option><option>mes</option></select></InputGroup>
+                                <InputGroup label="Unidad"><CustomSelect options={[{value: 'dia', name: 'Día'}, {value: 'semana', name: 'Semana'}, {value: 'mes', name: 'Mes'}]} value={storage.unit} onChange={val => setStorage(s=>({...s, unit: val}))} /></InputGroup>
                                 <InputGroup label="Costo por ton/L"><input type="number" value={storage.cost} onChange={e => setStorage(s=>({...s, cost: parseFloat(e.target.value)}))} /></InputGroup>
                             </FormRow>
                         )}
@@ -362,16 +434,10 @@ const NewQuotePage: React.FC = () => {
                      {/* Tarjeta de Responsables */}
                     <QuoteSectionCard title="Responsables">
                         <InputGroup label="Responsable de la Cotización">
-                             <select value={responsible} onChange={e => setResponsible(e.target.value)}>
-                                <option value="">Seleccionar...</option>
-                                {users?.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                            </select>
+                            <CustomSelect options={users?.map(u => ({ value: u.id, name: u.name })) || []} value={responsible} onChange={setResponsible} placeholder="Seleccionar..."/>
                         </InputGroup>
                         <InputGroup label="Aprobador">
-                             <select value={approver} onChange={e => setApprover(e.target.value)}>
-                                <option value="">Seleccionar...</option>
-                                {users?.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                            </select>
+                             <CustomSelect options={users?.map(u => ({ value: u.id, name: u.name })) || []} value={approver} onChange={setApprover} placeholder="Seleccionar..."/>
                         </InputGroup>
                     </QuoteSectionCard>
                     

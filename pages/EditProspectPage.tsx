@@ -51,8 +51,8 @@ const EditProspectPage: React.FC = () => {
     }
 
     const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-semibold border-b pb-3 mb-4">{title}</h3>
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
           <div className="space-y-4">
             {children}
           </div>
@@ -68,12 +68,12 @@ const EditProspectPage: React.FC = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-text-main">Editar Prospecto</h2>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Editar Prospecto</h2>
                 <div className="flex space-x-2">
-                    <button onClick={() => navigate(`/crm/prospects/${id}`)} className="bg-white border border-gray-300 text-text-main font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-gray-50">
+                    <button onClick={() => navigate(`/crm/prospects/${id}`)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">
                         Cancelar
                     </button>
-                    <button onClick={handleSubmit} className="bg-primary text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-primary-dark">
+                    <button onClick={handleSubmit} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700">
                         Guardar Cambios
                     </button>
                 </div>
@@ -83,13 +83,13 @@ const EditProspectPage: React.FC = () => {
                 <FormBlock title="Información del Prospecto">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Nombre del Prospecto</label>
-                            <input type="text" value={prospect.name || ''} onChange={(e) => handleChange('name', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre del Prospecto</label>
+                            <input type="text" value={prospect.name || ''} onChange={(e) => handleChange('name', e.target.value)} className="mt-1 block w-full" />
                             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Valor Estimado (USD)</label>
-                            <input type="number" value={prospect.estValue || ''} onChange={(e) => handleChange('estValue', parseFloat(e.target.value) || 0)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Valor Estimado (USD)</label>
+                            <input type="number" value={prospect.estValue || ''} onChange={(e) => handleChange('estValue', parseFloat(e.target.value) || 0)} className="mt-1 block w-full" />
                             {errors.estValue && <p className="text-red-500 text-xs mt-1">{errors.estValue}</p>}
                         </div>
                         
@@ -97,12 +97,12 @@ const EditProspectPage: React.FC = () => {
                         {errors.ownerId && <p className="text-red-500 text-xs mt-1">{errors.ownerId}</p>}
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Creador</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Creador</label>
                              <input 
                                 type="text" 
                                 value={creator?.name || 'Desconocido'} 
                                 disabled 
-                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none bg-gray-100 text-gray-500 cursor-not-allowed" 
+                                className="mt-1 block w-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed" 
                             />
                         </div>
                         
@@ -111,17 +111,17 @@ const EditProspectPage: React.FC = () => {
                         <CustomSelect label="Prioridad" options={priorityOptions} value={prospect.priority || ''} onChange={val => handleChange('priority', val as Priority)} />
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Origen</label>
-                            <input type="text" value={prospect.origin || ''} onChange={(e) => handleChange('origin', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Origen</label>
+                            <input type="text" value={prospect.origin || ''} onChange={(e) => handleChange('origin', e.target.value)} className="mt-1 block w-full" />
                         </div>
                          <div>
-                            <label className="block text-sm font-medium text-gray-700">Industria</label>
-                            <input type="text" value={prospect.industry || ''} onChange={(e) => handleChange('industry', e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Industria</label>
+                            <input type="text" value={prospect.industry || ''} onChange={(e) => handleChange('industry', e.target.value)} className="mt-1 block w-full" />
                         </div>
                     </div>
                     <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700">Notas</label>
-                        <textarea value={prospect.notes || ''} onChange={(e) => handleChange('notes', e.target.value)} rows={4} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary bg-container-bg text-text-main" />
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Notas</label>
+                        <textarea value={prospect.notes || ''} onChange={(e) => handleChange('notes', e.target.value)} rows={4} className="mt-1 block w-full" />
                     </div>
                 </FormBlock>
             </form>

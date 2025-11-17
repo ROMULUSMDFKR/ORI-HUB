@@ -4,6 +4,7 @@ import { Invoice, InvoiceStatus, SalesOrder, Company, InvoiceItem } from '../typ
 import { useCollection } from '../hooks/useCollection';
 import { TAX_RATE } from '../constants';
 import Spinner from '../components/ui/Spinner';
+import CustomSelect from '../components/ui/CustomSelect';
 
 const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
@@ -83,6 +84,9 @@ const NewInvoicePage: React.FC = () => {
         if (!invoice.companyId || !companies) return '...';
         return companies.find(c => c.id === invoice.companyId)?.shortName || 'N/A';
     }, [invoice.companyId, companies]);
+    
+    const soOptions = (unbilledSalesOrders || []).map(so => ({ value: so.id, name: `${so.id} - ${companiesMap.get(so.companyId)}`}));
+
 
     if (soLoading || cLoading) return <div className="flex justify-center py-12"><Spinner/></div>;
 
@@ -100,13 +104,13 @@ const NewInvoicePage: React.FC = () => {
                 <div className="lg:col-span-2 space-y-6">
                     <FormBlock title="Información de la Factura">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Crear desde Orden de Venta</label>
-                                <select value={selectedSO} onChange={e => setSelectedSO(e.target.value)} className="mt-1 w-full">
-                                    <option value="">Seleccionar Orden de Venta...</option>
-                                    {unbilledSalesOrders?.map(so => <option key={so.id} value={so.id}>{so.id} - {companiesMap.get(so.companyId)}</option>)}
-                                </select>
-                            </div>
+                             <CustomSelect
+                                label="Crear desde Orden de Venta"
+                                options={soOptions}
+                                value={selectedSO}
+                                onChange={setSelectedSO}
+                                placeholder="Seleccionar Orden de Venta..."
+                            />
                              <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Cliente</label>
                                 <input type="text" value={companyName} disabled className="mt-1 w-full bg-slate-100 dark:bg-slate-700 cursor-not-allowed" />
@@ -123,14 +127,14 @@ const NewInvoicePage: React.FC = () => {
                     </FormBlock>
                     <FormBlock title="Productos">
                         <table className="min-w-full text-sm">
-                            <thead className="bg-slate-50 dark:bg-slate-700/50"><tr><th className="px-4 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Producto</th><th className="px-4 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Cant.</th><th className="px-4 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">P. Unit.</th><th className="px-4 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Subtotal</th></tr></thead>
+                            <thead className="bg-slate-50 dark:bg-slate-700/50"><tr><th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Producto</th><th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cant.</th><th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">P. Unit.</th><th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Subtotal</th></tr></thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                                 {invoice.items?.map((item, index) => (
                                     <tr key={index}>
-                                        <td className="px-4 py-2 text-slate-800 dark:text-slate-200">{item.productName}</td>
-                                        <td className="px-4 py-2 text-right text-slate-800 dark:text-slate-200">{item.qty} {item.unit}</td>
-                                        <td className="px-4 py-2 text-right text-slate-800 dark:text-slate-200">${item.unitPrice.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                                        <td className="px-4 py-2 text-right text-slate-800 dark:text-slate-200">${item.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                        <td className="px-6 py-4 text-sm text-slate-800 dark:text-slate-200">{item.productName}</td>
+                                        <td className="px-6 py-4 text-sm text-right text-slate-800 dark:text-slate-200">{item.qty} {item.unit}</td>
+                                        <td className="px-6 py-4 text-sm text-right text-slate-800 dark:text-slate-200">${item.unitPrice.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                        <td className="px-6 py-4 text-sm text-right text-slate-800 dark:text-slate-200">${item.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                                     </tr>
                                 ))}
                             </tbody>

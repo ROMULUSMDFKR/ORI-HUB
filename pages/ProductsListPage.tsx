@@ -85,21 +85,8 @@ const ProductsListPage: React.FC = () => {
     };
 
     return (
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
             <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Lista de Productos</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona tu catálogo de productos.</p>
-                </div>
-                <Link 
-                  to="/products/new"
-                  className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-                    <span className="material-symbols-outlined mr-2">add</span>
-                    Nuevo Producto
-                </Link>
-            </div>
-
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center w-80 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-1 focus-within:ring-indigo-500">
                     <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">
                         search
@@ -110,9 +97,15 @@ const ProductsListPage: React.FC = () => {
                         placeholder="Buscar por nombre o SKU..."
                         value={filter}
                         onChange={e => setFilter(e.target.value)}
-                        className="w-full bg-transparent pr-4 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none"
+                        className="w-full bg-transparent pr-4 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none search-input-field"
                     />
                 </div>
+                 <Link 
+                  to="/products/new"
+                  className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
+                    <span className="material-symbols-outlined mr-2">add</span>
+                    Nuevo Producto
+                </Link>
             </div>
             
             {renderContent()}

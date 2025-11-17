@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { Task, LogisticsDelivery, Prospect, Sample, PurchaseOrder, Quote, Company } from '../types';
+import { Task, LogisticsDelivery, Prospect, Sample, PurchaseOrder, Quote, Company, Birthday } from '../types';
 import { MOCK_USERS } from '../data/mockData';
 import Spinner from '../components/ui/Spinner';
 import { getOverdueStatus } from '../utils/time';
+import EventDrawer from '../components/calendar/EventDrawer';
 
 const EVENT_TYPES = {
   task: { label: 'Tareas', color: 'bg-blue-500', textColor: 'text-blue-500', borderColor: 'border-blue-500', selectedBg: 'bg-blue-500', selectedText: 'text-white' },
@@ -12,6 +13,7 @@ const EVENT_TYPES = {
   prospectAction: { label: 'Acciones Prospecto', color: 'bg-purple-500', textColor: 'text-purple-500', borderColor: 'border-purple-500', selectedBg: 'bg-purple-500', selectedText: 'text-white' },
   sampleRequest: { label: 'Muestras', color: 'bg-orange-500', textColor: 'text-orange-500', borderColor: 'border-orange-500', selectedBg: 'bg-orange-500', selectedText: 'text-white' },
   purchaseOrder: { label: 'Órdenes de Compra', color: 'bg-gray-500', textColor: 'text-gray-500', borderColor: 'border-gray-500', selectedBg: 'bg-gray-500', selectedText: 'text-white' },
+  birthday: { label: 'Cumpleaños', color: 'bg-pink-500', textColor: 'text-pink-500', borderColor: 'border-pink-500', selectedBg: 'bg-pink-500', selectedText: 'text-white' },
 };
 
 type CalendarEvent = {
@@ -65,6 +67,7 @@ const CalendarPage: React.FC = () => {
     const { data: samples, loading: sLoading } = useCollection<Sample>('samples');
     const { data: purchaseOrders, loading: poLoading } = useCollection<PurchaseOrder>('purchaseOrders');
     const { data: companies, loading: cLoading } = useCollection<Company>('companies');
+    const { data: birthdays, loading: bLoading } = useCollection<Birthday>('birthdays');
     
     const [currentDate, setCurrentDate] = useState(new Date());
     const [now, setNow] = useState(new Date());
@@ -75,15 +78,28 @@ const CalendarPage: React.FC = () => {
     const [showMyEvents, setShowMyEvents] = useState(false);
     const currentUser = MOCK_USERS['user-1'];
 
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [localTasks, setLocalTasks] = useState<Task[] | null>(null);
+
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 60000); // Update time every minute
         return () => clearInterval(timer);
     }, []);
 
+    useEffect(() => {
+        if (tasks) {
+            setLocalTasks(tasks);
+        }
+    }, [tasks]);
+
+    const handleAddTask = (newTask: Task) => {
+        setLocalTasks(prev => (prev ? [...prev, newTask] : [newTask]));
+    };
+
     const allEvents = useMemo<CalendarEvent[]>(() => {
         const events: CalendarEvent[] = [];
 
-        tasks?.forEach(t => {
+        localTasks?.forEach(t => {
             if (t.dueAt) {
                 const { isOverdue } = getOverdueStatus(t.dueAt, t.status);
                 events.push({ 
@@ -107,8 +123,21 @@ const CalendarPage: React.FC = () => {
         
         purchaseOrders?.forEach(po => events.push({ id: `po-${po.id}`, title: `OC: ${po.id}`, start: new Date(po.createdAt), type: 'purchaseOrder', link: '/purchase-orders', data: po }));
         
+        birthdays?.forEach(b => {
+            const [year, month, day] = b.date.split('-').map(Number);
+            const eventDate = new Date(currentDate.getFullYear(), month - 1, day);
+            events.push({
+                id: `b-${b.id}`,
+                title: `Cumpleaños de ${b.name}`,
+                start: eventDate,
+                type: 'birthday',
+                link: '/profile', // Placeholder link
+                data: b
+            });
+        });
+        
         return events.sort((a,b) => a.start.getTime() - b.start.getTime());
-    }, [tasks, deliveries, prospects, samples, purchaseOrders, companies]);
+    }, [localTasks, deliveries, prospects, samples, purchaseOrders, companies, birthdays, currentDate]);
 
     const filteredEvents = useMemo(() => {
         return allEvents.filter(event => {
@@ -125,6 +154,8 @@ const CalendarPage: React.FC = () => {
                         return currentUser.role === 'Logística';
                     case 'sampleRequest':
                         return (event.data as Sample).ownerId === currentUser.id;
+                    case 'birthday':
+                        return (event.data as Birthday).userId === currentUser.id;
                     default:
                         return true; 
                 }
@@ -161,7 +192,7 @@ const CalendarPage: React.FC = () => {
         return title.charAt(0).toUpperCase() + title.slice(1);
     }, [currentDate, view]);
 
-    const loading = tasksLoading || delLoading || pLoading || sLoading || poLoading || cLoading;
+    const loading = tasksLoading || delLoading || pLoading || sLoading || poLoading || cLoading || bLoading;
 
     const MonthView = () => {
         const firstDayOfMonth = new Date(year, month, 1);
@@ -335,61 +366,64 @@ const CalendarPage: React.FC = () => {
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner/></div>
 
     return (
-        <div className="flex gap-6 h-[calc(100vh-120px)]">
-            {/* Sidebar */}
-            <div className="w-72 bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 flex flex-col gap-6">
-                <button className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center shadow-sm hover:opacity-90">
-                    <span className="material-symbols-outlined mr-2">add</span>
-                    Añadir Evento
-                </button>
-                
-                <div className="flex items-center justify-between p-2 rounded-lg bg-slate-100 dark:bg-slate-700">
-                    <label htmlFor="my-events-toggle" className="font-semibold text-sm text-slate-800 dark:text-slate-200">Mis Eventos</label>
-                    <button type="button" onClick={() => setShowMyEvents(!showMyEvents)} className={`${showMyEvents ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-slate-600'} relative inline-flex items-center h-6 rounded-full w-11 transition-colors`}>
-                        <span className={`${showMyEvents ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}/>
+        <>
+            <div className="flex gap-6 h-[calc(100vh-120px)]">
+                {/* Sidebar */}
+                <div className="w-72 bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 flex flex-col gap-6">
+                    <button onClick={() => setIsDrawerOpen(true)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center shadow-sm hover:opacity-90">
+                        <span className="material-symbols-outlined mr-2">add</span>
+                        Añadir Evento
                     </button>
-                </div>
-                
-                <div>
-                  <h3 className="font-semibold text-lg mb-3">Filtros de Eventos</h3>
-                  <div className="flex flex-wrap gap-2">
-                      {Object.entries(EVENT_TYPES).map(([key, {label, color, borderColor, selectedBg, selectedText, textColor}]) => {
-                        const isSelected = filters[key as keyof typeof filters];
-                        return (
-                          <button 
-                            key={key} 
-                            onClick={() => setFilters(f => ({...f, [key]: !f[key as keyof typeof filters]}))}
-                            className={`px-3 py-1 text-sm font-medium rounded-full border-2 transition-colors ${isSelected ? `${selectedBg} ${selectedText} ${borderColor}` : `bg-white dark:bg-slate-800 ${textColor} ${borderColor}`}`}
-                          >
-                            {label}
-                          </button>
-                        )
-                      })}
-                  </div>
-                </div>
-            </div>
-
-            {/* Main Calendar */}
-            <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl shadow-sm flex flex-col">
-                <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center gap-2">
-                        <button onClick={handlePrev} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><span className="material-symbols-outlined">chevron_left</span></button>
-                        <button onClick={handleNext} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><span className="material-symbols-outlined">chevron_right</span></button>
-                        <h2 className="text-xl font-bold ml-2">{headerTitle}</h2>
+                    
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-slate-100 dark:bg-slate-700">
+                        <label htmlFor="my-events-toggle" className="font-semibold text-sm text-slate-800 dark:text-slate-200">Mis Eventos</label>
+                        <button type="button" onClick={() => setShowMyEvents(!showMyEvents)} className={`${showMyEvents ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-slate-600'} relative inline-flex items-center h-6 rounded-full w-11 transition-colors`}>
+                            <span className={`${showMyEvents ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}/>
+                        </button>
                     </div>
-                     <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
-                        {[{id: 'month', label: 'Mes'}, {id: 'week', label: 'Semana'}, {id: 'day', label: 'Día'}, {id: 'list', label: 'Lista'}].map(v => (
-                          <button key={v.id} onClick={() => setView(v.id)} className={`px-3 py-1 text-sm font-semibold rounded-md ${view === v.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-300'}`}>
-                              {v.label}
-                          </button>
-                        ))}
+                    
+                    <div>
+                      <h3 className="font-semibold text-lg mb-3">Filtros de Eventos</h3>
+                      <div className="flex flex-wrap gap-2">
+                          {Object.entries(EVENT_TYPES).map(([key, {label, color, borderColor, selectedBg, selectedText, textColor}]) => {
+                            const isSelected = filters[key as keyof typeof filters];
+                            return (
+                              <button 
+                                key={key} 
+                                onClick={() => setFilters(f => ({...f, [key]: !f[key as keyof typeof filters]}))}
+                                className={`px-3 py-1 text-sm font-medium rounded-full border-2 transition-colors ${isSelected ? `${selectedBg} ${selectedText} ${borderColor}` : `bg-white dark:bg-slate-800 ${textColor} ${borderColor}`}`}
+                              >
+                                {label}
+                              </button>
+                            )
+                          })}
+                      </div>
                     </div>
                 </div>
-                
-                {renderView()}
 
+                {/* Main Calendar */}
+                <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl shadow-sm flex flex-col">
+                    <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center gap-2">
+                            <button onClick={handlePrev} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><span className="material-symbols-outlined">chevron_left</span></button>
+                            <button onClick={handleNext} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><span className="material-symbols-outlined">chevron_right</span></button>
+                            <h2 className="text-xl font-bold ml-2 text-slate-800 dark:text-slate-200">{headerTitle}</h2>
+                        </div>
+                         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+                            {[{id: 'month', label: 'Mes'}, {id: 'week', label: 'Semana'}, {id: 'day', label: 'Día'}, {id: 'list', label: 'Lista'}].map(v => (
+                              <button key={v.id} onClick={() => setView(v.id)} className={`px-3 py-1 text-sm font-semibold rounded-md ${view === v.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-300'}`}>
+                                  {v.label}
+                              </button>
+                            ))}
+                        </div>
+                    </div>
+                    
+                    {renderView()}
+
+                </div>
             </div>
-        </div>
+            <EventDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} onSave={handleAddTask} />
+        </>
     );
 };
 

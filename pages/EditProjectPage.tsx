@@ -8,8 +8,8 @@ import CustomSelect from '../components/ui/CustomSelect';
 import Spinner from '../components/ui/Spinner';
 
 const FormCard: React.FC<{ title: string, children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-        <h3 className="text-xl font-bold mb-6 text-on-surface">{title}</h3>
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <h3 className="text-xl font-bold mb-6 text-slate-800 dark:text-slate-200">{title}</h3>
         <div className="space-y-6">
             {children}
         </div>
@@ -55,10 +55,10 @@ const EditProjectPage: React.FC = () => {
     return (
         <div className="max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-on-surface">Editar Proyecto</h1>
+                <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Editar Proyecto</h1>
                 <div className="flex gap-2">
-                    <button onClick={() => navigate(`/tasks/projects/${id}`)} className="bg-surface border border-border text-on-surface font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
-                    <button onClick={handleSave} className="bg-accent text-on-dark font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Cambios</button>
+                    <button onClick={() => navigate(`/tasks/projects/${id}`)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
+                    <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Cambios</button>
                 </div>
             </div>
             <div className="space-y-6">

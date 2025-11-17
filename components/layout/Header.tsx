@@ -89,7 +89,7 @@ const NotificationMenu: React.FC = () => {
 };
 
 const UserMenu: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
-    const user = MOCK_USERS.natalia;
+    const user = MOCK_USERS['user-1'];
     const [isOpen, setIsOpen] = useState(false);
     const [status, setStatus] = useState<UserStatus>('online');
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -156,7 +156,7 @@ const UserMenu: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 };
 
 
-const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+const Header: React.FC<{ onLogout: () => void; pageTitle?: string; }> = ({ onLogout, pageTitle }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -168,6 +168,10 @@ const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
   return (
     <header className="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-6 flex-shrink-0">
+      {pageTitle && (
+        <h1 className="text-2xl font-normal text-slate-800 dark:text-slate-200">{pageTitle}</h1>
+      )}
+      <div className="flex-1"></div> {/* Spacer */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center w-96 lg:w-[32rem] bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500 dark:focus-within:ring-indigo-500">
           <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">
@@ -180,11 +184,9 @@ const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearch}
-            className="w-full bg-transparent pr-4 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none"
+            className="w-full bg-transparent pr-4 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none search-input-field"
           />
         </div>
-      </div>
-      <div className="flex items-center space-x-4">
         <NotificationMenu />
         <UserMenu onLogout={onLogout} />
       </div>

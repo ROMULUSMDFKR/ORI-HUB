@@ -4,6 +4,7 @@ import { MOCK_USERS } from '../../data/mockData';
 import { GoogleGenAI, Type } from '@google/genai';
 import Badge from '../ui/Badge';
 import Spinner from '../ui/Spinner';
+import CustomSelect from '../ui/CustomSelect';
 
 interface DeliveryDetailModalProps {
   isOpen: boolean;
@@ -96,6 +97,8 @@ const DeliveryDetailModal: React.FC<DeliveryDetailModalProps> = ({ isOpen, onClo
         }
     };
 
+    const statusOptions = Object.values(DeliveryStatus).map(s => ({ value: s, name: s }));
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={onClose}>
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl m-4 max-w-2xl w-full" onClick={e => e.stopPropagation()}>
@@ -112,12 +115,16 @@ const DeliveryDetailModal: React.FC<DeliveryDetailModalProps> = ({ isOpen, onClo
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Actualizar Estado Manualmente</label>
-                        <div className="flex gap-2">
-                           <select value={currentStatus} onChange={e => setCurrentStatus(e.target.value as DeliveryStatus)} className="flex-grow">
-                                {Object.values(DeliveryStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                           </select>
-                           <button onClick={handleManualUpdate} className="bg-indigo-600 text-white font-semibold py-2 px-3 rounded-lg shadow-sm hover:bg-indigo-700">Guardar</button>
+                        <div className="flex gap-2 items-end">
+                            <div className="flex-grow">
+                                <CustomSelect 
+                                    label="Actualizar Estado Manualmente"
+                                    options={statusOptions}
+                                    value={currentStatus || ''}
+                                    onChange={val => setCurrentStatus(val as DeliveryStatus)}
+                                />
+                            </div>
+                           <button onClick={handleManualUpdate} className="bg-indigo-600 text-white font-semibold py-2 px-3 rounded-lg shadow-sm hover:bg-indigo-700 h-[42px]">Guardar</button>
                         </div>
                         <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder="Añadir nota sobre la actualización..." className="w-full mt-2"/>
                     </div>

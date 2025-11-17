@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { Company, Quote, Product, ProductLot, SalesOrder, SalesOrderStatus, QuoteItem } from '../types';
+// FIX: Imported 'QuoteStatus' to use in status comparison.
+import { Company, Quote, Product, ProductLot, SalesOrder, SalesOrderStatus, QuoteItem, QuoteStatus } from '../types';
 import { api } from '../data/mockData';
 import Spinner from '../components/ui/Spinner';
+import CustomSelect from '../components/ui/CustomSelect';
 
 // Reusable UI Components
 const SectionCard: React.FC<{ title: string; children: React.ReactNode; }> = ({ title, children }) => (
@@ -52,7 +54,8 @@ const NewSalesOrderPage: React.FC = () => {
 
     const companyQuotes = useMemo(() => {
         if (!quotes || !salesOrder.companyId) return [];
-        return quotes.filter(q => q.companyId === salesOrder.companyId && q.status === 'Aprobada');
+        // FIX: Used the correct enum member 'QuoteStatus.AprobadaPorCliente' instead of the string 'Aprobada'.
+        return quotes.filter(q => q.companyId === salesOrder.companyId && q.status === QuoteStatus.AprobadaPorCliente);
     }, [quotes, salesOrder.companyId]);
 
     const handleCompanyChange = (companyId: string) => {
@@ -146,6 +149,10 @@ const NewSalesOrderPage: React.FC = () => {
         alert(`Orden de Venta ${newSO.id} creada (simulación).`);
         navigate('/hubs/sales-orders');
     };
+    
+    const companyOptions = (companies || []).map(c => ({ value: c.id, name: c.shortName || c.name }));
+    const quoteOptions = companyQuotes.map(q => ({ value: q.id, name: `${q.id} (Total: $${q.totals.grandTotal.toLocaleString()})`}));
+    const productOptions = (products || []).map(p => ({ value: p.id, name: p.name }));
 
     return (
         <div className="space-y-6">
@@ -162,38 +169,20 @@ const NewSalesOrderPage: React.FC = () => {
                 <div className="lg:col-span-2 space-y-6">
                     <SectionCard title="Información General">
                         <FormRow>
-                             <InputGroup label="Cliente *">
-                                <select value={salesOrder.companyId || ''} onChange={e => handleCompanyChange(e.target.value)}>
-                                    <option value="">Seleccionar Cliente...</option>
-                                    {companies?.map(c => <option key={c.id} value={c.id}>{c.shortName || c.name}</option>)}
-                                </select>
-                            </InputGroup>
-                            <InputGroup label="Basado en Cotización (Opcional)">
-                                <select value={selectedQuoteId} onChange={e => handleQuoteChange(e.target.value)} disabled={!salesOrder.companyId}>
-                                    <option value="">Seleccionar Cotización Aprobada...</option>
-                                    {companyQuotes.map(q => <option key={q.id} value={q.id}>{q.id} (Total: ${q.totals.grandTotal.toLocaleString()})</option>)}
-                                </select>
-                            </InputGroup>
+                            <CustomSelect label="Cliente *" options={companyOptions} value={salesOrder.companyId || ''} onChange={handleCompanyChange} placeholder="Seleccionar Cliente..."/>
+                            <CustomSelect label="Basado en Cotización (Opcional)" options={quoteOptions} value={selectedQuoteId} onChange={handleQuoteChange} placeholder="Seleccionar Cotización..."/>
                         </FormRow>
                     </SectionCard>
                     <SectionCard title="Productos">
                         <div className="space-y-4">
-                           {(salesOrder.items || []).map((item, index) => (
-                                <div key={item.id} className="p-4 border rounded-lg space-y-3 relative bg-slate-50 dark:bg-slate-800/50">
+                           {(salesOrder.items || []).map((item, index) => {
+                               const lotOptions = (availableLots[item.productId] || []).map(l => ({ value: l.id, name: l.code }));
+                               return (
+                                <div key={item.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3 relative bg-slate-50 dark:bg-slate-800/50">
                                      <button type="button" onClick={() => removeItem(index)} className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-500"><span className="material-symbols-outlined">delete</span></button>
                                      <FormRow>
-                                        <InputGroup label="Producto">
-                                            <select value={item.productId} onChange={e => handleProductChange(index, e.target.value)} disabled={!!selectedQuoteId}>
-                                                <option value="">Seleccionar...</option>
-                                                {products?.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                            </select>
-                                        </InputGroup>
-                                        <InputGroup label="Lote">
-                                            <select value={item.lotId} onChange={e => handleLotChange(index, e.target.value)} disabled={!item.productId || !!selectedQuoteId}>
-                                                <option value="">Seleccionar Lote...</option>
-                                                {(availableLots[item.productId] || []).map(l => <option key={l.id} value={l.id}>{l.code}</option>)}
-                                            </select>
-                                        </InputGroup>
+                                        <CustomSelect label="Producto" options={productOptions} value={item.productId} onChange={val => handleProductChange(index, val)} placeholder="Seleccionar..."/>
+                                        <CustomSelect label="Lote" options={lotOptions} value={item.lotId} onChange={val => handleLotChange(index, val)} placeholder="Seleccionar Lote..."/>
                                     </FormRow>
                                     <FormRow>
                                          <InputGroup label="Cantidad">
@@ -207,7 +196,7 @@ const NewSalesOrderPage: React.FC = () => {
                                          </InputGroup>
                                     </FormRow>
                                 </div>
-                           ))}
+                           )})}
                         </div>
                         {!selectedQuoteId && (
                              <button type="button" onClick={addItem} className="text-sm font-semibold text-indigo-600 flex items-center mt-4">

@@ -1,8 +1,7 @@
-
-
 import React, { useState } from 'react';
 import Drawer from '../ui/Drawer';
 import { ActivityLog } from '../../types';
+import CustomSelect from '../ui/CustomSelect';
 
 interface ActivityDrawerProps {
   isOpen: boolean;
@@ -14,6 +13,13 @@ interface ActivityDrawerProps {
 const ActivityDrawer: React.FC<ActivityDrawerProps> = ({ isOpen, onClose, prospectId, onAddActivity }) => {
     const [type, setType] = useState<ActivityLog['type']>('Llamada');
     const [description, setDescription] = useState('');
+    
+    const typeOptions = [
+        { value: 'Llamada', name: 'Llamada' },
+        { value: 'Email', name: 'Email' },
+        { value: 'Reunión', name: 'Reunión' },
+        { value: 'Nota', name: 'Nota Rápida' },
+    ];
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -27,7 +33,7 @@ const ActivityDrawer: React.FC<ActivityDrawerProps> = ({ isOpen, onClose, prospe
             prospectId,
             type,
             description,
-            userId: 'natalia', // Assuming current user
+            userId: 'user-1', // Assuming current user
             createdAt: new Date().toISOString(),
         };
 
@@ -41,19 +47,12 @@ const ActivityDrawer: React.FC<ActivityDrawerProps> = ({ isOpen, onClose, prospe
     return (
         <Drawer isOpen={isOpen} onClose={onClose} title="Registrar Actividad">
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tipo de Actividad</label>
-                    <select
-                        value={type}
-                        onChange={(e) => setType(e.target.value as ActivityLog['type'])}
-                        className="mt-1 block w-full"
-                    >
-                        <option value="Llamada">Llamada</option>
-                        <option value="Email">Email</option>
-                        <option value="Reunión">Reunión</option>
-                        <option value="Nota">Nota Rápida</option>
-                    </select>
-                </div>
+                <CustomSelect
+                    label="Tipo de Actividad"
+                    options={typeOptions}
+                    value={type}
+                    onChange={(val) => setType(val as ActivityLog['type'])}
+                />
 
                 <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Descripción</label>

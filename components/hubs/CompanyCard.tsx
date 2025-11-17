@@ -1,4 +1,7 @@
-import React from 'react';
+
+
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Company } from '../../types';
 import Badge from '../ui/Badge';
 import { MOCK_USERS } from '../../data/mockData';
@@ -10,6 +13,7 @@ interface CompanyCardProps {
 
 const CompanyCard: React.FC<CompanyCardProps> = ({ item, onDragStart }) => {
   const owner = MOCK_USERS[item.ownerId] || null;
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const getPriorityColor = (priority: Company['priority']) => {
     switch (priority) {
@@ -37,15 +41,31 @@ const CompanyCard: React.FC<CompanyCardProps> = ({ item, onDragStart }) => {
     >
       {/* Header */}
       <div className="flex justify-between items-start">
-        <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 flex-1 pr-2">{item.shortName || item.name}</h4>
-        {owner && (
-          <img 
-            src={owner.avatarUrl} 
-            alt={owner.name} 
-            title={`Responsable: ${owner.name}`} 
-            className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-800" 
-          />
-        )}
+        <Link to={`/crm/clients/${item.id}`} onClick={e => e.stopPropagation()} className="flex-1 pr-2">
+            <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 hover:underline">{item.shortName || item.name}</h4>
+        </Link>
+        <div className="flex items-center gap-2">
+            {owner && (
+            <img 
+                src={owner.avatarUrl} 
+                alt={owner.name} 
+                title={`Responsable: ${owner.name}`} 
+                className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-800" 
+            />
+            )}
+            <div className="relative">
+                <button onClick={() => setMenuOpen(!menuOpen)} onBlur={() => setTimeout(() => setMenuOpen(false), 150)} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <span className="material-symbols-outlined text-sm">more_horiz</span>
+                </button>
+                {menuOpen && (
+                    <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-md shadow-lg z-10 border border-slate-200 dark:border-slate-700 py-1">
+                         <Link to={`/crm/clients/${item.id}`} onClick={e => e.stopPropagation()} className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+                            <span className="material-symbols-outlined text-base mr-2">visibility</span>Ver Detalle
+                        </Link>
+                    </div>
+                )}
+            </div>
+        </div>
       </div>
 
       {/* Tags */}

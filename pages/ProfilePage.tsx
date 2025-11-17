@@ -1,20 +1,15 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { MOCK_USERS, MOCK_AUDIT_LOGS } from '../data/mockData';
-import { AuditLog, Commission, CommissionStatus } from '../types';
+import { AuditLog, Commission, CommissionStatus, ConnectedEmailAccount, User } from '../types';
 import { useCollection } from '../hooks/useCollection';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 
-type ProfileTab = 'overview' | 'edit-profile' | 'security' | 'emails' | 'notifications' | 'preferences' | 'my-commissions';
-
-interface ConnectedEmail {
-  id: string;
-  email: string;
-  status: 'Conectado' | 'Error de autenticación';
-}
+type ProfileTab = 'overview' | 'edit-profile' | 'security' | 'connected-accounts' | 'notifications' | 'preferences' | 'my-commissions';
 
 const BannerModal: React.FC<{ isOpen: boolean; onClose: () => void; onSelect: (style: React.CSSProperties) => void; }> = ({ isOpen, onClose, onSelect }) => {
     const gradients = [
@@ -61,7 +56,7 @@ const Input: React.FC<{ label: string; value: string | number; onChange: (val: a
             onChange={e => onChange(e.target.value)} 
             disabled={disabled}
             placeholder={placeholder}
-            className="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed" 
+            className="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border-transparent rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-slate-200/50 dark:disabled:bg-slate-700/50 disabled:cursor-not-allowed" 
         />
     </div>
 );
@@ -172,37 +167,54 @@ const NotificationSettings = () => {
     );
 };
 
-const ConnectedEmailsTab = () => {
-    const [connectedEmails, setConnectedEmails] = useState<ConnectedEmail[]>([
-        { id: '1', email: 'david.r@crmstudio.com', status: 'Conectado' }
-    ]);
+const ConnectedAccountsTab: React.FC<{ userId: string }> = ({ userId }) => {
+    const { data: allAccounts, loading } = useCollection<ConnectedEmailAccount>('connectedAccounts');
     
+    const userAccounts = useMemo(() => {
+        if (!allAccounts) return [];
+        return allAccounts.filter(acc => acc.userId === userId);
+    }, [allAccounts, userId]);
+
+    const getStatusColor = (status: ConnectedEmailAccount['status']) => {
+        switch(status) {
+            case 'Conectado': return 'green';
+            case 'Error de autenticación': return 'red';
+            case 'Desconectado': return 'gray';
+            default: return 'gray';
+        }
+    }
+
+    if(loading) return <div className="py-12 flex justify-center"><Spinner /></div>
+
     return (
         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-             <div className="flex justify-between items-center mb-4">
-                <div>
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Cuentas de Correo Conectadas</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Sincroniza tus correos para gestionarlos desde la plataforma.</p>
-                </div>
-                <button className="bg-indigo-600 text-white font-semibold py-2 px-3 rounded-lg flex items-center gap-2"><span className="material-symbols-outlined text-base">add</span>Conectar Cuenta</button>
+             <div className="mb-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Cuentas de Correo Conectadas</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Estas cuentas son gestionadas por un administrador.</p>
             </div>
-            <ul className="divide-y divide-slate-200 dark:divide-slate-700">
-                {connectedEmails.map(acc => (
-                    <li key={acc.id} className="py-3 flex justify-between items-center">
-                        <div>
-                            <p className="font-medium text-slate-800 dark:text-slate-200">{acc.email}</p>
-                            <Badge text={acc.status} color={acc.status === 'Conectado' ? 'green' : 'red'} />
-                        </div>
-                        <button className="text-red-600 hover:text-red-800 p-2 rounded-full"><span className="material-symbols-outlined text-base">delete</span></button>
-                    </li>
-                ))}
-            </ul>
+            {userAccounts.length > 0 ? (
+                <ul className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {userAccounts.map(acc => (
+                        <li key={acc.id} className="py-3 flex justify-between items-center">
+                            <div>
+                                <p className="font-medium text-slate-800 dark:text-slate-200">{acc.email}</p>
+                                <Badge text={acc.status} color={getStatusColor(acc.status)} />
+                            </div>
+                            <button className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                Revisar Estado
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-sm text-center text-slate-500 dark:text-slate-400 py-6">No tienes cuentas de correo conectadas.</p>
+            )}
         </div>
     )
 }
 
 const ProfilePage: React.FC = () => {
-    const user = MOCK_USERS.david; // Using David as he is a sales person
+    const user = MOCK_USERS['user-2']; // Using David as he is a sales person
     const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
     const [bannerStyle, setBannerStyle] = useState<React.CSSProperties>({ backgroundImage: 'linear-gradient(to right, #6366f1, #ec4899)' });
     const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
@@ -230,7 +242,7 @@ const ProfilePage: React.FC = () => {
         { id: 'security', name: 'Seguridad', icon: 'lock' },
         { id: 'preferences', name: 'Preferencias', icon: 'tune' },
         { id: 'notifications', name: 'Notificaciones', icon: 'notifications' },
-        { id: 'emails', name: 'Cuentas Conectadas', icon: 'link' },
+        { id: 'connected-accounts', name: 'Cuentas Conectadas', icon: 'link' },
     ];
 
     return (
@@ -263,7 +275,7 @@ const ProfilePage: React.FC = () => {
                          <button 
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)} 
-                            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeTab === tab.id ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'}`}
+                            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeTab === tab.id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'}`}
                         >
                             <span className="material-symbols-outlined text-base">{tab.icon}</span>
                             {tab.name}
@@ -290,7 +302,11 @@ const ProfilePage: React.FC = () => {
                             <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Información</h3>
                              <div className="space-y-3 text-sm">
                                 <p><strong className="text-slate-500 dark:text-slate-400">Email:</strong> {user.email}</p>
+                                <p><strong className="text-slate-500 dark:text-slate-400">Teléfono:</strong> {user.phone || 'No especificado'}</p>
                                 <p><strong className="text-slate-500 dark:text-slate-400">Equipo:</strong> {user.teamId}</p>
+                                <p><strong className="text-slate-500 dark:text-slate-400">Apodo:</strong> {user.nickname || 'N/A'}</p>
+                                <p><strong className="text-slate-500 dark:text-slate-400">Cumpleaños:</strong> {user.birthday ? new Date(user.birthday + 'T00:00:00').toLocaleDateString() : 'N/A'}</p>
+                                <p><strong className="text-slate-500 dark:text-slate-400">Intereses:</strong> {user.interests || 'N/A'}</p>
                             </div>
                         </div>
                     </div>
@@ -298,9 +314,16 @@ const ProfilePage: React.FC = () => {
                 {activeTab === 'edit-profile' && (
                     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <Input label="Nombre" value={user.name} onChange={() => {}} />
+                           <Input label="Nombre Completo" value={user.fullName || ''} onChange={() => {}} placeholder="Tu nombre legal" />
+                           <Input label="Apodo" value={user.nickname || ''} onChange={() => {}} placeholder="Como te gusta que te digan" />
                            <Input label="Email" value={user.email} onChange={() => {}} disabled/>
+                           <Input label="Teléfono" value={user.phone || ''} onChange={() => {}} />
                            <Input label="Título / Rol" value={user.role} onChange={() => {}} />
+                           <Input label="Fecha de Cumpleaños" type="date" value={user.birthday || ''} onChange={()=>{}} />
+                        </div>
+                         <div className="mt-6">
+                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Intereses</label>
+                            <textarea rows={3} className="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border-transparent rounded-lg p-2 text-sm" value={user.interests || ''} onChange={()=>{}}/>
                         </div>
                         <div className="mt-6 flex justify-end">
                             <button onClick={() => alert('Guardando cambios... (simulación)')} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Cambios</button>
@@ -334,7 +357,7 @@ const ProfilePage: React.FC = () => {
                     </div>
                 )}
                  {activeTab === 'notifications' && <NotificationSettings />}
-                 {activeTab === 'emails' && <ConnectedEmailsTab />}
+                 {activeTab === 'connected-accounts' && <ConnectedAccountsTab userId={user.id} />}
             </div>
 
             <BannerModal isOpen={isBannerModalOpen} onClose={() => setIsBannerModalOpen(false)} onSelect={setBannerStyle} />

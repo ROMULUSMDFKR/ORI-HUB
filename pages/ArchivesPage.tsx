@@ -115,7 +115,7 @@ const ArchivesPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Administrador de Archivos</h2>
+                    {/* Title is now in the main header */}
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona todos los documentos de la organización.</p>
                 </div>
                 <input

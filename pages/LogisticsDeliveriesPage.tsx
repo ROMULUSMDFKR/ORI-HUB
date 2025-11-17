@@ -76,10 +76,6 @@ const LogisticsDeliveriesPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Seguimiento de Entregas</h2>
-            </div>
-
             <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
                 <FilterButton label="Estado" options={statusOptions} selectedValue={statusFilter} onSelect={setStatusFilter} />
                 <FilterButton label="Transportista" options={carrierOptions} selectedValue={carrierFilter} onSelect={setCarrierFilter} />

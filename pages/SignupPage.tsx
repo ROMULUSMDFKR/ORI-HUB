@@ -1,87 +1,137 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import Checkbox from '../components/ui/Checkbox';
+import TermsAndConditionsDrawer from '../components/auth/TermsAndConditionsDrawer';
+import Aurora from '../components/ui/Aurora';
 
 interface SignupPageProps {
     onSignup: () => void;
 }
 
 const SignupPage: React.FC<SignupPageProps> = ({ onSignup }) => {
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="max-w-md w-full bg-surface p-8 rounded-xl shadow-lg">
-        <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-on-surface">Crea tu Cuenta</h1>
-            <p className="text-on-surface-secondary mt-2">Únete a CRM Studio.</p>
-        </div>
-        <form onSubmit={(e) => { e.preventDefault(); onSignup(); }}>
-          <div className="space-y-6">
-            <div>
-              <label htmlFor="fullname" className="block text-sm font-medium text-on-surface-secondary">
-                Nombre Completo
-              </label>
-              <div className="mt-1">
-                <input
-                  id="fullname"
-                  name="fullname"
-                  type="text"
-                  required
-                  className="w-full"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-on-surface-secondary">
-                Correo Electrónico
-              </label>
-              <div className="mt-1">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="w-full"
-                />
-              </div>
-            </div>
+    const [fullName, setFullName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [agreed, setAgreed] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [error, setError] = useState('');
+    const [isTermsOpen, setIsTermsOpen] = useState(false);
 
-            <div>
-              <label htmlFor="password"className="block text-sm font-medium text-on-surface-secondary">
-                Contraseña
-              </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  className="w-full"
-                />
-              </div>
-            </div>
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (password !== confirmPassword) {
+            setError('Las contraseñas no coinciden.');
+            return;
+        }
+        if (!agreed) {
+            setError('Debes aceptar los términos y condiciones.');
+            return;
+        }
+        setError('');
+        // Proceed with signup logic
+        onSignup();
+    };
 
-            <div>
-              <button
-                type="submit"
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-on-primary bg-accent hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
-              >
-                Crear Cuenta
-              </button>
+    return (
+        <>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-black p-4 font-sans relative overflow-hidden">
+                 <div className="absolute inset-0 z-0">
+                    <Aurora
+                      colorStops={["#3A29FF", "#FF94B4", "#FF3232"]}
+                      blend={0.5}
+                      amplitude={1.0}
+                      speed={0.5}
+                    />
+                </div>
+                
+                <div className="relative z-10 flex flex-col items-center">
+                    <img src="https://tradeaitirik.com.mx/wp-content/uploads/2025/11/ORI-LOGO.png" alt="ORI Logo" className="w-24 h-auto mb-8 animate-zoom-in" />
+                    <div className="w-full max-w-xl rounded-2xl bg-black/40 backdrop-blur-sm p-8 shadow-2xl shadow-black/20 animate-slide-in-up">
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400">Nombre Completo</label>
+                                <div className="mt-1">
+                                    <input
+                                        type="text"
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                        required
+                                        className="login-input"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400">Email</label>
+                                <div className="mt-1">
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
+                                        className="login-input"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400">Contraseña</label>
+                                <div className="mt-1 relative">
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                        className="login-input"
+                                    />
+                                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400">
+                                        <span className="material-symbols-outlined !text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400">Confirmar Contraseña</label>
+                                <div className="mt-1">
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        required
+                                        className="login-input"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-start">
+                                <Checkbox id="terms-agreed" checked={agreed} onChange={setAgreed}>
+                                    <span className="text-sm text-slate-300">
+                                        Acepto los <button type="button" onClick={() => setIsTermsOpen(true)} className="font-semibold text-indigo-400 hover:text-indigo-300 underline">términos y condiciones</button>
+                                    </span>
+                                </Checkbox>
+                            </div>
+                            
+                            {error && <p className="text-sm text-red-500">{error}</p>}
+                            
+                            <div>
+                                <button
+                                    type="submit"
+                                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                    Crear Cuenta
+                                </button>
+                            </div>
+                        </form>
+                        <p className="mt-6 text-center text-sm text-slate-400">
+                            ¿Ya tienes una cuenta?{' '}
+                            <Link to="/login" className="font-semibold text-indigo-400 hover:text-indigo-300">
+                                Inicia sesión
+                            </Link>
+                        </p>
+                    </div>
+                </div>
             </div>
-          </div>
-        </form>
-         <p className="mt-6 text-center text-sm text-on-surface-secondary">
-            ¿Ya tienes una cuenta?{' '}
-            <Link to="/login" className="font-medium text-accent hover:text-accent/80">
-                Inicia Sesión
-            </Link>
-        </p>
-      </div>
-    </div>
-  );
+            <TermsAndConditionsDrawer isOpen={isTermsOpen} onClose={() => setIsTermsOpen(false)} />
+        </>
+    );
 };
 
 export default SignupPage;

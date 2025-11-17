@@ -4,10 +4,38 @@ export interface User {
   name: string;
   avatarUrl: string;
   email: string;
+  phone?: string;
   role: 'Admin' | 'Ventas' | 'Logística';
   teamId?: string;
   isActive: boolean;
   companyId?: string;
+  signature?: string;
+  fullName?: string;
+  nickname?: string;
+  birthday?: string; // ISO date string YYYY-MM-DD
+  interests?: string;
+}
+
+export interface Birthday {
+  id: string;
+  userId: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+}
+
+export interface SignatureTemplate {
+  id: string;
+  name: string;
+  htmlContent: string;
+}
+
+export interface ConnectedEmailAccount {
+  id: string;
+  userId: string;
+  email: string;
+  status: 'Conectado' | 'Error de autenticación' | 'Desconectado';
+  // FIX: Renamed 'templateId' to 'signatureTemplate' to match the property name used in 'data/mockData.ts'.
+  signatureTemplate?: string;
 }
 
 export interface Team {
@@ -51,6 +79,8 @@ export interface Review {
   rating: number;
   author: string;
   publishedAt: string;
+  authorPhotoUrl?: string;
+  likes?: number;
 }
 
 export interface CandidateAiAnalysis {
@@ -78,7 +108,10 @@ export interface Candidate {
   email?: string;
   website?: string;
   imageUrl?: string;
+  images?: { url: string }[];
   googleMapsUrl?: string;
+  googlePlaceId?: string;
+  location?: { lat: number; lng: number };
   rawCategories?: string[]; // Categories from the data source
   status: CandidateStatus;
   assignedCompanyId?: 'Puredef' | 'Trade Aitirik' | 'Santzer';
@@ -88,6 +121,9 @@ export interface Candidate {
   activityLog: ActivityLog[];
   aiAnalysis?: CandidateAiAnalysis;
   reviews?: Review[];
+  averageRating?: number;
+  reviewCount?: number;
+  openingHours?: { day: string, hours: string }[];
   importedAt: string; // ISO Date string
   importedBy: string; // userId
 }
@@ -121,12 +157,13 @@ export enum SupplierRating {
 
 export enum QuoteStatus {
   Borrador = 'Borrador',
-  EnRevision = 'En Revisión',
-  Aprobada = 'Aprobada',
+  EnAprobacionInterna = 'En Aprobación Interna',
+  AjustesRequeridos = 'Ajustes Requeridos',
+  ListaParaEnviar = 'Lista para Enviar',
+  EnviadaAlCliente = 'Enviada al Cliente',
+  EnNegociacion = 'En Negociación',
+  AprobadaPorCliente = 'Aprobada por Cliente',
   Rechazada = 'Rechazada',
-  Enviada = 'Enviada',
-  Negociacion = 'Negociación',
-  Perdida = 'Perdida',
 }
 
 // FIX: Export QuoteStatus as QuotePipelineStage for compatibility with other files.
@@ -140,6 +177,7 @@ export enum SampleStatus {
   Recibida = 'Recibida',
   ConFeedback = 'Con Feedback',
   Cerrada = 'Cerrada',
+  Archivada = 'Archivada',
 }
 
 export enum SalesOrderStatus {
@@ -312,6 +350,7 @@ export interface Product {
     min: number; // Price is per unitDefault
   };
   reorderPoint?: number;
+  createdAt?: string;
 }
 
 export interface ProductLot {
@@ -650,6 +689,9 @@ export interface ActivityLog {
     prospectId?: string;
     contactId?: string;
     candidateId?: string; // Link to candidate
+    sampleId?: string;
+    quoteId?: string;
+    salesOrderId?: string;
     type: 'Llamada' | 'Email' | 'Reunión' | 'Nota' | 'Vista de Perfil' | 'Análisis IA' | 'Cambio de Estado' | 'Sistema';
     description: string;
     userId: string;
@@ -664,6 +706,9 @@ export interface Note {
     productId?: string;
     supplierId?: string;
     candidateId?: string; // Link to candidate
+    sampleId?: string;
+    quoteId?: string;
+    salesOrderId?: string;
     text: string;
     userId: string;
     createdAt: string; // ISO Date string
@@ -690,7 +735,8 @@ export interface Carrier {
 
 export interface FreightPricingRule {
     id: string;
-    zone: string;
+    origin: string;
+    destination: string;
     minWeightKg: number;
     maxWeightKg: number;
     pricePerKg: number;
@@ -700,20 +746,29 @@ export interface FreightPricingRule {
 export interface ChatMessage {
     id: string;
     senderId: string;
-    receiverId: string;
+    receiverId: string; // Can be a userId or groupId
     text: string;
     timestamp: string; // ISO Date string
+}
+
+export interface Group {
+    id: string;
+    name: string;
+    members: string[]; // array of user IDs
 }
 
 export interface Email {
     id: string;
     from: { name: string; email: string; };
     to: { name: string; email: string; }[];
+    cc?: { name: string; email: string; }[];
+    bcc?: { name: string; email: string; }[];
     subject: string;
     body: string;
     timestamp: string; // ISO Date string
     status: 'read' | 'unread' | 'draft';
     folder: 'inbox' | 'sent' | 'drafts' | 'trash';
+    attachments?: Attachment[];
 }
 
 export enum InvoiceStatus {
@@ -771,4 +826,11 @@ export interface Commission {
   status: CommissionStatus;
   createdAt: string; // ISO date string
   paidAt?: string; // ISO date string
+}
+
+export interface MotivationalQuote {
+  id: string;
+  text: string;
+  timeOfDay: ('morning' | 'afternoon' | 'evening')[];
+  roles: ('Admin' | 'Ventas' | 'Logística' | 'General')[];
 }

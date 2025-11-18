@@ -1,8 +1,10 @@
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { User } from '../../types';
+import { api } from '../../api/firebaseApi';
+import Spinner from '../../components/ui/Spinner';
 
 const ROLES: User['role'][] = ['Admin', 'Ventas', 'Logística'];
 const MODULES = ['Prospección', 'Ventas', 'Tareas', 'Inventario', 'Finanzas'];
@@ -15,25 +17,56 @@ const AI_ACTIONS = [
 type Permissions = Record<User['role'], Record<string, boolean>>;
 
 const AiAccessSettings: React.FC = () => {
-    const [dataPermissions, setDataPermissions] = useState<Permissions>({
-        'Admin': { 'Prospección': true, 'Ventas': true, 'Tareas': true, 'Inventario': true, 'Finanzas': true },
-        'Ventas': { 'Prospección': true, 'Ventas': true, 'Tareas': true, 'Inventario': false, 'Finanzas': false },
-        'Logística': { 'Prospección': false, 'Ventas': false, 'Tareas': true, 'Inventario': true, 'Finanzas': false }
-    });
-    
-    const [actionPermissions, setActionPermissions] = useState<Permissions>({
-        'Admin': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
-        'Ventas': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
-        'Logística': { 'createTask': true, 'updateClientStatus': false, 'getSummary': true }
-    });
+    const [dataPermissions, setDataPermissions] = useState<Permissions | null>(null);
+    const [actionPermissions, setActionPermissions] = useState<Permissions | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            setIsLoading(true);
+            const settings = await api.getDoc('settings', 'aiAccess');
+            if (settings) {
+                setDataPermissions(settings.dataPermissions);
+                setActionPermissions(settings.actionPermissions);
+            } else {
+                // Set default state if no settings are found in DB
+                setDataPermissions({
+                    'Admin': { 'Prospección': true, 'Ventas': true, 'Tareas': true, 'Inventario': true, 'Finanzas': true },
+                    'Ventas': { 'Prospección': true, 'Ventas': true, 'Tareas': true, 'Inventario': false, 'Finanzas': false },
+                    'Logística': { 'Prospección': false, 'Ventas': false, 'Tareas': true, 'Inventario': true, 'Finanzas': false }
+                });
+                setActionPermissions({
+                    'Admin': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
+                    'Ventas': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
+                    'Logística': { 'createTask': true, 'updateClientStatus': false, 'getSummary': true }
+                });
+            }
+            setIsLoading(false);
+        };
+        fetchSettings();
+    }, []);
 
     const handleDataToggle = (role: User['role'], module: string) => {
-        setDataPermissions(prev => ({ ...prev, [role]: { ...prev[role], [module]: !prev[role][module] } }));
+        setDataPermissions(prev => (prev ? { ...prev, [role]: { ...prev[role], [module]: !prev[role][module] } } : null));
     };
     
     const handleActionToggle = (role: User['role'], actionId: string) => {
-        setActionPermissions(prev => ({ ...prev, [role]: { ...prev[role], [actionId]: !prev[role][actionId] } }));
+        setActionPermissions(prev => (prev ? { ...prev, [role]: { ...prev[role], [actionId]: !prev[role][actionId] } } : null));
     };
+
+    const handleSave = async () => {
+        try {
+            await api.setDoc('settings', 'aiAccess', { dataPermissions, actionPermissions });
+            alert('Permisos de IA guardados con éxito.');
+        } catch (error) {
+            console.error('Error saving AI settings:', error);
+            alert('Error al guardar los permisos de IA.');
+        }
+    };
+
+    if (isLoading || !dataPermissions || !actionPermissions) {
+        return <div className="flex justify-center py-12"><Spinner /></div>;
+    }
 
     return (
         <div className="space-y-8">
@@ -101,7 +134,7 @@ const AiAccessSettings: React.FC = () => {
                     </tbody>
                 </table>
                  <div className="border-t border-slate-200 dark:border-slate-700 p-6 flex justify-end">
-                    <button onClick={() => alert('Permisos de IA guardados.')} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:opacity-90">
+                    <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:opacity-90">
                         Guardar Cambios
                     </button>
                 </div>

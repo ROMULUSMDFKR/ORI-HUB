@@ -7,6 +7,7 @@ import { SALES_ORDERS_PIPELINE_COLUMNS } from '../constants';
 import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
+import { api } from '../api/firebaseApi';
 
 const SalesOrderDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -23,6 +24,18 @@ const SalesOrderDetailPage: React.FC = () => {
     const handleNoteAdded = (note: Note) => {
         if (allNotes) {
             (allNotes as Note[]).unshift(note);
+        }
+    };
+
+    const handleSaveStatus = async () => {
+        if (currentStatus && id) {
+             try {
+                await api.updateDoc('salesOrders', id, { status: currentStatus });
+                alert('Estado de la orden actualizado.');
+            } catch (error) {
+                console.error("Error updating sales order status:", error);
+                alert("Error al actualizar el estado.");
+            }
         }
     };
     
@@ -49,7 +62,7 @@ const SalesOrderDetailPage: React.FC = () => {
                     <div className="w-48">
                         <CustomSelect options={statusOptions} value={currentStatus || ''} onChange={val => setCurrentStatus(val as SalesOrderStatus)} />
                     </div>
-                     <button onClick={() => alert('Estado guardado')} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 h-[42px]">Guardar</button>
+                     <button onClick={handleSaveStatus} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 h-[42px]">Guardar</button>
                 </div>
             </div>
             

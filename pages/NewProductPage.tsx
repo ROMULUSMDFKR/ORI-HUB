@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, Category, Unit, LotStatus, Supplier } from '../types';
+import { Product, Category, Unit, LotStatus, Supplier, Currency } from '../types';
 import { useCollection } from '../hooks/useCollection';
-import { UNITS } from '../../constants';
+import { UNITS } from '../constants';
 import CustomSelect from '../components/ui/CustomSelect';
+import { api } from '../api/firebaseApi';
 
 const initialProductState: Omit<Product, 'id'> = {
     sku: '',
     name: '',
     unitDefault: 'ton',
+    currency: 'USD',
     isActive: true,
     categoryId: '',
     pricing: {
@@ -48,7 +50,6 @@ const NewProductPage: React.FC = () => {
         if (!product.name.trim()) newErrors.name = 'El nombre es requerido.';
         if (!product.sku.trim()) newErrors.sku = 'El SKU es requerido.';
         if (!product.categoryId) newErrors.categoryId = 'La categoría es requerida.';
-        if (product.pricing.min <= 0) newErrors.productPrice = 'El precio default debe ser mayor a cero.';
         
         // Lot validation
         if (!lot.code.trim()) newErrors.lotCode = 'El código del lote es requerido.';
@@ -64,40 +65,61 @@ const NewProductPage: React.FC = () => {
 
     const handleChange = (entity: 'product' | 'lot', field: string, value: any) => {
         if (entity === 'product') {
-            if (field === 'pricing.min') {
-                setProduct(prev => ({ ...prev, pricing: { min: value }}));
-            } else {
-                setProduct(prev => ({ ...prev, [field]: value }));
+            const updatedProduct = { ...product, [field]: value };
+            setProduct(updatedProduct);
+
+            if (field === 'sku') {
+                const skuValue = value.trim();
+                if (skuValue) {
+                    const date = new Date();
+                    const year = date.getFullYear().toString().slice(-2);
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const suggestedCode = `${skuValue}-${year}${month}${day}`;
+                    setLot(prevLot => ({ ...prevLot, code: suggestedCode }));
+                } else {
+                    setLot(prevLot => ({ ...prevLot, code: '' }));
+                }
             }
         } else {
             setLot(prev => ({ ...prev, [field]: value }));
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (validate()) {
-            const newProduct: Product = {
-                id: `prod-${Date.now()}`,
-                ...product
-            };
-            const newLot = {
-                id: `lot-${Date.now()}`,
-                code: lot.code,
-                unitCost: lot.unitCost,
-                supplierId: lot.supplierId,
-                receptionDate: new Date(lot.receptionDate).toISOString(),
-                initialQty: lot.initialQty,
-                status: LotStatus.Disponible,
-                pricing: { min: lot.minSellPrice },
-                stock: [{ locationId: lot.initialLocationId, qty: lot.initialQty }]
+            const newProductData: Omit<Product, 'id'> = {
+                ...product,
+                createdAt: new Date().toISOString()
             };
 
-            console.log("Nuevo Producto Guardado:", newProduct);
-            console.log("Lote Inicial:", newLot);
-            // In a real app, you would call the API to save both records.
-            alert("Producto y lote inicial guardados (revisa la consola).");
-            navigate('/products/list');
+            try {
+                // 1. Save Product
+                const addedProduct = await api.addDoc('products', newProductData);
+                
+                // 2. Save Initial Lot
+                const newLotData = {
+                    id: `lot-${Date.now()}`, // Optionally let Firestore auto-id if not critical
+                    productId: addedProduct.id, // Link to the new product
+                    code: lot.code,
+                    unitCost: lot.unitCost,
+                    supplierId: lot.supplierId,
+                    receptionDate: new Date(lot.receptionDate).toISOString(),
+                    initialQty: lot.initialQty,
+                    status: LotStatus.Disponible,
+                    pricing: { min: lot.minSellPrice },
+                    stock: [{ locationId: lot.initialLocationId, qty: lot.initialQty }]
+                };
+
+                await api.addDoc('lots', newLotData);
+
+                alert("Producto y lote inicial guardados exitosamente.");
+                navigate('/products/list');
+            } catch (error) {
+                console.error("Error saving product:", error);
+                alert("Hubo un error al guardar el producto.");
+            }
         }
     };
 
@@ -144,14 +166,14 @@ const NewProductPage: React.FC = () => {
                             {errors.categoryId && <p className="text-red-500 text-xs mt-1">{errors.categoryId}</p>}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <CustomSelect label="Unidad Default" options={unitOptions} value={product.unitDefault} onChange={val => handleChange('product', 'unitDefault', val as Unit)} />
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Precio Mín. (Default)</label>
-                                <input type="number" value={product.pricing.min} onChange={(e) => handleChange('product', 'pricing.min', parseFloat(e.target.value) || 0)} className="mt-1 block w-full" />
-                                {errors.productPrice && <p className="text-red-500 text-xs mt-1">{errors.productPrice}</p>}
-                            </div>
-                        </div>
+                        <CustomSelect label="Unidad Default" options={unitOptions} value={product.unitDefault} onChange={val => handleChange('product', 'unitDefault', val as Unit)} />
+
+                        <CustomSelect 
+                            label="Moneda" 
+                            options={[{value: 'USD', name: 'Dólares (USD)'}, {value: 'MXN', name: 'Pesos (MXN)'}]} 
+                            value={product.currency} 
+                            onChange={val => handleChange('product', 'currency', val as Currency)} 
+                        />
 
                         <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
                             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Producto Activo</span>

@@ -1,10 +1,10 @@
 
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Task, TaskStatus, Priority, Project, Subtask, User, Team } from '../types';
-// FIX: Se eliminaron las importaciones de datos falsos no utilizadas.
 import { useCollection } from '../hooks/useCollection';
+import { useAuth } from '../hooks/useAuth';
+import { api } from '../api/firebaseApi';
 import Badge from '../components/ui/Badge';
 import Checkbox from '../components/ui/Checkbox';
 import UserSelector from '../components/ui/UserSelector';
@@ -23,7 +23,12 @@ const FormCard: React.FC<{ title: string, children: React.ReactNode}> = ({ title
 
 const NewTaskPage: React.FC = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { data: teams } = useCollection<Team>('teams');
+    
+    // Ref to track if we have already auto-assigned the user
+    const hasAssignedSelf = useRef(false);
+
     const [task, setTask] = useState<Partial<Task>>({
         title: '',
         description: '',
@@ -41,8 +46,17 @@ const NewTaskPage: React.FC = () => {
     const [newTag, setNewTag] = useState('');
     const [newSubtask, setNewSubtask] = useState({ text: '', notes: '' });
     const [isLinkDrawerOpen, setIsLinkDrawerOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     
     const DESCRIPTION_MAX_LENGTH = 2000;
+
+    // Auto-assign current user on mount
+    useEffect(() => {
+        if (user && !hasAssignedSelf.current) {
+            setTask(prev => ({ ...prev, assignees: [user.id] }));
+            hasAssignedSelf.current = true;
+        }
+    }, [user]);
 
     const handleFieldChange = (field: keyof Task, value: any) => {
         setTask(prev => ({ ...prev, [field]: value }));
@@ -57,20 +71,33 @@ const NewTaskPage: React.FC = () => {
         return Object.keys(task.links).length;
     }, [task.links]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!task.title?.trim()) {
             alert('El título es requerido.');
             return;
         }
-        const finalTask: Task = {
-            id: `task-${Date.now()}`,
-            createdAt: new Date().toISOString(),
-            createdById: 'user-1', // Assuming current user is user-1
-            ...task
-        } as Task;
-        console.log("Creating new task:", finalTask);
-        alert(`Tarea "${finalTask.title}" creada (simulación).`);
-        navigate('/tasks');
+
+        setIsSaving(true);
+        try {
+            const finalTask: Partial<Task> = {
+                ...task,
+                createdAt: new Date().toISOString(),
+                createdById: user?.id,
+                // Ensure defaults
+                assignees: task.assignees || [],
+                watchers: task.watchers || [],
+                subtasks: task.subtasks || [],
+                tags: task.tags || [],
+            };
+            
+            await api.addDoc('tasks', finalTask);
+            navigate('/tasks');
+        } catch (error) {
+            console.error("Error creating task:", error);
+            alert("Hubo un error al guardar la tarea.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -121,8 +148,11 @@ const NewTaskPage: React.FC = () => {
              <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Crear Nueva Tarea</h1>
                 <div className="flex gap-2">
-                    <button onClick={() => navigate(-1)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">Cancelar</button>
-                    <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700">Guardar Tarea</button>
+                    <button onClick={() => navigate(-1)} disabled={isSaving} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50">Cancelar</button>
+                    <button onClick={handleSave} disabled={isSaving} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+                        {isSaving && <span className="material-symbols-outlined animate-spin !text-sm">progress_activity</span>}
+                        Guardar Tarea
+                    </button>
                 </div>
             </div>
             <div className="space-y-6">

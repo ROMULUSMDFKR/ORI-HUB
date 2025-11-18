@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Project } from '../types';
 import { useDoc } from '../hooks/useDoc';
-// FIX: Se eliminó la importación de datos falsos no utilizada.
 import UserSelector from '../components/ui/UserSelector';
 import CustomSelect from '../components/ui/CustomSelect';
 import Spinner from '../components/ui/Spinner';
+import { api } from '../api/firebaseApi';
 
 const FormCard: React.FC<{ title: string, children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
@@ -33,14 +33,19 @@ const EditProjectPage: React.FC = () => {
         setProject(prev => prev ? { ...prev, [field]: value } : null);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!project || !project.name?.trim()) {
             alert('El nombre del proyecto es requerido.');
             return;
         }
-        console.log("Updating project:", project);
-        alert(`Proyecto "${project.name}" actualizado (simulación).`);
-        navigate(`/tasks/projects/${id}`);
+        
+        try {
+            await api.updateDoc('projects', id!, project);
+            navigate(`/tasks/projects/${id}`);
+        } catch (error) {
+            console.error("Error updating project:", error);
+            alert("Error al actualizar el proyecto.");
+        }
     };
 
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;

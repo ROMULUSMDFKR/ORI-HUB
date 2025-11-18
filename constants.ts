@@ -46,6 +46,7 @@ export const NAV_LINKS = [
     name: 'Compras', 
     icon: 'shopping_cart',
     sublinks: [
+        { name: 'Dashboard de Compras', path: '/purchase/dashboard', icon: 'dashboard' },
         { name: 'Órdenes de Compra', path: '/purchase/orders', icon: 'shopping_basket' },
         { name: 'Proveedores', path: '/purchase/suppliers', icon: 'factory' },
     ]

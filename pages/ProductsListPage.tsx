@@ -1,11 +1,38 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { Product, Category } from '../types';
+import { Product, Category, ProductLot } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
+import { api } from '../api/firebaseApi';
+
+const ActionsMenu: React.FC<{ product: Product, onDelete: (product: Product) => void }> = ({ product, onDelete }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+        <div className="relative">
+            <button onClick={() => setIsOpen(!isOpen)} onBlur={() => setTimeout(() => setIsOpen(false), 200)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
+                <span className="material-symbols-outlined">more_vert</span>
+            </button>
+            {isOpen && (
+                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg z-10 border border-slate-200 dark:border-slate-700">
+                    <ul className="py-1">
+                        <li>
+                            <button onClick={() => onDelete(product)} className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">
+                                <span className="material-symbols-outlined mr-3 text-base">delete</span>
+                                Eliminar
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 const ProductsListPage: React.FC = () => {
     const { data: initialProducts, loading: productsLoading, error: productsError } = useCollection<Product>('products');
@@ -33,6 +60,27 @@ const ProductsListPage: React.FC = () => {
         );
     }, [products, filter]);
 
+    const handleDeleteProduct = async (product: Product) => {
+        try {
+            const productLots = await api.getLotsForProduct(product.id);
+            const hasStock = productLots.some(lot => lot.stock.some((s: { qty: number; }) => s.qty > 0));
+            
+            if (hasStock) {
+                alert(`No se puede eliminar "${product.name}" porque tiene lotes con stock disponible.`);
+                return;
+            }
+
+            if (window.confirm(`¿Estás seguro de que quieres eliminar el producto "${product.name}"? Esta acción no se puede deshacer.`)) {
+                await api.deleteDoc('products', product.id);
+                setProducts(prev => prev!.filter(p => p.id !== product.id));
+                alert('Producto eliminado con éxito.');
+            }
+        } catch (error) {
+            console.error("Error deleting product:", error);
+            alert("No se pudo eliminar el producto.");
+        }
+    };
+
     const columns = [
         { header: 'SKU', accessor: (p: Product) => <span className="font-mono text-xs">{p.sku}</span> },
         {
@@ -58,9 +106,7 @@ const ProductsListPage: React.FC = () => {
         },
         {
             header: 'Acciones',
-            accessor: (p: Product) => (
-                 <button className="text-gray-500 hover:text-indigo-600 p-1 rounded-full"><span className="material-symbols-outlined">more_vert</span></button>
-            ),
+            accessor: (p: Product) => <ActionsMenu product={p} onDelete={handleDeleteProduct} />,
             className: 'text-center'
         }
     ];

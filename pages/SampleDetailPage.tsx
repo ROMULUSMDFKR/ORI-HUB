@@ -4,11 +4,12 @@ import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
 import { Sample, SampleStatus, Prospect, Company, Product, Note, ActivityLog, User } from '../types';
 import { SAMPLES_PIPELINE_COLUMNS } from '../constants';
-// FIX: Removed MOCK_USERS import. User data will be fetched via hook.
 import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
 import Badge from '../components/ui/Badge';
 import NotesSection from '../components/shared/NotesSection';
+import { api } from '../api/firebaseApi';
+import { useAuth } from '../hooks/useAuth';
 
 // Reusable components from other detail pages
 const InfoCard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className }) => (
@@ -31,6 +32,7 @@ const SampleDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const { data: sample, loading: sampleLoading, error } = useDoc<Sample>('samples', id || '');
     const [currentSample, setCurrentSample] = useState<Sample | null>(null);
+    const { user: currentUser } = useAuth();
 
     // Fetch related data
     const { data: prospects, loading: prospectsLoading } = useCollection<Prospect>('prospects');
@@ -38,7 +40,6 @@ const SampleDetailPage: React.FC = () => {
     const { data: products, loading: productsLoading } = useCollection<Product>('products');
     const { data: allNotes, loading: notesLoading } = useCollection<Note>('notes');
     const { data: allActivities, loading: activitiesLoading } = useCollection<ActivityLog>('activities');
-    // FIX: Fetch users to replace mock data.
     const { data: users, loading: usersLoading } = useCollection<User>('users');
     
     const [feedback, setFeedback] = useState('');
@@ -46,7 +47,6 @@ const SampleDetailPage: React.FC = () => {
     useEffect(() => {
         if (sample) {
             setCurrentSample(sample);
-            // Assuming feedback might be stored in a note with a specific tag/type in a real app
             const feedbackNote = allNotes?.find(n => n.sampleId === sample.id && n.text.startsWith("Feedback:"));
             if(feedbackNote) setFeedback(feedbackNote.text.replace("Feedback:", "").trim());
         }
@@ -57,28 +57,45 @@ const SampleDetailPage: React.FC = () => {
         setCurrentSample(prev => prev ? { ...prev, status: newStatus } : null);
     };
     
-    const handleSaveStatus = () => {
-         if (!currentSample) return;
-         // Here you would call an API to save the status change
-         alert(`Estado de la muestra guardado como: ${currentSample.status}`);
+    const handleSaveStatus = async () => {
+         if (!currentSample || !id) return;
+         try {
+            await api.updateDoc('samples', id, { status: currentSample.status });
+            alert(`Estado de la muestra actualizado a: ${currentSample.status}`);
+         } catch (error) {
+             console.error("Error updating sample status:", error);
+             alert("Error al actualizar el estado.");
+         }
     }
 
-    const handleSaveFeedback = () => {
-        if(!currentSample || !feedback.trim()) return;
-        alert(`Feedback guardado: "${feedback}"`);
-        // In a real app, you would likely save this as a special note or activity
+    const handleSaveFeedback = async () => {
+        if(!currentSample || !feedback.trim() || !currentUser) return;
+        
+        try {
+            // Save as a note prefixed with "Feedback:"
+            const note: Note = {
+                id: `note-${Date.now()}`,
+                sampleId: currentSample.id,
+                text: `Feedback: ${feedback}`,
+                userId: currentUser.id,
+                createdAt: new Date().toISOString(),
+            } as Note;
+
+            await api.addDoc('notes', note);
+            alert("Feedback guardado correctamente.");
+        } catch (error) {
+            console.error("Error saving feedback:", error);
+            alert("Error al guardar el feedback.");
+        }
     }
 
     const handleNoteAdded = (note: Note) => {
-        // This is a hack for mock data. In a real app, a state management library or context would handle this.
         if (allNotes) {
             (allNotes as Note[]).unshift(note);
-            // Trigger a re-render of useMemo by creating a new object reference
             setCurrentSample(prev => prev ? { ...prev } : null);
         }
     };
 
-    // FIX: Create a memoized map for users.
     const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
 
     const { recipient, product, owner, notes, activities } = useMemo(() => {
@@ -89,7 +106,6 @@ const SampleDetailPage: React.FC = () => {
             : companies?.find(c => c.id === currentSample.companyId);
         
         const prod = products?.find(p => p.id === currentSample.productId);
-        // FIX: Use the typesafe usersMap.
         const ownr = usersMap.get(currentSample.ownerId);
 
         const sampleNotes = (allNotes || []).filter(n => n.sampleId === currentSample.id)
@@ -147,7 +163,6 @@ const SampleDetailPage: React.FC = () => {
                     <InfoCard title="Actividad Reciente">
                         <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                             {activities.length > 0 ? activities.map(activity => {
-                                // FIX: Use the typesafe usersMap.
                                 const user = usersMap.get(activity.userId);
                                 const iconMap: Record<ActivityLog['type'], string> = { 'Llamada': 'call', 'Email': 'email', 'Reunión': 'groups', 'Nota': 'note', 'Vista de Perfil': 'visibility', 'Análisis IA': 'auto_awesome', 'Cambio de Estado': 'change_circle', 'Sistema': 'dns' };
                                 return (

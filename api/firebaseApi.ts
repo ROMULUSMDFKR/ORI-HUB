@@ -1,10 +1,27 @@
 
-import { collection, doc, getDoc as getFirestoreDoc, getDocs, addDoc, updateDoc, setDoc, deleteDoc as deleteFirestoreDoc } from 'firebase/firestore';
+import { collection, doc, getDoc as getFirestoreDoc, getDocs, addDoc, updateDoc, setDoc, deleteDoc as deleteFirestoreDoc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { createUserWithEmailAndPassword, sendPasswordResetEmail, getAuth, signOut } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { db, storage, auth, firebaseConfig } from '../firebase'; // Importa la instancia de la base de datos y storage
 import { Invitation, User, Role } from '../types';
+
+const logAudit = async (entity: string, entityId: string, action: string) => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+        await addDoc(collection(db, 'auditLogs'), {
+            entity,
+            entityId,
+            action,
+            by: user.uid,
+            at: Timestamp.now()
+        });
+    } catch (error) {
+        console.error("Failed to log audit:", error);
+        // Don't throw here, we don't want to block the main action if audit fails
+    }
+};
 
 const getCollection = async (collectionName: string): Promise<any[]> => {
   console.log(`%c[FIREBASE] Obteniendo colección: ${collectionName}`, 'color: #FFCA28; font-weight: bold;');
@@ -42,6 +59,12 @@ const getDoc = async (collectionName: string, docId: string): Promise<any | null
 const addFirebaseDoc = async (collectionName: string, newDoc: any): Promise<any> => {
     try {
         const docRef = await addDoc(collection(db, collectionName), newDoc);
+        
+        // Log Audit
+        if (collectionName !== 'auditLogs') {
+            await logAudit(collectionName, docRef.id, 'Crear');
+        }
+
         // Devolvemos el documento nuevo con el ID que Firestore le asignó.
         return { id: docRef.id, ...newDoc };
     } catch(error) {
@@ -54,6 +77,11 @@ const updateFirebaseDoc = async (collectionName: string, docId: string, updates:
     try {
         const docRef = doc(db, collectionName, docId);
         await updateDoc(docRef, updates);
+        
+        // Log Audit
+        if (collectionName !== 'auditLogs') {
+            await logAudit(collectionName, docId, 'Actualizar');
+        }
     } catch(error) {
         console.error(`Error updating document ${collectionName}/${docId}:`, error);
         throw error;
@@ -64,6 +92,12 @@ const deleteFirebaseDoc = async (collectionName: string, docId: string): Promise
     try {
         const docRef = doc(db, collectionName, docId);
         await deleteFirestoreDoc(docRef);
+        
+        // Log Audit
+        if (collectionName !== 'auditLogs') {
+            await logAudit(collectionName, docId, 'Eliminar');
+        }
+        
         console.log(`%c[FIREBASE] Documento eliminado: ${collectionName}/${docId}`, 'color: #F44336;');
     } catch (error) {
         console.error(`Error deleting document ${collectionName}/${docId}:`, error);
@@ -73,8 +107,18 @@ const deleteFirebaseDoc = async (collectionName: string, docId: string): Promise
 
 // En una aplicación real, no necesitarías esta función, pero la mantenemos para compatibilidad con el código existente.
 const getLotsForProduct = async (productId: string): Promise<any[]> => {
-    console.warn("getLotsForProduct no está implementado de forma optimizada para Firestore y devolverá un array vacío.");
-    return [];
+    // Simple query implementation if needed in future, currently returning empty/mock
+    // To make this work with Firestore, we would query the 'lots' collection where productId == id
+    // For now, maintaining behavior but logging
+    console.warn("getLotsForProduct - simulado para estructura de datos actual.");
+    
+    // Attempt to fetch if possible (assuming 'lots' collection)
+    try {
+        const allLots = await getCollection('lots');
+        return allLots.filter(l => l.productId === productId);
+    } catch {
+        return [];
+    }
 }
 
 const uploadFile = async (file: File, path: string): Promise<string> => {
@@ -83,6 +127,9 @@ const uploadFile = async (file: File, path: string): Promise<string> => {
     const storageRef = ref(storage, `${path}/${file.name}`);
     const snapshot = await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    await logAudit('storage', file.name, 'Subir Archivo');
+
     console.log(`%c[FIREBASE] Archivo subido exitosamente. URL: ${downloadURL}`, 'color: #4CAF50;');
     return downloadURL;
   } catch (error) {
@@ -99,8 +146,12 @@ const deleteFile = async (file: any): Promise<void> => {
     await deleteObject(storageRef);
 
     // 2. Delete from Firestore
-    const docRef = doc(db, 'archives', file.id);
-    await deleteFirestoreDoc(docRef);
+    if (file.id) {
+        const docRef = doc(db, 'archives', file.id);
+        await deleteFirestoreDoc(docRef);
+    }
+
+    await logAudit('storage', file.name, 'Eliminar Archivo');
     
     console.log(`%c[FIREBASE] Archivo ${file.name} eliminado con éxito.`, 'color: #F44336;');
   } catch (error) {
@@ -122,6 +173,11 @@ const createUser = async (email: string, password: string): Promise<any> => {
 const setFirebaseDoc = async (collectionName: string, docId: string, data: any): Promise<any> => {
     try {
         await setDoc(doc(db, collectionName, docId), data);
+        
+        if (collectionName !== 'auditLogs') {
+            await logAudit(collectionName, docId, 'Crear/Sobrescribir');
+        }
+
         // Return the full document with its ID for local state updates
         return { id: docId, ...data };
     } catch (error) {
@@ -159,6 +215,8 @@ const adminCreateUser = async (email: string, password: string, userData: Omit<U
         
         await setDoc(doc(db, 'users', uid), newUserProfile);
         
+        await logAudit('users', uid, 'Crear Usuario (Admin)');
+
         // Clean up the secondary app session
         await signOut(secondaryAuth);
         
@@ -223,6 +281,8 @@ const registerUserWithInvitation = async (invitation: Invitation, password: stri
         };
         
         await setDoc(doc(db, 'users', authUser.uid), newUserProfile);
+        
+        await logAudit('users', authUser.uid, 'Registro por Invitación');
 
         // 3. Mark invitation as used (or delete it)
         await updateDoc(doc(db, 'invitations', invitation.id), { status: 'used' });

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
@@ -226,16 +227,30 @@ const UserManagement: React.FC = () => {
         }
     };
 
-    const handleAction = (action: string, userId: string) => {
+    const handleAction = async (action: string, userId: string) => {
         if (!users) return;
 
         switch(action) {
             case 'toggle-active':
-                setUsers(users.map(u => u.id === userId ? { ...u, isActive: !u.isActive } : u));
+                const userToToggle = users.find(u => u.id === userId);
+                if (userToToggle) {
+                    const newStatus = !userToToggle.isActive;
+                    await api.updateDoc('users', userId, { isActive: newStatus });
+                    setUsers(users.map(u => u.id === userId ? { ...u, isActive: newStatus } : u));
+                }
                 break;
             case 'delete':
-                if (window.confirm('¿Estás seguro de que quieres eliminar a este usuario? Esta acción no se puede deshacer.')) {
-                    setUsers(users.filter(u => u.id !== userId));
+                if (window.confirm('¿Estás seguro de que quieres eliminar a este usuario? Esta acción es PERMANENTE y también lo eliminará del sistema de autenticación.')) {
+                    try {
+                        // In a real app, you would have a backend function to delete the Auth user.
+                        // For this simulation, we'll just delete the Firestore record.
+                        await api.deleteDoc('users', userId);
+                        setUsers(users.filter(u => u.id !== userId));
+                        alert('Usuario eliminado de la base de datos.');
+                    } catch(err) {
+                        console.error(err);
+                        alert('Error al eliminar el usuario.');
+                    }
                 }
                 break;
             case 'reset-password':

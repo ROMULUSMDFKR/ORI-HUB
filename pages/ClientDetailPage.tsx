@@ -9,7 +9,7 @@ import { GoogleGenAI } from '@google/genai';
 import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
 import { COMPANIES_PIPELINE_COLUMNS } from '../constants';
-
+import { api } from '../api/firebaseApi';
 
 // --- Reusable UI Components ---
 
@@ -96,7 +96,7 @@ const InfoRow: React.FC<{ label: string, value: React.ReactNode }> = ({label, va
     </div>
 );
 
-const HubItem: React.FC<{ item: any, type: 'quote' | 'sales-order' | 'sample', onStatusChange: (itemId: string, newStatus: any) => void }> = ({ item, type, onStatusChange }) => {
+const HubItem: React.FC<{ item: any, type: 'quote' | 'sales-order' | 'sample', onStatusChange: (itemId: string, newStatus: any, type: string) => void }> = ({ item, type, onStatusChange }) => {
     let title = '', link = '#', options: {value: string, name: string}[] = [];
     if (type === 'quote') { 
         title = item.folio; 
@@ -121,7 +121,7 @@ const HubItem: React.FC<{ item: any, type: 'quote' | 'sales-order' | 'sample', o
                 <CustomSelect 
                     options={options} 
                     value={item.status} 
-                    onChange={(newStatus) => onStatusChange(item.id, newStatus)}
+                    onChange={(newStatus) => onStatusChange(item.id, newStatus, type)}
                     buttonClassName="w-full text-xs font-medium rounded-md px-2 py-1 border-none focus:ring-0 appearance-none bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"
                     dropdownClassName="w-40"
                 />
@@ -153,10 +153,16 @@ const ClientDetailPage: React.FC = () => {
         }
     }, [initialCompany]);
     
-    const handleSaveStatus = () => {
+    const handleSaveStatus = async () => {
         if (currentStage && company) {
-            setCompany(c => c ? { ...c, stage: currentStage } : null);
-            alert('Estado de la empresa guardado.');
+            try {
+                await api.updateDoc('companies', company.id, { stage: currentStage });
+                setCompany(prev => prev ? { ...prev, stage: currentStage } : null);
+                alert('Estado de la empresa actualizado correctamente.');
+            } catch (error) {
+                console.error("Error updating company status:", error);
+                alert("Error al actualizar el estado.");
+            }
         }
     };
 
@@ -195,10 +201,24 @@ const ClientDetailPage: React.FC = () => {
         }
     };
     
-    const handleHubItemStatusChange = (itemId: string, newStatus: any, type: string) => {
-        // This is a simulation. In a real app, you would update the state in your data store.
-        console.log(`Updating ${type} ${itemId} to status ${newStatus}`);
-        alert(`Estado actualizado a ${newStatus} (simulación).`);
+    const handleHubItemStatusChange = async (itemId: string, newStatus: any, type: string) => {
+        let collectionName = '';
+        if (type === 'quote') collectionName = 'quotes';
+        if (type === 'sales-order') collectionName = 'salesOrders';
+        if (type === 'sample') collectionName = 'samples';
+
+        if (collectionName) {
+             try {
+                await api.updateDoc(collectionName, itemId, { status: newStatus });
+                alert('Estado actualizado correctamente.');
+                // In a real scenario, you'd ideally refresh the data or update local state optimistically.
+                // Since useCollection fetches on mount, a refresh might be needed or manual state update.
+                // For now, the alert confirms the action.
+            } catch (error) {
+                console.error(`Error updating ${type} status:`, error);
+                alert("Error al actualizar el estado.");
+            }
+        }
     };
 
 
@@ -266,13 +286,13 @@ const ClientDetailPage: React.FC = () => {
                         <InfoRow label="Prioridad" value={<Badge text={company.priority} color={company.priority === 'Alta' ? 'red' : company.priority === 'Media' ? 'yellow' : 'gray'} />} />
                     </InfoCard>
                     <InfoCard title="Cotizaciones">
-                        {quotes.map(q => <HubItem key={q.id} item={q} type="quote" onStatusChange={(id, status) => handleHubItemStatusChange(id, status, 'quote')} />)}
+                        {quotes.map(q => <HubItem key={q.id} item={q} type="quote" onStatusChange={(id, status, type) => handleHubItemStatusChange(id, status, type)} />)}
                     </InfoCard>
                      <InfoCard title="Órdenes de Venta">
-                        {salesOrders.map(so => <HubItem key={so.id} item={so} type="sales-order" onStatusChange={(id, status) => handleHubItemStatusChange(id, status, 'sales-order')} />)}
+                        {salesOrders.map(so => <HubItem key={so.id} item={so} type="sales-order" onStatusChange={(id, status, type) => handleHubItemStatusChange(id, status, type)} />)}
                     </InfoCard>
                      <InfoCard title="Muestras">
-                        {samples.map(s => <HubItem key={s.id} item={s} type="sample" onStatusChange={(id, status) => handleHubItemStatusChange(id, status, 'sample')} />)}
+                        {samples.map(s => <HubItem key={s.id} item={s} type="sample" onStatusChange={(id, status, type) => handleHubItemStatusChange(id, status, type)} />)}
                     </InfoCard>
                 </div>
             </div>

@@ -1,4 +1,9 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { useCollection } from '../hooks/useCollection';
+import { api } from '../api/firebaseApi';
+import { SignatureTemplate } from '../types';
+import Spinner from '../components/ui/Spinner';
 
 const companies = [
   { id: 'puredef', name: 'Puredef' },
@@ -29,15 +34,37 @@ const initialHtmlTemplate = (year: number, companyName: string) => `
   </table>
 `;
 
-const initialTemplates = companies.map(company => ({
-  id: company.id,
-  name: company.name,
-  htmlContent: initialHtmlTemplate(new Date().getFullYear(), company.name).trim()
-}));
-
 const EmailAppearancePage: React.FC = () => {
-    const [templates, setTemplates] = useState(initialTemplates);
+    const { data: fetchedTemplates, loading } = useCollection<SignatureTemplate>('emailFooters');
+    const [templates, setTemplates] = useState<SignatureTemplate[]>([]);
     const [activeTab, setActiveTab] = useState(companies[0].id);
+
+    useEffect(() => {
+        const runSeed = async () => {
+            console.log("No email footers found, seeding initial data...");
+            const seedData = companies.map(company => ({
+                id: company.id,
+                name: company.name,
+                htmlContent: initialHtmlTemplate(new Date().getFullYear(), company.name).trim()
+            }));
+            try {
+                for (const template of seedData) {
+                    await api.setDoc('emailFooters', template.id, template);
+                }
+                setTemplates(seedData);
+            } catch (e) {
+                console.error("Failed to seed email footers", e);
+            }
+        };
+
+        if (!loading) {
+            if (fetchedTemplates && fetchedTemplates.length > 0) {
+                setTemplates(fetchedTemplates);
+            } else {
+                runSeed();
+            }
+        }
+    }, [fetchedTemplates, loading]);
 
     const activeTemplate = templates.find(t => t.id === activeTab);
 
@@ -47,10 +74,23 @@ const EmailAppearancePage: React.FC = () => {
         );
     };
 
-    const handleSave = () => {
-        console.log(`Saving footer HTML for ${activeTemplate?.name}:`, activeTemplate?.htmlContent);
-        alert(`Pie de correo para ${activeTemplate?.name} guardado con éxito (simulación).`);
+    const handleSave = async () => {
+        if (!activeTemplate) return;
+        try {
+            const templateToSave = templates.find(t => t.id === activeTemplate.id);
+            if (!templateToSave) return;
+            
+            await api.setDoc('emailFooters', templateToSave.id, templateToSave);
+            alert(`Pie de correo para ${templateToSave.name} guardado con éxito.`);
+        } catch (error) {
+            console.error("Error saving email footer:", error);
+            alert("No se pudo guardar el pie de correo.");
+        }
     };
+
+    if (loading && templates.length === 0) {
+        return <div className="flex justify-center items-center h-full"><Spinner /></div>;
+    }
 
     return (
         <div className="space-y-6">

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -11,6 +10,7 @@ import FilterButton from '../components/ui/FilterButton';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import { getOverdueStatus } from '../utils/time';
 import { useAuth } from '../hooks/useAuth';
+import { api } from '../api/firebaseApi';
 
 type TaskView = 'mine' | 'board' | 'all';
 
@@ -210,13 +210,22 @@ const TasksPage: React.FC = () => {
         }
     }, [initialTasks]);
 
-    const handleTaskStatusChange = (taskId: string, newStatus: TaskStatus) => {
+    const handleTaskStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+        // Optimistic update
         setTasks(prevTasks => {
             if (!prevTasks) return null;
             return prevTasks.map(t =>
                 t.id === taskId ? { ...t, status: newStatus } : t
             );
         });
+
+        // API Update
+        try {
+            await api.updateDoc('tasks', taskId, { status: newStatus });
+        } catch (error) {
+            console.error("Error updating task status:", error);
+            alert("No se pudo actualizar el estado de la tarea.");
+        }
     };
     
     // --- Data Memoization ---

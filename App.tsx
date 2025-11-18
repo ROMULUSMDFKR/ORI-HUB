@@ -11,11 +11,23 @@ import PrimarySidebar from './components/layout/PrimarySidebar';
 import ContentLayout from './components/layout/ContentLayout';
 import { NAV_LINKS } from './constants';
 import SecondarySidebar from './components/layout/SecondarySidebar';
-import { User } from './types';
+import { User, Task } from './types';
+import { api } from './api/firebaseApi';
 
 const PageLoader: React.FC = () => (
-  <div className="w-full h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+  <div className="w-full h-screen flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-900">
+    <div className="relative flex flex-col items-center">
+        <img 
+            src="https://tradeaitirik.com.mx/wp-content/uploads/2025/11/ORI-LOGO.png" 
+            alt="ORI Logo" 
+            className="w-24 h-auto animate-pulse" 
+        />
+        <div className="mt-8 flex space-x-2">
+            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce"></div>
+        </div>
+    </div>
   </div>
 );
 
@@ -62,8 +74,12 @@ const NewProductPage = lazy(() => import('./pages/NewProductPage'));
 const ProductCategoriesPage = lazy(() => import('./pages/ProductCategoriesPage'));
 
 // Purchases
+const PurchasesDashboardPage = lazy(() => import('./pages/purchase/PurchasesDashboardPage'));
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage'));
-const CrmSuppliersListPage = lazy(() => import('./pages/CrmSuppliersListPage'));
+const NewPurchaseOrderPage = lazy(() => import('./pages/purchase/NewPurchaseOrderPage'));
+const PurchaseOrderDetailPage = lazy(() => import('./pages/purchase/PurchaseOrderDetailPage'));
+const SuppliersPage = lazy(() => import('./pages/purchase/SuppliersPage'));
+const NewSupplierPage = lazy(() => import('./pages/purchase/NewSupplierPage'));
 const SupplierDetailPage = lazy(() => import('./pages/SupplierDetailPage'));
 const EditSupplierPage = lazy(() => import('./pages/EditSupplierPage'));
 
@@ -130,6 +146,7 @@ const SignupPage = lazy(() => import('./pages/SignupPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const ActivateAccountPage = lazy(() => import('./pages/ActivateAccountPage'));
 const AcceptInvitationPage = lazy(() => import('./pages/AcceptInvitationPage'));
+const TermsAndConditionsPage = lazy(() => import('./pages/TermsAndConditionsPage'));
 
 const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () => void }> = ({ user, onLogout, refreshUser }) => {
     const location = useLocation();
@@ -182,6 +199,22 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
+    const handleQuickTaskSave = async (task: Partial<Task>) => {
+        try {
+            await api.addDoc('tasks', {
+                ...task,
+                createdById: user.id,
+                createdAt: new Date().toISOString(),
+                assignees: [user.id], // Auto assign to self for quick tasks
+                watchers: []
+            });
+            // alert("Tarea rápida creada"); // Optional: show a toast
+        } catch (error) {
+            console.error("Error creating quick task", error);
+            alert("Error al crear tarea rápida");
+        }
+    };
+
     return (
         <div className="flex h-screen bg-slate-100 dark:bg-slate-900">
             <PrimarySidebar />
@@ -232,8 +265,12 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/products/:id/edit" element={<EditProductPage />} />
                             <Route path="/products/categories" element={<ProductCategoriesPage />} />
                             {/* Purchases */}
+                            <Route path="/purchase/dashboard" element={<PurchasesDashboardPage />} />
                             <Route path="/purchase/orders" element={<PurchaseOrdersPage />} />
-                            <Route path="/purchase/suppliers" element={<CrmSuppliersListPage />} />
+                            <Route path="/purchase/orders/new" element={<NewPurchaseOrderPage />} />
+                            <Route path="/purchase/orders/:id" element={<PurchaseOrderDetailPage />} />
+                            <Route path="/purchase/suppliers" element={<SuppliersPage />} />
+                            <Route path="/purchase/suppliers/new" element={<NewSupplierPage />} />
                             <Route path="/purchase/suppliers/:id" element={<SupplierDetailPage />} />
                             <Route path="/purchase/suppliers/:id/edit" element={<EditSupplierPage />} />
                             {/* Inventory */}
@@ -270,17 +307,14 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/finance/expenses" element={<ExpensesPage />} />
                             <Route path="/finance/cash-flow" element={<CashFlowPage />} />
                             <Route path="/finance/commissions" element={<CommissionsPage />} />
-                            {/* System */}
+                            {/* System & Settings */}
                             <Route path="/archives" element={<ArchivesPage />} />
-                            <Route path="/profile" element={<ProfilePage user={user} refreshUser={refreshUser} />} />
                             <Route path="/insights/audit" element={<AuditPage />} />
-                             {/* Settings */}
+                            <Route path="/profile" element={<ProfilePage user={user} refreshUser={refreshUser} />} />
+                            {/* Settings Pages */}
                             <Route path="/settings" element={<Navigate to="/settings/users" replace />} />
                             <Route path="/settings/users" element={<UserManagementPage />} />
                             <Route path="/settings/users/:id/edit" element={<EditUserPage />} />
-                            <Route path="/settings/roles" element={<RoleManagementPage />} />
-                            <Route path="/settings/roles/new" element={<EditRolePage />} />
-                            <Route path="/settings/roles/:id/edit" element={<EditRolePage />} />
                             <Route path="/settings/teams" element={<TeamManagementPage />} />
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />
                             <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />
@@ -288,85 +322,64 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/settings/pipelines" element={<PipelineManagementPage />} />
                             <Route path="/settings/ai-access" element={<AiAccessSettingsPage />} />
                             <Route path="/settings/appearance/email" element={<EmailAppearancePage />} />
-                            {/* 404 */}
-                            <Route path="*" element={<div>404 Not Found</div>} />
+                            <Route path="/settings/roles" element={<RoleManagementPage />} />
+                            <Route path="/settings/roles/:id/edit" element={<EditRolePage />} />
+
+                            {/* Fallback */}
+                            <Route path="*" element={<Navigate to="/today" replace />} />
                         </Routes>
                     </Suspense>
                 </ContentLayout>
-                <QuickTaskModal isOpen={isQuickTaskOpen} onClose={() => setIsQuickTaskOpen(false)} onSave={() => {}} />
+                 {isQuickTaskOpen && (
+                    <QuickTaskModal 
+                        isOpen={isQuickTaskOpen} 
+                        onClose={() => setIsQuickTaskOpen(false)}
+                        onSave={handleQuickTaskSave}
+                    />
+                )}
             </div>
         </div>
     );
 };
 
-
-const AuthRoutes: React.FC = () => {
-    const { user, loading, login, logout, signup, refreshUser } = useAuth();
-    const navigate = useNavigate();
-
-    const handleLogin = async (email, password) => {
-        await login(email, password);
-        navigate('/today', { replace: true });
-    };
-    
-    const handleSignup = async (email, password, fullName) => {
-        await signup(email, password, fullName);
-        navigate('/onboarding', { replace: true });
-    };
-
-    const handleOnboardingComplete = () => {
-        refreshUser();
-        navigate('/today', { replace: true });
-    };
+const App: React.FC = () => {
+    const { user, loading, login, logout, refreshUser } = useAuth();
 
     if (loading) {
         return <PageLoader />;
     }
 
     return (
-        <Suspense fallback={<PageLoader />}>
-            <Routes>
-                {!user ? (
-                    <>
-                        <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-                        <Route path="/signup" element={<SignupPage />} />
-                        {/* The activation pages are now legacy/deprecated but kept for route safety */}
-                        <Route path="/activate-account" element={<ActivateAccountPage />} />
-                        <Route path="/join" element={<AcceptInvitationPage />} />
-                        <Route path="*" element={<Navigate to="/login" replace />} />
-                    </>
+        <HashRouter>
+            {user ? (
+                // Authenticated User Flow
+                user.hasCompletedOnboarding === false ? (
+                    // Onboarding required
+                    <Suspense fallback={<PageLoader />}>
+                        <Routes>
+                            <Route path="/onboarding" element={<OnboardingPage onComplete={refreshUser} />} />
+                            <Route path="*" element={<Navigate to="/onboarding" replace />} />
+                        </Routes>
+                    </Suspense>
                 ) : (
-                    <>
-                         {/* 
-                            ROUTE GUARD: If user hasn't completed onboarding, they MUST go there.
-                            Otherwise, they can access the rest of the app.
-                         */}
-                         {!user.hasCompletedOnboarding ? (
-                            <>
-                                <Route path="/onboarding" element={<OnboardingPage onComplete={handleOnboardingComplete} />} />
-                                <Route path="*" element={<Navigate to="/onboarding" replace />} />
-                            </>
-                         ) : (
-                            <>
-                                <Route path="/onboarding" element={<Navigate to="/today" replace />} />
-                                <Route path="/login" element={<Navigate to="/today" replace />} />
-                                <Route path="/signup" element={<Navigate to="/today" replace />} />
-                                <Route path="/activate-account" element={<Navigate to="/today" replace />} />
-                                <Route path="/join" element={<Navigate to="/today" replace />} />
-                                <Route path="/*" element={<AppContent user={user} onLogout={logout} refreshUser={refreshUser} />} />
-                            </>
-                         )}
-                    </>
-                )}
-            </Routes>
-        </Suspense>
+                    // Main application for onboarded user
+                    <AppContent user={user} onLogout={logout} refreshUser={refreshUser} />
+                )
+            ) : (
+                // Unauthenticated User Flow
+                <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                        <Route path="/login" element={<LoginPage onLogin={login} />} />
+                        <Route path="/signup" element={<SignupPage />} />
+                        <Route path="/activate" element={<ActivateAccountPage />} />
+                        <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+                        <Route path="/terms" element={<TermsAndConditionsPage />} />
+                        <Route path="*" element={<Navigate to="/login" replace />} />
+                    </Routes>
+                </Suspense>
+            )}
+        </HashRouter>
     );
 };
-
-const App: React.FC = () => (
-    <HashRouter>
-        <AuthRoutes />
-    </HashRouter>
-);
 
 export default App;

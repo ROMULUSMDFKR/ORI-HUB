@@ -28,7 +28,7 @@ const PurchaseOrdersPage: React.FC = () => {
     };
     
     const columns = [
-        { header: 'Orden #', accessor: (order: PurchaseOrder) => <span className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">{order.id}</span> },
+        { header: 'Orden #', accessor: (order: PurchaseOrder) => <Link to={`/purchase/orders/${order.id}`} className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">{order.id}</Link> },
         { header: 'Proveedor', accessor: (order: PurchaseOrder) => suppliersMap.get(order.supplierId) || 'N/A' },
         { header: 'Fecha Creación', accessor: (order: PurchaseOrder) => new Date(order.createdAt).toLocaleDateString() },
         { header: 'Estado', accessor: (order: PurchaseOrder) => <Badge text={order.status} color={getStatusColor(order.status)} /> },
@@ -41,7 +41,7 @@ const PurchaseOrdersPage: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="flex justify-end items-center">
-                <Link to="/purchase-orders/new" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
+                <Link to="/purchase/orders/new" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Nueva OC
                 </Link>
@@ -52,7 +52,7 @@ const PurchaseOrdersPage: React.FC = () => {
                     title="No hay órdenes de compra"
                     message="Crea tu primera orden de compra para empezar a gestionar tus adquisiciones."
                     actionText="Crear Orden de Compra"
-                    onAction={() => navigate('/purchase-orders/new')}
+                    onAction={() => navigate('/purchase/orders/new')}
                 />
             ) : (
                 <Table columns={columns} data={orders} />

@@ -56,6 +56,7 @@ export const useAuth = () => {
                 }
                 
                 // COMPATIBILITY: If hasCompletedOnboarding is undefined (legacy user), assume true.
+                // IMPORTANT: Do NOT set to true if it is explicitly false.
                 if (userProfile && userProfile.hasCompletedOnboarding === undefined) {
                     userProfile.hasCompletedOnboarding = true;
                 }

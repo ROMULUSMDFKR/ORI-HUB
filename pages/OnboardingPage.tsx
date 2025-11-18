@@ -5,9 +5,8 @@ import { api } from '../api/firebaseApi';
 import { useAuth } from '../hooks/useAuth';
 import { COUNTRIES } from '../constants';
 import CustomSelect from '../components/ui/CustomSelect';
-import Spinner from '../components/ui/Spinner';
 import ImageCropperModal from '../components/ui/ImageCropperModal';
-import { updatePassword } from 'firebase/auth';
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../firebase';
 
 interface OnboardingPageProps {
@@ -26,7 +25,8 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onComplete }) => {
     const [phone, setPhone] = useState('');
     const [country, setCountry] = useState('');
     
-    // Password fields for first-time setup
+    // Password fields
+    const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -77,12 +77,16 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onComplete }) => {
         }
 
         // Validate Passwords
+        if (!currentPassword) {
+            alert("Debes ingresar tu contraseña provisional actual para confirmar los cambios.");
+            return;
+        }
         if (newPassword.length < 6) {
-            alert("La contraseña debe tener al menos 6 caracteres.");
+            alert("La nueva contraseña debe tener al menos 6 caracteres.");
             return;
         }
         if (newPassword !== confirmPassword) {
-            alert("Las contraseñas no coinciden.");
+            alert("Las nuevas contraseñas no coinciden.");
             return;
         }
 
@@ -92,11 +96,16 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onComplete }) => {
         let avatarUrl = user.avatarUrl;
 
         try {
-            // 1. Update Auth Password
-            if (auth.currentUser) {
+            // 1. Re-authenticate and Update Auth Password
+            if (auth.currentUser && auth.currentUser.email) {
+                // Re-authenticate to allow sensitive operations
+                const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+                await reauthenticateWithCredential(auth.currentUser, credential);
+                
+                // Update password
                 await updatePassword(auth.currentUser, newPassword);
             } else {
-                throw new Error("No auth session found to update password.");
+                throw new Error("No auth session found.");
             }
 
             // 2. Upload Avatar if changed
@@ -135,10 +144,12 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onComplete }) => {
 
         } catch (error: any) {
             console.error("Error during onboarding submit:", error);
-            if (error.code === 'auth/requires-recent-login') {
-                alert("Por seguridad, necesitamos que inicies sesión nuevamente antes de cambiar tu contraseña.");
+            if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                alert("La contraseña actual (provisional) es incorrecta.");
+            } else if (error.code === 'auth/requires-recent-login') {
+                alert("Por seguridad, vuelve a iniciar sesión e intenta de nuevo.");
             } else {
-                alert("Hubo un error al guardar tu perfil. Por favor, intenta de nuevo.");
+                alert("Hubo un error al guardar tu perfil: " + error.message);
             }
             setIsUploading(false);
         }
@@ -157,7 +168,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onComplete }) => {
                         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
                             
                             {/* Avatar Section */}
-                            <div className="flex justify-center">
+                            <div className="flex flex-col items-center justify-center">
                                 <input
                                     type="file"
                                     accept="image/png, image/jpeg"
@@ -186,12 +197,23 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onComplete }) => {
                                         <span className="material-symbols-outlined text-white">edit</span>
                                     </div>
                                 </div>
+                                <button 
+                                    type="button" 
+                                    onClick={handleAvatarClick}
+                                    className="mt-3 text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
+                                >
+                                    Subir foto de perfil
+                                </button>
                             </div>
 
                             {/* Password Section - Mandatory */}
                             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg border border-indigo-100 dark:border-indigo-800">
                                 <h3 className="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3">Establecer Contraseña Definitiva</h3>
                                 <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">Contraseña Actual (Provisional)</label>
+                                        <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="mt-1 w-full p-2 text-sm border rounded" required placeholder="La que usaste para entrar"/>
+                                    </div>
                                     <div>
                                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">Nueva Contraseña</label>
                                         <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="mt-1 w-full p-2 text-sm border rounded" required placeholder="Mínimo 6 caracteres"/>

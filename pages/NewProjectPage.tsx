@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Project } from '../types';
 import UserSelector from '../components/ui/UserSelector';
 import CustomSelect from '../components/ui/CustomSelect';
+import { api } from '../api/firebaseApi';
 
 const FormCard: React.FC<{ title: string, children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
@@ -49,7 +50,7 @@ const NewProjectPage: React.FC = () => {
     }, [dueDateParts]);
 
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!project.name?.trim()) {
             alert('El nombre del proyecto es requerido.');
             return;
@@ -58,9 +59,14 @@ const NewProjectPage: React.FC = () => {
             id: `proj-${Date.now()}`,
             ...project
         } as Project;
-        console.log("Creating new project:", finalProject);
-        alert(`Proyecto "${finalProject.name}" creado (simulación).`);
-        navigate('/tasks/projects');
+        
+        try {
+            await api.addDoc('projects', finalProject);
+            navigate('/tasks/projects');
+        } catch (error) {
+            console.error("Error creating project:", error);
+            alert("Error al crear el proyecto.");
+        }
     };
 
     const statusOptions = [

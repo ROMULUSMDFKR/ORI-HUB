@@ -5,6 +5,7 @@ import { useCollection } from '../hooks/useCollection';
 import { TAX_RATE } from '../constants';
 import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
+import { api } from '../api/firebaseApi';
 
 const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
@@ -62,20 +63,26 @@ const NewInvoicePage: React.FC = () => {
         setInvoice(prev => ({ ...prev, subtotal, tax, total }));
     }, [invoice.items]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!invoice.companyId || !invoice.items?.length) {
             alert('Por favor, selecciona una orden de venta y asegúrate de que tenga productos.');
             return;
         }
         const newInvoice: Invoice = {
-            id: `F-2024-${Math.floor(Math.random() * 1000)}`,
+            id: `F-2024-${Math.floor(Math.random() * 1000)}`, // You might want to generate IDs differently
             createdAt: new Date().toISOString(),
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             ...invoice
         } as Invoice;
-        console.log("Saving new invoice:", newInvoice);
-        alert(`Factura ${newInvoice.id} creada (simulación).`);
-        navigate('/billing');
+
+        try {
+            await api.addDoc('invoices', newInvoice);
+            alert('Factura guardada correctamente.');
+            navigate('/billing');
+        } catch (error) {
+            console.error("Error saving invoice:", error);
+            alert("Error al guardar la factura.");
+        }
     };
 
     const companiesMap = useMemo(() => new Map(companies?.map(c => [c.id, c.shortName || c.name])), [companies]);

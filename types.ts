@@ -1,4 +1,5 @@
 
+
 // Base User type
 
 export interface Role {
@@ -343,6 +344,10 @@ export interface CompanyProfile {
 export interface Category {
   id: string;
   name: string;
+  description?: string;
+  code?: string; // For SKU generation e.g., "FERT"
+  parentId?: string; // For hierarchy
+  isActive: boolean;
 }
 
 export interface Company {
@@ -378,6 +383,7 @@ export interface Product {
   sku: string;
   name: string;
   unitDefault: Unit;
+  currency: Currency;
   isActive: boolean;
   categoryId: string;
   pricing: {
@@ -449,6 +455,24 @@ export interface Supplier {
   name: string;
   rating?: SupplierRating;
   industry?: string;
+  website?: string;
+  phone?: string;
+  address?: {
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
+  };
+  contactPerson?: {
+    name: string;
+    email?: string;
+    phone?: string;
+  };
+  bankInfo?: {
+    bankName: string;
+    accountNumber: string;
+    clabe: string;
+  };
 }
 
 export interface QuoteItem {
@@ -589,12 +613,26 @@ export interface SalesOrder {
   createdAt: string; // ISO
 }
 
+export interface PurchaseOrderItem {
+  productId: string;
+  qty: number;
+  unit: Unit;
+  unitCost: number;
+  subtotal: number;
+}
+
 export interface PurchaseOrder {
   id: string;
   supplierId: string;
   status: 'Borrador' | 'Enviada' | 'Confirmada' | 'Recibida Parcial' | 'Recibida Completa';
   total: number;
   createdAt: string; // ISO
+  items?: PurchaseOrderItem[];
+  responsibleId?: string;
+  expectedDeliveryDate?: string;
+  notes?: string;
+  subtotal?: number;
+  tax?: number;
 }
 
 export interface InventoryMove {

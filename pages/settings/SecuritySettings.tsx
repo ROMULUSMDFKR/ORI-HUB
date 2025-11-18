@@ -1,10 +1,40 @@
 
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../../api/firebaseApi';
+import Spinner from '../../components/ui/Spinner';
 
 const SecuritySettings = () => {
     const [maxAttempts, setMaxAttempts] = useState(5);
     const [lockoutTime, setLockoutTime] = useState(15);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            setIsLoading(true);
+            const settings = await api.getDoc('settings', 'securityConfig');
+            if (settings) {
+                setMaxAttempts(settings.maxAttempts);
+                setLockoutTime(settings.lockoutTime);
+            }
+            setIsLoading(false);
+        };
+        fetchSettings();
+    }, []);
+
+    const handleSave = async () => {
+        try {
+            await api.setDoc('settings', 'securityConfig', { maxAttempts, lockoutTime });
+            alert('Política de seguridad guardada.');
+        } catch (error) {
+            console.error('Error saving security settings:', error);
+            alert('Error al guardar la política de seguridad.');
+        }
+    };
+
+    if (isLoading) {
+        return <div className="flex justify-center py-12"><Spinner /></div>;
+    }
 
     return (
         <div className="space-y-8">
@@ -36,7 +66,7 @@ const SecuritySettings = () => {
                     </div>
                 </div>
                  <div className="border-t border-slate-200 dark:border-slate-700 mt-6 pt-4 flex justify-end">
-                    <button onClick={() => alert('Política de seguridad guardada.')} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:opacity-90">
+                    <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:opacity-90">
                         Guardar Política
                     </button>
                 </div>

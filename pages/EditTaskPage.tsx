@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Task, TaskStatus, Priority, Project, Subtask, User, Team } from '../types';
-// FIX: Se eliminaron las importaciones de datos falsos no utilizadas.
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
+import { api } from '../api/firebaseApi';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import Checkbox from '../components/ui/Checkbox';
@@ -29,6 +30,7 @@ const EditTaskPage: React.FC = () => {
     const [task, setTask] = useState<Partial<Task> | null>(null);
     const [newTag, setNewTag] = useState('');
     const [newSubtask, setNewSubtask] = useState({ text: '', notes: '' });
+    const [isSaving, setIsSaving] = useState(false);
     
     const DESCRIPTION_MAX_LENGTH = 2000;
 
@@ -42,14 +44,23 @@ const EditTaskPage: React.FC = () => {
         setTask(prev => prev ? { ...prev, [field]: value } : null);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!task || !task.title?.trim()) {
             alert('El título es requerido.');
             return;
         }
-        console.log("Updating task:", task);
-        alert(`Tarea "${task.title}" actualizada (simulación).`);
-        navigate(`/tasks/${id}`);
+        if (!id) return;
+
+        setIsSaving(true);
+        try {
+            await api.updateDoc('tasks', id, task);
+            navigate(`/tasks/${id}`);
+        } catch (error) {
+            console.error("Error updating task:", error);
+            alert("Hubo un error al actualizar la tarea.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -100,19 +111,22 @@ const EditTaskPage: React.FC = () => {
              <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Editar Tarea</h1>
                 <div className="flex gap-2">
-                    <button onClick={() => navigate(`/tasks/${id}`)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
-                    <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Cambios</button>
+                    <button onClick={() => navigate(`/tasks/${id}`)} disabled={isSaving} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm disabled:opacity-50">Cancelar</button>
+                    <button onClick={handleSave} disabled={isSaving} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm disabled:opacity-50 flex items-center gap-2">
+                        {isSaving && <span className="material-symbols-outlined animate-spin !text-sm">progress_activity</span>}
+                        Guardar Cambios
+                    </button>
                 </div>
             </div>
              <div className="space-y-6">
                 <FormCard title="Información básica">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Título <span className="text-red-500">*</span></label>
-                        <input type="text" value={task.title} onChange={e => handleFieldChange('title', e.target.value)} />
+                        <input type="text" value={task.title} onChange={e => handleFieldChange('title', e.target.value)} className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm" />
                     </div>
                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                        <textarea value={task.description} onChange={e => handleFieldChange('description', e.target.value)} rows={4} maxLength={DESCRIPTION_MAX_LENGTH} />
+                        <textarea value={task.description} onChange={e => handleFieldChange('description', e.target.value)} rows={4} maxLength={DESCRIPTION_MAX_LENGTH} className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm" />
                         <p className="text-xs text-right text-gray-500 mt-1">{task.description?.length || 0} / {DESCRIPTION_MAX_LENGTH}</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
@@ -163,12 +177,12 @@ const EditTaskPage: React.FC = () => {
 
                 <FormCard title="Fechas y estimación">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label><input type="date" value={task.startDate?.split('T')[0] || ''} onChange={e => handleFieldChange('startDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}/></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Fecha Límite</label><input type="date" value={task.dueAt?.split('T')[0] || ''} onChange={e => handleFieldChange('dueAt', e.target.value ? new Date(e.target.value).toISOString() : undefined)}/></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label><input type="date" value={task.startDate?.split('T')[0] || ''} onChange={e => handleFieldChange('startDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)} className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm"/></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Fecha Límite</label><input type="date" value={task.dueAt?.split('T')[0] || ''} onChange={e => handleFieldChange('dueAt', e.target.value ? new Date(e.target.value).toISOString() : undefined)} className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm"/></div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Estimación (horas)</label>
-                        <input type="number" value={task.estimationHours || ''} onChange={e => handleFieldChange('estimationHours', parseFloat(e.target.value) || 0)}/>
+                        <input type="number" value={task.estimationHours || ''} onChange={e => handleFieldChange('estimationHours', parseFloat(e.target.value) || 0)} className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm"/>
                     </div>
                 </FormCard>
                 

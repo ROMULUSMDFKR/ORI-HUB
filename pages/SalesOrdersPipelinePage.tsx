@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MOCK_SALES_ORDERS, MOCK_ACTIVITIES, MOCK_USERS } from '../data/mockData';
 import { SALES_ORDERS_PIPELINE_COLUMNS } from '../constants';
-import { SalesOrder, SalesOrderStatus, Delivery, DeliveryStatus, ActivityLog } from '../types';
+import { SalesOrder, SalesOrderStatus, Delivery, DeliveryStatus, ActivityLog, User } from '../types';
 import SalesOrderCard from '../components/hubs/SalesOrderCard';
 import { useCollection } from '../hooks/useCollection';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
+import Spinner from '../components/ui/Spinner';
 
 const PipelineColumn: React.FC<{
   stage: SalesOrderStatus;
@@ -38,10 +38,22 @@ const PipelineColumn: React.FC<{
 
 
 const SalesOrdersPipelinePage: React.FC = () => {
-  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>(MOCK_SALES_ORDERS);
-  const { data: deliveries } = useCollection<Delivery>('deliveries');
-  const [activities] = useState<ActivityLog[]>(MOCK_ACTIVITIES);
+  const { data: soData, loading: soLoading } = useCollection<SalesOrder>('salesOrders');
+  const { data: deliveries, loading: delLoading } = useCollection<Delivery>('deliveries');
+  const { data: activities, loading: actLoading } = useCollection<ActivityLog>('activities');
+  const { data: users, loading: uLoading } = useCollection<User>('users');
+
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
+
+  useEffect(() => {
+    if (soData) {
+      setSalesOrders(soData);
+    }
+  }, [soData]);
+  
+  const loading = soLoading || delLoading || actLoading || uLoading;
+  const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
 
   const deliveriesBySalesOrderId = useMemo(() => {
     if (!deliveries) return new Map<string, Delivery[]>();
@@ -53,6 +65,7 @@ const SalesOrdersPipelinePage: React.FC = () => {
   }, [deliveries]);
   
   const pipelineActivities = useMemo(() => {
+    if (!activities) return [];
     const soIds = new Set(salesOrders.map(s => s.id));
     return activities
       .filter(a => a.salesOrderId && soIds.has(a.salesOrderId))
@@ -107,6 +120,8 @@ const SalesOrdersPipelinePage: React.FC = () => {
   ];
 
   const renderContent = () => {
+    if (loading) return <div className="flex-1 flex items-center justify-center"><Spinner /></div>;
+
     switch(view) {
         case 'pipeline':
              return (
@@ -140,8 +155,9 @@ const SalesOrdersPipelinePage: React.FC = () => {
             return (
                 <ul className="space-y-4">
                     {pipelineActivities.map(activity => {
-                        const user = MOCK_USERS[activity.userId];
+                        const user = usersMap.get(activity.userId);
                         const so = salesOrders.find(s => s.id === activity.salesOrderId);
+                        if (!user || !so) return null;
                         return (
                             <li key={activity.id} className="flex items-start gap-3 text-sm p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
                                 <div><img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full" /></div>

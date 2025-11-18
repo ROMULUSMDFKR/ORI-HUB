@@ -2,10 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { Prospect, Note, ActivityLog, Contact, Company, CompanyPipelineStage, ProspectStage, Quote, Sample, Priority } from '../types';
+import { Prospect, Note, ActivityLog, Contact, Company, CompanyPipelineStage, ProspectStage, Quote, Sample, Priority, User } from '../types';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
-import { MOCK_USERS, api } from '../data/mockData';
+import { api } from '../api/firebaseApi';
 import ActivityDrawer from '../components/crm/ActivityDrawer';
 import { GoogleGenAI } from '@google/genai';
 import CustomSelect from '../components/ui/CustomSelect';
@@ -108,7 +108,7 @@ const getPriorityBadgeColor = (priority?: Prospect['priority']) => {
     }
 };
 
-const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) => {
+const ActivityFeed: React.FC<{ activities: ActivityLog[], usersMap: Map<string, User> }> = ({ activities, usersMap }) => {
     const iconMap: Record<ActivityLog['type'], string> = {
         'Llamada': 'call',
         'Email': 'email',
@@ -147,7 +147,7 @@ const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) =
                                     <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
                                         <div>
                                             <p className="text-sm text-slate-500 dark:text-slate-400">
-                                                {activity.description} por <span className="font-medium text-slate-900 dark:text-slate-200">{MOCK_USERS[activity.userId]?.name}</span>
+                                                {activity.description} por <span className="font-medium text-slate-900 dark:text-slate-200">{usersMap.get(activity.userId)?.name}</span>
                                             </p>
                                         </div>
                                         <div className="text-right text-sm whitespace-nowrap text-slate-500 dark:text-slate-400">
@@ -167,12 +167,13 @@ const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) =
 const ProspectDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { data: initialProspect, loading, error } = useDoc<Prospect>('prospects', id || '');
+    const { data: initialProspect, loading: pLoading, error } = useDoc<Prospect>('prospects', id || '');
     const { data: allContacts } = useCollection<Contact>('contacts');
     const { data: initialActivities } = useCollection<ActivityLog>('activities');
     const { data: quotes } = useCollection<Quote>('quotes');
     const { data: samples } = useCollection<Sample>('samples');
     const { data: allNotes } = useCollection<Note>('notes');
+    const { data: users, loading: uLoading } = useCollection<User>('users');
     
     const [prospect, setProspect] = useState<Prospect | null>(null);
     const [activities, setActivities] = useState<ActivityLog[]>([]);
@@ -182,6 +183,9 @@ const ProspectDetailPage: React.FC = () => {
     const [suggestionLoading, setSuggestionLoading] = useState(false);
     const [suggestionError, setSuggestionError] = useState('');
     const [currentStage, setCurrentStage] = useState<ProspectStage | undefined>();
+
+    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+    const loading = pLoading || uLoading;
 
     useEffect(() => {
         if(initialProspect) {
@@ -341,8 +345,8 @@ const ProspectDetailPage: React.FC = () => {
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (error || !prospect) return <div className="text-center p-12">Prospecto no encontrado</div>;
     
-    const owner = Object.values(MOCK_USERS).find(u => u.id === prospect.ownerId);
-    const creator = Object.values(MOCK_USERS).find(u => u.id === prospect.createdById);
+    const owner = usersMap.get(prospect.ownerId);
+    const creator = usersMap.get(prospect.createdById);
     const stageOptions = PIPELINE_COLUMNS.map(c => ({ value: c.stage, name: c.stage }));
 
     return (
@@ -390,7 +394,7 @@ const ProspectDetailPage: React.FC = () => {
                         </div>
                         <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
                              <div className="flex items-center gap-3">
-                                <Link to={`/crm/prospects/${prospect.id}/edit`} className="flex-1 text-center bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+                                <Link to={`/hubs/prospects/${prospect.id}/edit`} className="flex-1 text-center bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
                                     Editar
                                 </Link>
                                  <Link to="/hubs/quotes/new" className="flex-1 text-center bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:opacity-90 transition-colors">
@@ -455,7 +459,7 @@ const ProspectDetailPage: React.FC = () => {
                         </button>
                     </InfoCard>
 
-                    <ActivityFeed activities={activities} />
+                    <ActivityFeed activities={activities} usersMap={usersMap} />
                     <NotesSection 
                         entityId={prospect.id}
                         entityType="prospect"

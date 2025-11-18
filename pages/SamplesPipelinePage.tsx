@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MOCK_SAMPLES, MOCK_ACTIVITIES, MOCK_USERS } from '../data/mockData';
+import { useCollection } from '../hooks/useCollection';
 import { SAMPLES_PIPELINE_COLUMNS } from '../constants';
-import { Sample, SampleStatus, ActivityLog } from '../types';
+import { Sample, SampleStatus, ActivityLog, User } from '../types';
 import SampleCard from '../components/hubs/SampleCard';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
+import Spinner from '../components/ui/Spinner';
 
 const PipelineColumn: React.FC<{
   stage: SampleStatus;
@@ -33,9 +34,21 @@ const PipelineColumn: React.FC<{
 
 
 const SamplesPipelinePage: React.FC = () => {
-  const [samples, setSamples] = useState<Sample[]>(MOCK_SAMPLES);
-  const [activities] = useState<ActivityLog[]>(MOCK_ACTIVITIES);
+  const { data: samplesData, loading: sLoading } = useCollection<Sample>('samples');
+  const { data: activities, loading: aLoading } = useCollection<ActivityLog>('activities');
+  const { data: users, loading: uLoading } = useCollection<User>('users');
+  
+  const [samples, setSamples] = useState<Sample[]>([]);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
+  
+  useEffect(() => {
+    if (samplesData) {
+      setSamples(samplesData);
+    }
+  }, [samplesData]);
+
+  const loading = sLoading || aLoading || uLoading;
+  const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
 
   const groupedColumns = useMemo(() => {
     return SAMPLES_PIPELINE_COLUMNS.reduce((acc, column) => {
@@ -47,6 +60,7 @@ const SamplesPipelinePage: React.FC = () => {
   }, []);
   
   const pipelineActivities = useMemo(() => {
+    if (!activities) return [];
     const sampleIds = new Set(samples.map(s => s.id));
     return activities
       .filter(a => a.sampleId && sampleIds.has(a.sampleId))
@@ -95,6 +109,8 @@ const SamplesPipelinePage: React.FC = () => {
   ];
   
   const renderContent = () => {
+    if (loading) return <div className="flex-1 flex items-center justify-center"><Spinner /></div>;
+    
     switch(view) {
         case 'pipeline':
             return (
@@ -120,7 +136,7 @@ const SamplesPipelinePage: React.FC = () => {
             const columns = [
                 { header: 'Nombre', accessor: (s: Sample) => <Link to={`/hubs/samples/${s.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{s.name}</Link> },
                 { header: 'Estado', accessor: (s: Sample) => <Badge text={s.status} color="yellow" />},
-                { header: 'Responsable', accessor: (s: Sample) => MOCK_USERS[s.ownerId]?.name || 'N/A' },
+                { header: 'Responsable', accessor: (s: Sample) => usersMap.get(s.ownerId)?.name || 'N/A' },
                 { header: 'Fecha Solicitud', accessor: (s: Sample) => new Date(s.requestDate).toLocaleDateString()},
             ];
             return <Table columns={columns} data={samples} />;
@@ -128,8 +144,9 @@ const SamplesPipelinePage: React.FC = () => {
              return (
                 <ul className="space-y-4">
                     {pipelineActivities.map(activity => {
-                        const user = MOCK_USERS[activity.userId];
+                        const user = usersMap.get(activity.userId);
                         const sample = samples.find(s => s.id === activity.sampleId);
+                        if (!user || !sample) return null;
                         return (
                             <li key={activity.id} className="flex items-start gap-3 text-sm p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
                                 <div><img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full" /></div>

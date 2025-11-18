@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Project } from '../types';
 import { useDoc } from '../hooks/useDoc';
-import { MOCK_USERS } from '../data/mockData';
+// FIX: Se eliminó la importación de datos falsos no utilizada.
 import UserSelector from '../components/ui/UserSelector';
 import CustomSelect from '../components/ui/CustomSelect';
 import Spinner from '../components/ui/Spinner';

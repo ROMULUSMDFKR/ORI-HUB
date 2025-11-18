@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { AuditLog, User } from '../types';
-import { MOCK_USERS } from '../data/mockData';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
@@ -29,24 +28,17 @@ const DateFilterButton: React.FC<{ label: string; value: string; onChange: (valu
 
 
 const AuditPage: React.FC = () => {
-    const { data: auditLogs, loading, error } = useCollection<AuditLog>('auditLogs');
+    // FIX: Se destructuran los errores para su correcta gestión.
+    const { data: auditLogs, loading: logsLoading, error: logsError } = useCollection<AuditLog>('auditLogs');
+    const { data: users, loading: usersLoading, error: usersError } = useCollection<User>('users');
 
     const [userFilter, setUserFilter] = useState<string>('all');
     const [entityFilter, setEntityFilter] = useState<string>('all');
     const [dateFromFilter, setDateFromFilter] = useState<string>('');
     const [dateToFilter, setDateToFilter] = useState<string>('');
     
-    const uniqueUsers = useMemo(() => {
-        const allUsers = Object.values(MOCK_USERS);
-        const seen = new Set();
-        return allUsers.filter(user => {
-            const duplicate = seen.has(user.id);
-            seen.add(user.id);
-            return !duplicate;
-        });
-    }, []);
-
-    const userOptions = useMemo(() => uniqueUsers.map((user: User) => ({ value: user.id, label: user.name })), [uniqueUsers]);
+    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+    const userOptions = useMemo(() => (users || []).map((user: User) => ({ value: user.id, label: user.name })), [users]);
 
     const entityTypes = useMemo(() => {
         if (!auditLogs) return [];
@@ -67,16 +59,15 @@ const AuditPage: React.FC = () => {
         }
         if (dateFromFilter) {
             const fromDate = new Date(dateFromFilter);
-            result = result.filter(log => new Date(log.at) >= fromDate);
+            result = result.filter(log => log.at.toDate() >= fromDate);
         }
         if (dateToFilter) {
             const toDate = new Date(dateToFilter);
             toDate.setHours(23, 59, 59, 999); // Include the whole day
-            result = result.filter(log => new Date(log.at) <= toDate);
+            result = result.filter(log => log.at.toDate() <= toDate);
         }
         
-        // Sort by most recent
-        return result.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+        return result.sort((a, b) => b.at.toDate().getTime() - a.at.toDate().getTime());
 
     }, [auditLogs, userFilter, entityFilter, dateFromFilter, dateToFilter]);
 
@@ -90,7 +81,7 @@ const AuditPage: React.FC = () => {
     const getEntityLink = (entity: string, entityId: string): string => {
         switch(entity.toLowerCase()) {
             case 'prospecto':
-                return `/crm/prospects/${entityId}`;
+                return `/hubs/prospects/${entityId}`;
             case 'cliente':
                 return `/crm/clients/${entityId}`;
             case 'producto':
@@ -103,12 +94,12 @@ const AuditPage: React.FC = () => {
     const columns = [
         {
             header: 'Fecha y Hora',
-            accessor: (log: AuditLog) => new Date(log.at).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
+            accessor: (log: AuditLog) => log.at.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
         },
         {
             header: 'Usuario',
             accessor: (log: AuditLog) => {
-                const user = MOCK_USERS[log.by];
+                const user = usersMap.get(log.by);
                 return user ? (
                     <div className="flex items-center">
                         <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full mr-3" />
@@ -129,9 +120,14 @@ const AuditPage: React.FC = () => {
             )
         },
     ];
+    
+    const loading = logsLoading || usersLoading;
+    // FIX: Se combinan los errores para una gestión unificada.
+    const error = logsError || usersError;
 
     const renderContent = () => {
         if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
+        // FIX: Se comprueba la variable de error.
         if (error) return <p className="text-center text-red-500 py-12">Error al cargar la auditoría.</p>;
         if (!filteredLogs || filteredLogs.length === 0) {
             return (

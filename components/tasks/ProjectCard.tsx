@@ -1,14 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Project, TaskStatus } from '../../types';
-import { MOCK_TASKS, MOCK_USERS } from '../../data/mockData';
+import { Project, Task, TaskStatus, User } from '../../types';
 
 interface ProjectCardProps {
   project: Project;
+  tasks: Task[];
+  users: User[];
 }
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
-  const projectTasks = MOCK_TASKS.filter(t => t.projectId === project.id);
+const ProjectCard: React.FC<ProjectCardProps> = ({ project, tasks, users }) => {
+  const projectTasks = tasks.filter(t => t.projectId === project.id);
   const completedTasks = projectTasks.filter(t => t.status === TaskStatus.Hecho).length;
   const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
   
@@ -44,7 +45,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
       <div className="mt-4 flex justify-between items-center border-t border-slate-200 dark:border-slate-700 pt-4">
         <div className="flex -space-x-2">
             {project.members.map(userId => {
-                const user = Object.values(MOCK_USERS).find(u => u.id === userId);
+                const user = users.find(u => u.id === userId);
                 return user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-800" /> : null;
             })}
         </div>

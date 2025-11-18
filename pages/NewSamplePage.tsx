@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sample, SampleStatus, Prospect, Company, Product } from '../types';
+import { Sample, SampleStatus, Prospect, Company, Product, User } from '../types';
 import { useCollection } from '../hooks/useCollection';
-import { MOCK_USERS } from '../data/mockData';
+// FIX: Removed MOCK_USERS import and will fetch data using a hook.
 import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
 
@@ -13,20 +14,23 @@ const NewSamplePage: React.FC = () => {
     const [sample, setSample] = useState<Partial<Sample>>({
         name: '',
         status: SampleStatus.Solicitada,
-        ownerId: MOCK_USERS['user-1'].id,
+        ownerId: 'user-1', // Default value, can be updated from fetched users
         requestDate: new Date().toISOString().split('T')[0],
     });
 
     const { data: prospects, loading: pLoading } = useCollection<Prospect>('prospects');
     const { data: companies, loading: cLoading } = useCollection<Company>('companies');
     const { data: products, loading: prLoading } = useCollection<Product>('products');
+    // FIX: Fetch users with useCollection hook.
+    const { data: users, loading: uLoading } = useCollection<User>('users');
 
-    const loading = pLoading || cLoading || prLoading;
+    const loading = pLoading || cLoading || prLoading || uLoading;
 
     const prospectOptions = (prospects || []).map(p => ({ value: p.id, name: p.name }));
     const companyOptions = (companies || []).map(c => ({ value: c.id, name: c.shortName || c.name }));
     const productOptions = (products || []).map(p => ({ value: p.id, name: p.name }));
-    const userOptions = Object.values(MOCK_USERS).filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i).map(u => ({ value: u.id, name: u.name }));
+    // FIX: Se derivan las opciones de usuario de los datos obtenidos.
+    const userOptions = useMemo(() => (users || []).map(u => ({ value: u.id, name: u.name })), [users]);
 
 
     const handleChange = (field: keyof Sample, value: any) => {

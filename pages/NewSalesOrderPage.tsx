@@ -1,9 +1,11 @@
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 // FIX: Imported 'QuoteStatus' to use in status comparison.
 import { Company, Quote, Product, ProductLot, SalesOrder, SalesOrderStatus, QuoteItem, QuoteStatus } from '../types';
-import { api } from '../data/mockData';
+import { api } from '../api/firebaseApi';
 import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
 
@@ -124,101 +126,4 @@ const NewSalesOrderPage: React.FC = () => {
     };
 
     const removeItem = (index: number) => {
-        const newItems = (salesOrder.items || []).filter((_, i) => i !== index);
-        setSalesOrder(prev => ({...prev, items: newItems}));
-    };
-
-    useEffect(() => {
-        const total = salesOrder.items?.reduce((sum, item) => sum + item.subtotal, 0) || 0;
-        setSalesOrder(prev => ({...prev, total }));
-    }, [salesOrder.items]);
-
-    const handleSave = () => {
-        if (!salesOrder.companyId || !salesOrder.items?.length) {
-            alert("Por favor, selecciona un cliente y añade al menos un producto.");
-            return;
-        }
-
-        const newSO: SalesOrder = {
-            id: `SO-2024-${Math.floor(Math.random() * 900) + 100}`,
-            createdAt: new Date().toISOString(),
-            ...salesOrder,
-        } as SalesOrder;
-
-        console.log("Saving new Sales Order:", newSO);
-        alert(`Orden de Venta ${newSO.id} creada (simulación).`);
-        navigate('/hubs/sales-orders');
-    };
-    
-    const companyOptions = (companies || []).map(c => ({ value: c.id, name: c.shortName || c.name }));
-    const quoteOptions = companyQuotes.map(q => ({ value: q.id, name: `${q.id} (Total: $${q.totals.grandTotal.toLocaleString()})`}));
-    const productOptions = (products || []).map(p => ({ value: p.id, name: p.name }));
-
-    return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Nueva Orden de Venta</h2>
-                <div className="flex gap-2">
-                    <button onClick={() => navigate('/hubs/sales-orders')} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">Cancelar</button>
-                    <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700">Guardar Orden</button>
-                </div>
-            </div>
-
-            {loading ? <div className="flex justify-center items-center h-64"><Spinner /></div> :
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                    <SectionCard title="Información General">
-                        <FormRow>
-                            <CustomSelect label="Cliente *" options={companyOptions} value={salesOrder.companyId || ''} onChange={handleCompanyChange} placeholder="Seleccionar Cliente..."/>
-                            <CustomSelect label="Basado en Cotización (Opcional)" options={quoteOptions} value={selectedQuoteId} onChange={handleQuoteChange} placeholder="Seleccionar Cotización..."/>
-                        </FormRow>
-                    </SectionCard>
-                    <SectionCard title="Productos">
-                        <div className="space-y-4">
-                           {(salesOrder.items || []).map((item, index) => {
-                               const lotOptions = (availableLots[item.productId] || []).map(l => ({ value: l.id, name: l.code }));
-                               return (
-                                <div key={item.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3 relative bg-slate-50 dark:bg-slate-800/50">
-                                     <button type="button" onClick={() => removeItem(index)} className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-500"><span className="material-symbols-outlined">delete</span></button>
-                                     <FormRow>
-                                        <CustomSelect label="Producto" options={productOptions} value={item.productId} onChange={val => handleProductChange(index, val)} placeholder="Seleccionar..."/>
-                                        <CustomSelect label="Lote" options={lotOptions} value={item.lotId} onChange={val => handleLotChange(index, val)} placeholder="Seleccionar Lote..."/>
-                                    </FormRow>
-                                    <FormRow>
-                                         <InputGroup label="Cantidad">
-                                             <input type="number" value={item.qty} onChange={e => updateItemField(index, 'qty', parseFloat(e.target.value))} disabled={!!selectedQuoteId} />
-                                         </InputGroup>
-                                          <InputGroup label="Precio Unitario">
-                                             <input type="number" value={item.unitPrice} onChange={e => updateItemField(index, 'unitPrice', parseFloat(e.target.value))} disabled={!!selectedQuoteId}/>
-                                         </InputGroup>
-                                          <InputGroup label="Subtotal">
-                                             <input type="text" value={`$${item.subtotal.toLocaleString()}`} disabled className="bg-slate-100 dark:bg-slate-700"/>
-                                         </InputGroup>
-                                    </FormRow>
-                                </div>
-                           )})}
-                        </div>
-                        {!selectedQuoteId && (
-                             <button type="button" onClick={addItem} className="text-sm font-semibold text-indigo-600 flex items-center mt-4">
-                                <span className="material-symbols-outlined mr-1">add_circle</span> Añadir Producto
-                            </button>
-                        )}
-                    </SectionCard>
-                </div>
-                <div className="lg:col-span-1 space-y-6">
-                     <SectionCard title="Resumen">
-                        <div className="space-y-2 text-sm text-slate-500 dark:text-slate-400">
-                             <div className="flex justify-between text-lg font-bold pt-2 mt-2 text-slate-800 dark:text-slate-200">
-                                <span>Total:</span>
-                                <span>${salesOrder.total?.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                        </div>
-                    </SectionCard>
-                </div>
-            </div>
-            }
-        </div>
-    );
-};
-
-export default NewSalesOrderPage;
+        const new

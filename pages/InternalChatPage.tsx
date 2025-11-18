@@ -7,8 +7,7 @@ import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Drawer from '../components/ui/Drawer';
 import Checkbox from '../components/ui/Checkbox';
 import ChatSidebar from '../components/layout/ChatSidebar';
-// FIX: Add missing import for `MOCK_USERS`.
-import { MOCK_USERS } from '../data/mockData';
+// FIX: Add missing import for `MOCK_USERS`. // FIX: Se eliminó la importación no utilizada de MOCK_USERS.
 
 
 const ChatWindow: React.FC<{

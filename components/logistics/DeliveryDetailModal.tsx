@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Delivery, DeliveryStatus } from '../../types';
-import { MOCK_USERS } from '../../data/mockData';
+import { Delivery, DeliveryStatus, User } from '../../types';
+// FIX: Se eliminó la importación de datos falsos.
 import { GoogleGenAI, Type } from '@google/genai';
 import Badge from '../ui/Badge';
 import Spinner from '../ui/Spinner';
 import CustomSelect from '../ui/CustomSelect';
+import { useCollection } from '../../hooks/useCollection';
 
 interface DeliveryDetailModalProps {
   isOpen: boolean;
@@ -18,6 +19,9 @@ const DeliveryDetailModal: React.FC<DeliveryDetailModalProps> = ({ isOpen, onClo
     const [note, setNote] = useState('');
     const [isLoadingAI, setIsLoadingAI] = useState(false);
     const [aiError, setAiError] = useState('');
+    // FIX: Se obtienen los usuarios para mostrar sus nombres.
+    const { data: users } = useCollection<User>('users');
+    const usersMap = React.useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
 
     useEffect(() => {
         if (delivery) {
@@ -150,7 +154,8 @@ const DeliveryDetailModal: React.FC<DeliveryDetailModalProps> = ({ isOpen, onClo
                         <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
                             {delivery.notes.map((n, i) => (
                                 <div key={i} className="text-xs p-2 bg-slate-50 dark:bg-slate-700/50 rounded-md">
-                                    <p className="font-semibold text-slate-700 dark:text-slate-300">{(MOCK_USERS[n.userId] || {name: 'Sistema IA'}).name} <span className="font-normal text-slate-500 dark:text-slate-400">- {new Date(n.createdAt).toLocaleString()}</span></p>
+                                    {/* FIX: Se usa el `usersMap` para obtener el nombre del autor de la nota. */}
+                                    <p className="font-semibold text-slate-700 dark:text-slate-300">{(usersMap.get(n.userId) || {name: 'Sistema IA'}).name} <span className="font-normal text-slate-500 dark:text-slate-400">- {new Date(n.createdAt).toLocaleString()}</span></p>
                                     <p className="mt-1 text-slate-800 dark:text-slate-200">{n.text}</p>
                                 </div>
                             ))}

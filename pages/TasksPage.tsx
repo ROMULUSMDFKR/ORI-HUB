@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -8,10 +7,10 @@ import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
-import { MOCK_USERS } from '../data/mockData';
 import FilterButton from '../components/ui/FilterButton';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import { getOverdueStatus } from '../utils/time';
+import { useAuth } from '../hooks/useAuth';
 
 type TaskView = 'mine' | 'board' | 'all';
 
@@ -33,8 +32,8 @@ const getPriorityBadgeColor = (priority?: Priority): 'red' | 'yellow' | 'gray' =
 
 // --- Sub-components defined within the page file ---
 
-const TaskCard: React.FC<{ task: Task; onClick: () => void; }> = ({ task, onClick }) => {
-  const assignees = task.assignees.map(id => MOCK_USERS[id]).filter(Boolean);
+const TaskCard: React.FC<{ task: Task; onClick: () => void; usersMap: Map<string, User> }> = ({ task, onClick, usersMap }) => {
+  const assignees = task.assignees.map(id => usersMap.get(id)).filter(Boolean) as User[];
   const { isOverdue, overdueText } = getOverdueStatus(task.dueAt, task.status);
   
   const completedSubtasks = task.subtasks?.filter(st => st.isCompleted).length || 0;
@@ -104,9 +103,10 @@ const TaskSummary: React.FC<{ counts: Partial<Record<TaskStatus, number>> }> = (
 interface TaskBoardViewProps {
   tasks: Task[];
   onTaskStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+  usersMap: Map<string, User>;
 }
 
-const TaskBoardView: React.FC<TaskBoardViewProps> = ({ tasks, onTaskStatusChange }) => {
+const TaskBoardView: React.FC<TaskBoardViewProps> = ({ tasks, onTaskStatusChange, usersMap }) => {
   const navigate = useNavigate();
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, taskId: string) => {
@@ -173,6 +173,7 @@ const TaskBoardView: React.FC<TaskBoardViewProps> = ({ tasks, onTaskStatusChange
                   <TaskCard
                     task={task}
                     onClick={() => navigate(`/tasks/${task.id}`)}
+                    usersMap={usersMap}
                   />
                 </div>
               ))}
@@ -190,12 +191,13 @@ const TaskBoardView: React.FC<TaskBoardViewProps> = ({ tasks, onTaskStatusChange
 const TasksPage: React.FC = () => {
     const { data: initialTasks, loading: tasksLoading, error } = useCollection<Task>('tasks');
     const { data: projects, loading: projectsLoading } = useCollection<Project>('projects');
+    const { data: users, loading: usersLoading } = useCollection<User>('users');
     const [tasks, setTasks] = useState<Task[] | null>(null);
     const navigate = useNavigate();
 
     const [searchParams, setSearchParams] = useSearchParams();
     const activeView = (searchParams.get('view') as TaskView) || 'mine';
-    const currentUser = MOCK_USERS['user-1']; 
+    const { user: currentUser } = useAuth();
 
     // Filters
     const [projectFilter, setProjectFilter] = useState('all');
@@ -218,8 +220,10 @@ const TasksPage: React.FC = () => {
     };
     
     // --- Data Memoization ---
+    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+
     const filteredTasks = useMemo(() => {
-        if (!tasks) return [];
+        if (!tasks || !currentUser) return [];
         let result = [...tasks];
 
         if (activeView === 'mine') {
@@ -236,7 +240,7 @@ const TasksPage: React.FC = () => {
         }
 
         return result;
-    }, [tasks, activeView, currentUser.id, projectFilter, priorityFilter, assigneeFilter]);
+    }, [tasks, activeView, currentUser, projectFilter, priorityFilter, assigneeFilter]);
     
     const statusCounts = useMemo(() => {
         if (!filteredTasks) return { [TaskStatus.PorHacer]: 0, [TaskStatus.EnProgreso]: 0, [TaskStatus.Hecho]: 0 };
@@ -246,19 +250,9 @@ const TasksPage: React.FC = () => {
         }, {} as Record<TaskStatus, number>);
     }, [filteredTasks]);
 
-    const uniqueUsers = useMemo(() => {
-        const allUsers = Object.values(MOCK_USERS);
-        const seen = new Set();
-        return allUsers.filter(user => {
-            const duplicate = seen.has(user.id);
-            seen.add(user.id);
-            return !duplicate;
-        });
-    }, []);
-
     const projectOptions = useMemo(() => (projects || []).map(p => ({ value: p.id, label: p.name })), [projects]);
     const priorityOptions = useMemo(() => Object.values(Priority).map(p => ({ value: p, label: p })), []);
-    const assigneeOptions = useMemo(() => uniqueUsers.map((u: User) => ({ value: u.id, label: u.name })), [uniqueUsers]);
+    const assigneeOptions = useMemo(() => (users || []).map((u: User) => ({ value: u.id, label: u.name })), [users]);
 
     const columns = useMemo(() => [
         { header: 'Título', accessor: (t: Task) => <Link to={`/tasks/${t.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{t.title}</Link> },
@@ -268,7 +262,7 @@ const TasksPage: React.FC = () => {
             header: 'Vencimiento', 
             accessor: (t: Task) => {
                 const { isOverdue, overdueText: text } = getOverdueStatus(t.dueAt, t.status);
-                return <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>{text || new Date(t.dueAt!).toLocaleDateString()}</span>;
+                return <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>{text || (t.dueAt ? new Date(t.dueAt).toLocaleDateString() : '-')}</span>;
             }
         },
         { 
@@ -276,13 +270,13 @@ const TasksPage: React.FC = () => {
             accessor: (t: Task) => (
                 <div className="flex -space-x-2">
                     {t.assignees.map(userId => {
-                        const user = MOCK_USERS[userId];
+                        const user = usersMap.get(userId);
                         return user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-7 h-7 rounded-full border-2 border-white dark:border-slate-800" /> : null;
                     })}
                 </div>
             )
         },
-    ], []);
+    ], [usersMap]);
 
     const taskViews: ViewOption[] = [
         { id: 'mine', name: 'Mis Tareas', icon: 'person' },
@@ -292,11 +286,11 @@ const TasksPage: React.FC = () => {
     
     // --- Render Logic ---
     const renderContent = () => {
-        if (tasksLoading || projectsLoading || !tasks) return <div className="flex justify-center py-12"><Spinner /></div>;
+        if (tasksLoading || projectsLoading || usersLoading || !tasks || !currentUser) return <div className="flex justify-center py-12"><Spinner /></div>;
         if (error) return <p className="text-center text-red-500 py-12">Error al cargar las tareas.</p>;
 
         if (activeView === 'board') {
-            return <TaskBoardView tasks={filteredTasks} onTaskStatusChange={handleTaskStatusChange} />;
+            return <TaskBoardView tasks={filteredTasks} onTaskStatusChange={handleTaskStatusChange} usersMap={usersMap} />;
         }
         
         if (filteredTasks.length === 0) {
@@ -327,28 +321,25 @@ const TasksPage: React.FC = () => {
                     />
                     <Link 
                         to="/tasks/new"
-                        className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700 transition-colors">
+                        className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                         <span className="material-symbols-outlined mr-2">add</span>
                         Nueva Tarea
                     </Link>
                 </div>
             </div>
             
-            {activeView !== 'board' && (
-                <>
-                    <TaskSummary counts={statusCounts} />
-                    <div className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
-                        <FilterButton label="Proyecto" options={projectOptions} selectedValue={projectFilter} onSelect={setProjectFilter} allLabel="Todos" />
-                        <FilterButton label="Prioridad" options={priorityOptions} selectedValue={priorityFilter} onSelect={setPriorityFilter} allLabel="Todas" />
-                        {activeView === 'all' && (
-                            <FilterButton label="Asignado a" options={assigneeOptions} selectedValue={assigneeFilter} onSelect={setAssigneeFilter} allLabel="Todos" />
-                        )}
-                    </div>
-                </>
-            )}
+            <TaskSummary counts={statusCounts} />
 
+            {activeView !== 'board' && (
+                 <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
+                    <FilterButton label="Proyecto" options={projectOptions} selectedValue={projectFilter} onSelect={setProjectFilter} />
+                    <FilterButton label="Prioridad" options={priorityOptions} selectedValue={priorityFilter} onSelect={setPriorityFilter} />
+                    {activeView === 'all' && <FilterButton label="Asignado a" options={assigneeOptions} selectedValue={assigneeFilter} onSelect={setAssigneeFilter} />}
+                </div>
+            )}
+           
             <div className="flex-1 min-h-0">
-              {renderContent()}
+                {renderContent()}
             </div>
         </div>
     );

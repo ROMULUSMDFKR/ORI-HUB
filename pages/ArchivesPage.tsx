@@ -4,6 +4,8 @@ import { ArchiveFile } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
+import { api } from '../api/firebaseApi';
+import { useAuth } from '../hooks/useAuth';
 
 // Helper to format bytes into a human-readable string
 const formatBytes = (bytes: number, decimals = 2): string => {
@@ -37,6 +39,8 @@ const ArchivesPage: React.FC = () => {
     const { data: initialFiles, loading, error } = useCollection<ArchiveFile>('archives');
     const [files, setFiles] = useState<ArchiveFile[] | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const { user: currentUser } = useAuth();
 
     useEffect(() => {
         if (initialFiles) {
@@ -44,9 +48,26 @@ const ArchivesPage: React.FC = () => {
         }
     }, [initialFiles]);
 
-    const handleDelete = (fileId: string) => {
-        if (window.confirm('¿Estás seguro de que quieres eliminar este archivo?')) {
-            setFiles(prev => prev!.filter(f => f.id !== fileId));
+    const handleDelete = async (fileToDelete: ArchiveFile) => {
+        if (!currentUser) {
+            alert('Debes iniciar sesión para eliminar archivos.');
+            return;
+        }
+
+        if (currentUser.role !== 'Admin' && currentUser.id !== fileToDelete.uploadedById) {
+            alert('No tienes permiso para eliminar este archivo. Solo el propietario o un administrador pueden hacerlo.');
+            return;
+        }
+        
+        if (window.confirm(`¿Estás seguro de que quieres eliminar el archivo "${fileToDelete.name}"? Esta acción no se puede deshacer.`)) {
+            try {
+                await api.deleteFile(fileToDelete);
+                setFiles(prev => prev!.filter(f => f.id !== fileToDelete.id));
+                alert('Archivo eliminado con éxito.');
+            } catch (error) {
+                console.error("Error al eliminar el archivo:", error);
+                alert("No se pudo eliminar el archivo. Intenta de nuevo.");
+            }
         }
     };
     
@@ -54,12 +75,40 @@ const ArchivesPage: React.FC = () => {
         fileInputRef.current?.click();
     };
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (file) {
-            console.log("Archivo seleccionado:", file);
-            alert(`Simulando subida de "${file.name}"`);
-            // Here you would typically handle the file upload process
+        if (!file || !currentUser) return;
+
+        setIsUploading(true);
+        try {
+            // 1. Subir el archivo a Storage
+            const downloadURL = await api.uploadFile(file, 'archives');
+            
+            const newArchiveFile: Omit<ArchiveFile, 'id'> = {
+                name: file.name,
+                size: file.size,
+                url: downloadURL,
+                lastModified: new Date().toISOString(),
+                tags: [],
+                uploadedById: currentUser.id,
+            };
+            
+            // 2. Guardar la referencia en Firestore Y OBTENER EL DOCUMENTO CON SU ID REAL
+            const addedFile = await api.addDoc('archives', newArchiveFile);
+            
+            // 3. Actualizar el estado local con el documento real de Firestore
+            setFiles(prev => prev ? [addedFile, ...prev] : [addedFile]);
+
+            alert(`Archivo "${file.name}" subido con éxito.`);
+
+        } catch (uploadError) {
+            console.error("Error al subir el archivo:", uploadError);
+            alert("Hubo un error al subir el archivo. Revisa la consola para más detalles.");
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
         }
     };
 
@@ -70,7 +119,7 @@ const ArchivesPage: React.FC = () => {
             accessor: (file: ArchiveFile) => (
                 <div className="flex items-center">
                     <span className="material-symbols-outlined text-gray-500 dark:text-slate-400 mr-3">{getFileIcon(file.name)}</span>
-                    <span className="font-medium text-slate-900 dark:text-slate-100">{file.name}</span>
+                    <a href={file.url} target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{file.name}</a>
                 </div>
             )
         },
@@ -86,8 +135,8 @@ const ArchivesPage: React.FC = () => {
             header: 'Acciones',
             accessor: (file: ArchiveFile) => (
                 <div className="flex space-x-2">
-                    <a href={file.url} download className="text-gray-500 hover:text-indigo-600 p-1 rounded-full"><span className="material-symbols-outlined">download</span></a>
-                    <button onClick={() => handleDelete(file.id)} className="text-gray-500 hover:text-red-600 p-1 rounded-full"><span className="material-symbols-outlined">delete</span></button>
+                    <a href={file.url} download={file.name} className="text-gray-500 hover:text-indigo-600 p-1 rounded-full"><span className="material-symbols-outlined">download</span></a>
+                    <button onClick={() => handleDelete(file)} className="text-gray-500 hover:text-red-600 p-1 rounded-full"><span className="material-symbols-outlined">delete</span></button>
                 </div>
             ),
             className: 'text-right'
@@ -95,7 +144,7 @@ const ArchivesPage: React.FC = () => {
     ];
 
     const renderContent = () => {
-        if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
+        if (loading && !files) return <div className="flex justify-center py-12"><Spinner /></div>;
         if (error) return <p className="text-center text-red-500 py-12">Error al cargar los archivos.</p>;
         if (!files || files.length === 0) {
             return (
@@ -126,9 +175,14 @@ const ArchivesPage: React.FC = () => {
                 />
                 <button 
                   onClick={handleUploadClick}
-                  className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-                    <span className="material-symbols-outlined mr-2">upload_file</span>
-                    Subir Archivo
+                  disabled={isUploading}
+                  className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors disabled:bg-indigo-400 disabled:cursor-wait">
+                    {isUploading ? (
+                        <span className="material-symbols-outlined mr-2 animate-spin">progress_activity</span>
+                    ) : (
+                        <span className="material-symbols-outlined mr-2">upload_file</span>
+                    )}
+                    {isUploading ? 'Subiendo...' : 'Subir Archivo'}
                 </button>
             </div>
 

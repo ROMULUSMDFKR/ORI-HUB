@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-// FIX: Imported the User type to correctly type the currentUser constant.
 import { Prospect, ProspectStage, Task, MotivationalQuote, SalesOrder, SalesOrderStatus, Company, User } from '../types';
 import AiAssistantWidget from '../components/dashboard/AiAssistantWidget';
 import CustomSelect from '../components/ui/CustomSelect';
@@ -10,9 +9,9 @@ import Spinner from '../components/ui/Spinner';
 
 // --- New KPI Card Components ---
 
-// Asumimos que el usuario actual es 'natalia' (Natalia, con rol de 'Admin') para demostrar la funcionalidad.
-// FIX: Explicitly type `currentUser` to resolve type comparison error.
-const currentUser: User = { id: 'user-1', name: 'Natalia', avatarUrl: 'https://i.pravatar.cc/150?u=natalia', email: 'natalia.v@crmstudio.com', phone: '55 1234 5678', role: 'Admin', teamId: 'team-1', isActive: true };
+interface DashboardPageProps {
+    user: User;
+}
 
 const WavyBg: React.FC = () => (
     <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none" className="absolute top-0 left-0 w-full h-full opacity-10">
@@ -225,7 +224,7 @@ const PipelineSummary: React.FC<{prospects: Prospect[]}> = ({prospects}) => {
 }
 
 
-const DashboardPage: React.FC = () => {
+const DashboardPage: React.FC<DashboardPageProps> = ({ user: currentUser }) => {
     const { data: quotes } = useCollection<MotivationalQuote>('motivationalQuotes');
     const { data: allTasks, loading: tLoading } = useCollection<Task>('tasks');
     const { data: allProspects, loading: pLoading } = useCollection<Prospect>('prospects');
@@ -393,7 +392,6 @@ const DashboardPage: React.FC = () => {
       <AiAssistantWidget tasks={allTasks || []} prospects={allProspects || []} salesOrders={allSalesOrders || []} />
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* FIX: Corrected logic to display this card for both 'Admin' and 'Ventas' roles, as revenue is relevant to both. This also resolves the original type error. */}
           {(currentUser.role === 'Ventas' || currentUser.role === 'Admin') && (
               <StyledKpiCard
                   title="Ingresos del Mes"

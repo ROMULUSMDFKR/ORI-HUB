@@ -2,9 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { Contact, Company, Note, ActivityLog } from '../types';
+import { Contact, Company, Note, ActivityLog, User } from '../types';
 import Spinner from '../components/ui/Spinner';
-import { MOCK_USERS } from '../data/mockData';
 import NotesSection from '../components/shared/NotesSection';
 
 // --- Reusable UI Components ---
@@ -25,7 +24,7 @@ const InfoRow: React.FC<{ label: string, value: React.ReactNode }> = ({label, va
     </div>
 );
 
-const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) => {
+const ActivityFeed: React.FC<{ activities: ActivityLog[], usersMap: Map<string, User> }> = ({ activities, usersMap }) => {
     const iconMap: Record<ActivityLog['type'], string> = {
         'Llamada': 'call',
         'Email': 'email',
@@ -64,7 +63,7 @@ const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) =
                                     <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
                                         <div>
                                             <p className="text-sm text-slate-500 dark:text-slate-400">
-                                                {activity.description} por <span className="font-medium text-slate-900 dark:text-slate-200">{MOCK_USERS[activity.userId]?.name}</span>
+                                                {activity.description} por <span className="font-medium text-slate-900 dark:text-slate-200">{usersMap.get(activity.userId)?.name}</span>
                                             </p>
                                         </div>
                                         <div className="text-right text-sm whitespace-nowrap text-slate-500 dark:text-slate-400">
@@ -83,11 +82,15 @@ const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) =
 
 const ContactDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const { data: contact, loading, error } = useDoc<Contact>('contacts', id || '');
-    const { data: companies } = useCollection<Company>('companies');
-    const { data: allActivities } = useCollection<ActivityLog>('activities');
-    const { data: allNotes } = useCollection<Note>('notes');
+    const { data: contact, loading: cLoading, error } = useDoc<Contact>('contacts', id || '');
+    const { data: companies, loading: comLoading } = useCollection<Company>('companies');
+    const { data: allActivities, loading: aLoading } = useCollection<ActivityLog>('activities');
+    const { data: allNotes, loading: nLoading } = useCollection<Note>('notes');
+    const { data: users, loading: uLoading } = useCollection<User>('users');
     
+    const loading = cLoading || comLoading || aLoading || nLoading || uLoading;
+    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+
     const activities = useMemo(() => {
         if (!allActivities || !id) return [];
         return allActivities
@@ -116,7 +119,7 @@ const ContactDetailPage: React.FC = () => {
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (error || !contact) return <div className="text-center p-12">Contacto no encontrado</div>;
 
-    const owner = MOCK_USERS[contact.ownerId];
+    const owner = usersMap.get(contact.ownerId);
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -149,7 +152,7 @@ const ContactDetailPage: React.FC = () => {
 
             {/* Right Content */}
             <div className="lg:col-span-8 xl:col-span-9 space-y-6">
-                 <ActivityFeed activities={activities} />
+                 <ActivityFeed activities={activities} usersMap={usersMap} />
                  <NotesSection 
                     entityId={contact.id}
                     entityType="contact"

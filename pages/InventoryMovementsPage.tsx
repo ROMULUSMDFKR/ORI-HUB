@@ -1,21 +1,27 @@
+
 import React, { useState, useMemo } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { InventoryMove, Product, User } from '../types';
-import { MOCK_LOCATIONS, MOCK_USERS } from '../data/mockData';
+// FIX: Se eliminaron las importaciones de datos falsos.
 import Spinner from '../components/ui/Spinner';
 import FilterButton from '../components/ui/FilterButton';
 
 const InventoryMovementsPage: React.FC = () => {
     const { data: moves, loading: movesLoading } = useCollection<InventoryMove>('inventoryMoves');
     const { data: products, loading: productsLoading } = useCollection<Product>('products');
+    // FIX: Se obtienen los datos de usuarios y ubicaciones desde la API.
+    const { data: users, loading: usersLoading } = useCollection<User>('users');
+    const { data: locations, loading: locationsLoading } = useCollection<any>('locations');
 
     const [typeFilter, setTypeFilter] = useState('all');
     const [productFilter, setProductFilter] = useState('all');
     const [locationFilter, setLocationFilter] = useState('all');
 
     const productsMap = React.useMemo(() => new Map(products?.map(p => [p.id, p])), [products]);
-    const locationsMap = React.useMemo(() => new Map(MOCK_LOCATIONS.map(l => [l.id, l.name])), []);
-    const usersMap = React.useMemo(() => new Map(Object.values(MOCK_USERS).map(u => [u.id, u])), []);
+    // FIX: Se crea el mapa de ubicaciones a partir de los datos obtenidos.
+    const locationsMap = React.useMemo(() => new Map((locations || []).map((l: any) => [l.id, l.name])), [locations]);
+    // FIX: Se crea el mapa de usuarios a partir de los datos obtenidos.
+    const usersMap = React.useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
 
     const filteredMoves = useMemo(() => {
         if (!moves) return [];
@@ -34,7 +40,8 @@ const InventoryMovementsPage: React.FC = () => {
         { value: 'adjust', label: 'Ajuste' },
     ];
     const productOptions = useMemo(() => products?.map(p => ({ value: p.id, label: p.name })) || [], [products]);
-    const locationOptions = useMemo(() => MOCK_LOCATIONS.map(l => ({ value: l.id, label: l.name })), []);
+    // FIX: Se usan las ubicaciones reales para las opciones de filtro.
+    const locationOptions = useMemo(() => (locations || []).map((l: any) => ({ value: l.id, label: l.name })), [locations]);
 
 
     const getTypePill = (type: InventoryMove['type']) => {
@@ -50,7 +57,7 @@ const InventoryMovementsPage: React.FC = () => {
         }
     };
 
-    const loading = movesLoading || productsLoading;
+    const loading = movesLoading || productsLoading || usersLoading || locationsLoading;
 
     return (
         <div className="space-y-6">
@@ -118,7 +125,8 @@ const InventoryMovementsPage: React.FC = () => {
                                     <div className="col-span-1">{locationsMap.get(move.fromLocationId || '') || '—'}</div>
                                     <div className="col-span-1">{locationsMap.get(move.toLocationId || '') || '—'}</div>
                                     <div className="col-span-1">{move.note || '—'}</div>
-                                    <div className="col-span-1">{user?.id || 'N/A'}</div>
+                                    {/* FIX: Se muestra el nombre del usuario en lugar de su ID. */}
+                                    <div className="col-span-1">{user?.name || 'N/A'}</div>
                                 </div>
                             );
                         })}

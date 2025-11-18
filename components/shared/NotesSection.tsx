@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Note } from '../../types';
-import { MOCK_USERS } from '../../data/mockData';
+import { Note, User } from '../../types';
+import { useCollection } from '../../hooks/useCollection';
+import { useAuth } from '../../hooks/useAuth';
 import NoteCard from './NoteCard';
 
 interface NotesSectionProps {
@@ -15,7 +16,14 @@ const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes
     const [showUserSuggestions, setShowUserSuggestions] = useState(false);
     const [userSuggestionQuery, setUserSuggestionQuery] = useState('');
     const newNoteInputRef = useRef<HTMLTextAreaElement>(null);
-    const currentUser = MOCK_USERS['user-1'];
+    const { user: currentUser } = useAuth();
+    const { data: allUsers } = useCollection<User>('users');
+
+    // FIX: Ensure usersMap is always of type Map<string, User> to prevent downstream type errors.
+    const usersMap = useMemo(() => {
+        if (!allUsers) return new Map<string, User>();
+        return new Map(allUsers.map(u => [u.id, u]));
+    }, [allUsers]);
 
     const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const text = e.target.value;
@@ -31,11 +39,11 @@ const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes
     };
 
     const userSuggestions = useMemo(() => {
-        if (!userSuggestionQuery) return [];
-        return Object.values(MOCK_USERS).filter(u => 
+        if (!userSuggestionQuery || !allUsers) return [];
+        return allUsers.filter(u => 
             u.name.toLowerCase().startsWith(userSuggestionQuery.toLowerCase()) && !u.name.includes(' ')
         );
-    }, [userSuggestionQuery]);
+    }, [userSuggestionQuery, allUsers]);
 
     const handleMentionSelect = (userName: string) => {
         setNewNote(prev => prev.replace(/@\w*$/, `@${userName} `));
@@ -44,7 +52,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes
     };
 
     const handleAddNote = () => {
-        if (newNote.trim() === '') return;
+        if (newNote.trim() === '' || !currentUser) return;
         const note: Note = {
             id: `note-${Date.now()}`,
             [`${entityType}Id`]: entityId,
@@ -90,7 +98,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes
                     </div>
                 </div>
                 <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700 max-h-96 overflow-y-auto pr-2">
-                    {notes.length > 0 ? notes.map(note => <NoteCard key={note.id} note={note} />)
+                    {notes.length > 0 ? notes.map(note => <NoteCard key={note.id} note={note} usersMap={usersMap} />)
                     : <p className="text-sm text-center text-slate-500 dark:text-slate-400 py-4">No hay notas para este registro.</p>}
                 </div>
             </div>

@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { MOCK_USERS } from '../../data/mockData';
 import Checkbox from './Checkbox';
 import { User } from '../../types';
+import { useCollection } from '../../hooks/useCollection';
 
 interface UserSelectorProps {
     label: string;
@@ -15,15 +14,7 @@ const UserSelector: React.FC<UserSelectorProps> = ({ label, selectedUserIds, onT
     const [search, setSearch] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    const uniqueUsers = useMemo(() => {
-        const allUsers = Object.values(MOCK_USERS);
-        const seen = new Set();
-        return allUsers.filter(user => {
-            const duplicate = seen.has(user.id);
-            seen.add(user.id);
-            return !duplicate;
-        });
-    }, []);
+    const { data: users } = useCollection<User>('users');
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -36,13 +27,13 @@ const UserSelector: React.FC<UserSelectorProps> = ({ label, selectedUserIds, onT
     }, []);
 
     const selectedUsers = useMemo(() =>
-        uniqueUsers.filter(u => selectedUserIds?.includes(u.id)),
-        [selectedUserIds, uniqueUsers]
+        (users || []).filter(u => selectedUserIds?.includes(u.id)),
+        [selectedUserIds, users]
     );
 
     const filteredUsers = useMemo(() =>
-        uniqueUsers.filter(u => u.name.toLowerCase().includes(search.toLowerCase())),
-        [search, uniqueUsers]
+        (users || []).filter(u => u.name.toLowerCase().includes(search.toLowerCase())),
+        [search, users]
     );
 
     return (

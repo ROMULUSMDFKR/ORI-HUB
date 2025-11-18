@@ -1,11 +1,15 @@
 
 
 
-import React, { useState, useRef, useEffect } from 'react';
+
+
+
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GoogleGenAI, FunctionDeclaration, Type } from '@google/genai';
 import { useCollection } from '../hooks/useCollection';
 import { SalesOrder, Prospect, Task, User } from '../types';
-import { MOCK_USERS, api } from '../data/mockData';
+// FIX: Removed MOCK_USERS import as it is no longer exported.
+import { api } from '../data/mockData';
 
 // Polyfill for browser compatibility
 // FIX: Cast window to `any` to access non-standard SpeechRecognition properties.
@@ -18,7 +22,8 @@ interface Message {
 }
 
 // MOCK PERMISSIONS - In a real app, this would come from a user context
-const MOCK_ACTION_PERMISSIONS: Record<User['role'], Record<string, boolean>> = {
+const MOCK_ACTION_PERMISSIONS: Record<NonNullable<User['role']>, Record<string, boolean>> = {
+    'Owner': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
     'Admin': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
     'Ventas': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
     'Logística': { 'createTask': true, 'updateClientStatus': false, 'getSummary': true },
@@ -70,7 +75,10 @@ const AiAssistantPage: React.FC = () => {
     const { data: salesOrders } = useCollection<SalesOrder>('salesOrders');
     const { data: prospects } = useCollection<Prospect>('prospects');
     const { data: tasks } = useCollection<Task>('tasks');
-    const currentUser = MOCK_USERS['user-1'];
+    // FIX: Fetch users from the collection instead of using mock data.
+    const { data: users } = useCollection<User>('users');
+    const currentUser = useMemo(() => users?.find(u => u.id === 'user-1'), [users]);
+
 
     // Initialize Speech Recognition
     useEffect(() => {
@@ -117,7 +125,8 @@ const AiAssistantPage: React.FC = () => {
 
     const handleSendMessage = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        if (input.trim() === '' || isLoading) return;
+        // FIX: Add a check for currentUser to ensure it's loaded.
+        if (input.trim() === '' || isLoading || !currentUser) return;
         
         if (isRecording) {
             recognitionRef.current?.stop();
@@ -142,9 +151,10 @@ const AiAssistantPage: React.FC = () => {
             `;
 
             // Filter tools based on user role
-            const userPermissions = MOCK_ACTION_PERMISSIONS[currentUser.role];
+            const role = currentUser.role || 'Ventas';
+            const userPermissions = MOCK_ACTION_PERMISSIONS[role];
             const allowedFunctionDeclarations = ALL_FUNCTION_DECLARATIONS.filter(
-                func => userPermissions[func.name]
+                func => userPermissions && userPermissions[func.name]
             );
 
             const prompt = `

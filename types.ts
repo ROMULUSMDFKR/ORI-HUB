@@ -1,11 +1,26 @@
+
 // Base User type
+
+export interface Role {
+  id: string;
+  name: string;
+  description: string;
+  permissions: {
+    dataScope: 'own' | 'team' | 'all';
+    pages: Record<string, Record<string, string[]>>;
+    aiAccess?: Record<string, Record<User['role'], boolean>>;
+    actionPermissions?: Record<User['role'], Record<string, boolean>>;
+  };
+}
+
+
 export interface User {
   id: string;
   name: string;
   avatarUrl: string;
   email: string;
   phone?: string;
-  role: 'Admin' | 'Ventas' | 'Logística';
+  roleId: string;
   teamId?: string;
   isActive: boolean;
   companyId?: string;
@@ -14,6 +29,26 @@ export interface User {
   nickname?: string;
   birthday?: string; // ISO date string YYYY-MM-DD
   interests?: string;
+  country?: string;
+  permissions?: Role['permissions'];
+  // For convenience at runtime
+  roleName?: string;
+  // For backwards compatibility during transition
+  role?: 'Owner' | 'Admin' | 'Ventas' | 'Logística';
+  // Tracks if the user has finished the initial setup (password reset + profile)
+  hasCompletedOnboarding?: boolean;
+}
+
+export interface Invitation {
+    id: string;
+    email: string;
+    name: string;
+    roleId: string;
+    teamId?: string;
+    companyId?: string;
+    permissions: Role['permissions'];
+    createdAt: string;
+    status: 'pending' | 'used';
 }
 
 export interface Birthday {
@@ -34,7 +69,6 @@ export interface ConnectedEmailAccount {
   userId: string;
   email: string;
   status: 'Conectado' | 'Error de autenticación' | 'Desconectado';
-  // FIX: Renamed 'templateId' to 'signatureTemplate' to match the property name used in 'data/mockData.ts'.
   signatureTemplate?: string;
 }
 
@@ -681,6 +715,7 @@ export interface ArchiveFile {
     lastModified: string; // ISO Date string
     url: string;
     tags: ('Contrato' | 'Cotización' | 'Ficha Técnica')[];
+    uploadedById: string;
 }
 
 export interface ActivityLog {

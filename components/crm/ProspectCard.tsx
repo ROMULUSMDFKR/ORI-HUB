@@ -1,10 +1,13 @@
 
 
-import React, { useState } from 'react';
+
+
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Prospect } from '../../types';
-import { MOCK_USERS } from '../../data/mockData';
+// FIX: Removed MOCK_USERS import and will fetch data using a hook.
+import { Prospect, User } from '../../types';
 import Badge from '../ui/Badge';
+import { useCollection } from '../../hooks/useCollection';
 
 interface ProspectCardProps {
   prospect: Prospect;
@@ -38,7 +41,11 @@ const InfoRow: React.FC<{ icon: string; text: React.ReactNode; isAlert?: boolean
 );
 
 const ProspectCard: React.FC<ProspectCardProps> = ({ prospect, onDragStart, onArchive }) => {
-  const owner = Object.values(MOCK_USERS).find(u => u.id === prospect.ownerId) || MOCK_USERS['user-3'];
+  // FIX: Fetch users with useCollection hook instead of using mock data.
+  const { data: users } = useCollection<User>('users');
+  const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+  // FIX: Provide a default object for `owner` to prevent accessing properties on `undefined`.
+  const owner = usersMap.get(prospect.ownerId) || { id: 'user-3', avatarUrl: '', name: 'Unknown' };
   const [menuOpen, setMenuOpen] = useState(false);
 
   const priorityColor = {
@@ -56,7 +63,8 @@ const ProspectCard: React.FC<ProspectCardProps> = ({ prospect, onDragStart, onAr
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-            <Link to={`/crm/prospects/${prospect.id}`} onClick={e => e.stopPropagation()}>
+            {/* FIX: Use prospect.id for the link, which is correctly typed. */}
+            <Link to={`/hubs/prospects/${prospect.id}`} onClick={e => e.stopPropagation()}>
                 <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 hover:underline">{prospect.name}</h4>
             </Link>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold">${prospect.estValue.toLocaleString('en-US')}</p>
@@ -67,7 +75,7 @@ const ProspectCard: React.FC<ProspectCardProps> = ({ prospect, onDragStart, onAr
             </button>
             {menuOpen && (
                 <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-md shadow-lg z-10 border border-slate-200 dark:border-slate-700 py-1">
-                    <Link to={`/crm/prospects/${prospect.id}`} onClick={e => e.stopPropagation()} className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <Link to={`/hubs/prospects/${prospect.id}`} onClick={e => e.stopPropagation()} className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
                         <span className="material-symbols-outlined text-base mr-2">visibility</span>Ver Detalle
                     </Link>
                     <div className="my-1 h-px bg-slate-200 dark:bg-slate-700"></div>

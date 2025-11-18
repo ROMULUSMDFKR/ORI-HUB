@@ -1,14 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { COMPANIES_PIPELINE_COLUMNS } from '../constants';
-import { Company, CompanyPipelineStage, ActivityLog } from '../types';
+import { Company, CompanyPipelineStage, ActivityLog, User } from '../types';
 import CompanyCard from '../components/hubs/CompanyCard';
 import Spinner from '../components/ui/Spinner';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
-import { MOCK_ACTIVITIES, MOCK_USERS } from '../data/mockData';
 
 const PipelineColumn: React.FC<{
   stage: CompanyPipelineStage;
@@ -34,19 +33,24 @@ const PipelineColumn: React.FC<{
 };
 
 const CompaniesPipelinePage: React.FC = () => {
-  const { data: initialCompanies, loading } = useCollection<Company>('companies');
+  const { data: initialCompanies, loading: cLoading } = useCollection<Company>('companies');
+  const { data: activities, loading: aLoading } = useCollection<ActivityLog>('activities');
+  const { data: users, loading: uLoading } = useCollection<User>('users');
+  
   const [companies, setCompanies] = useState<Company[] | null>(null);
-  const [activities] = useState<ActivityLog[]>(MOCK_ACTIVITIES);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
+  
+  const loading = cLoading || aLoading || uLoading;
+  const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (initialCompanies) {
       setCompanies(initialCompanies);
     }
   }, [initialCompanies]);
   
   const pipelineActivities = useMemo(() => {
-    if(!companies) return [];
+    if(!companies || !activities) return [];
     const companyIds = new Set(companies.map(c => c.id));
     return activities
       .filter(a => a.companyId && companyIds.has(a.companyId))
@@ -124,15 +128,16 @@ const CompaniesPipelinePage: React.FC = () => {
             const columns = [
                 { header: 'Nombre', accessor: (c: Company) => <Link to={`/crm/clients/${c.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{c.shortName || c.name}</Link> },
                 { header: 'Etapa', accessor: (c: Company) => <Badge text={c.stage} /> },
-                { header: 'Responsable', accessor: (c: Company) => MOCK_USERS[c.ownerId]?.name || 'N/A' },
+                { header: 'Responsable', accessor: (c: Company) => usersMap.get(c.ownerId)?.name || 'N/A' },
             ];
             return <Table columns={columns} data={companies} />;
         case 'history':
              return (
                 <ul className="space-y-4">
                     {pipelineActivities.map(activity => {
-                        const user = MOCK_USERS[activity.userId];
+                        const user = usersMap.get(activity.userId);
                         const company = companies.find(c => c.id === activity.companyId);
+                        if (!user || !company) return null;
                         return (
                             <li key={activity.id} className="flex items-start gap-3 text-sm p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
                                 <div><img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full" /></div>

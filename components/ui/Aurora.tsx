@@ -1,8 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Renderer, Program, Mesh, Color, Triangle } from 'ogl';
 
-import './Aurora.css';
-
 const VERT = `#version 300 es
 in vec2 position;
 void main() {
@@ -208,5 +206,5 @@ export default function Aurora(props: AuroraProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <div ref={ctnDom} className={`aurora-container ${props.className || ''}`} />;
+  return <div ref={ctnDom} className={`aurora-container ${props.className || ''}`} style={{ width: '100%', height: '100%' }} />;
 }

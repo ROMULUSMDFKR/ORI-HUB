@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { Team, User } from '../../types';
-import { MOCK_USERS } from '../../data/mockData';
+// FIX: Se eliminó la importación de datos falsos.
 import Spinner from '../../components/ui/Spinner';
 
-const TeamCard: React.FC<{ team: Team }> = ({ team }) => {
+const TeamCard: React.FC<{ team: Team, usersMap: Map<string, User> }> = ({ team, usersMap }) => {
     return (
         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start">
@@ -16,7 +16,8 @@ const TeamCard: React.FC<{ team: Team }> = ({ team }) => {
             <div className="mt-4 flex justify-between items-center border-t border-slate-200 dark:border-slate-700 pt-4">
                 <div className="flex -space-x-2">
                     {team.members.map(userId => {
-                        const user = MOCK_USERS[userId];
+                        // FIX: Se usa el mapa de usuarios para obtener los datos del miembro.
+                        const user = usersMap.get(userId);
                         return user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-800" /> : null;
                     })}
                 </div>
@@ -28,6 +29,9 @@ const TeamCard: React.FC<{ team: Team }> = ({ team }) => {
 
 const TeamManagement: React.FC = () => {
     const { data: teams, loading: teamsLoading } = useCollection<Team>('teams');
+    // FIX: Se obtienen los usuarios para pasarlos a las tarjetas.
+    const { data: users, loading: usersLoading } = useCollection<User>('users');
+    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
 
     return (
         <div className="space-y-6">
@@ -42,11 +46,11 @@ const TeamManagement: React.FC = () => {
                 </button>
             </div>
 
-            {teamsLoading ? (
+            {teamsLoading || usersLoading ? (
                  <div className="flex justify-center py-12"><Spinner /></div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {(teams || []).map(team => <TeamCard key={team.id} team={team} />)}
+                    {(teams || []).map(team => <TeamCard key={team.id} team={team} usersMap={usersMap || new Map()} />)}
                 </div>
             )}
         </div>

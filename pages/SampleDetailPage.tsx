@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { Sample, SampleStatus, Prospect, Company, Product, Note, ActivityLog } from '../types';
+import { Sample, SampleStatus, Prospect, Company, Product, Note, ActivityLog, User } from '../types';
 import { SAMPLES_PIPELINE_COLUMNS } from '../constants';
-import { MOCK_USERS } from '../data/mockData';
+// FIX: Removed MOCK_USERS import. User data will be fetched via hook.
 import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
 import Badge from '../components/ui/Badge';
@@ -38,6 +38,8 @@ const SampleDetailPage: React.FC = () => {
     const { data: products, loading: productsLoading } = useCollection<Product>('products');
     const { data: allNotes, loading: notesLoading } = useCollection<Note>('notes');
     const { data: allActivities, loading: activitiesLoading } = useCollection<ActivityLog>('activities');
+    // FIX: Fetch users to replace mock data.
+    const { data: users, loading: usersLoading } = useCollection<User>('users');
     
     const [feedback, setFeedback] = useState('');
 
@@ -76,6 +78,9 @@ const SampleDetailPage: React.FC = () => {
         }
     };
 
+    // FIX: Create a memoized map for users.
+    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+
     const { recipient, product, owner, notes, activities } = useMemo(() => {
         if (!currentSample) return { recipient: null, product: null, owner: null, notes: [], activities: [] };
 
@@ -84,7 +89,8 @@ const SampleDetailPage: React.FC = () => {
             : companies?.find(c => c.id === currentSample.companyId);
         
         const prod = products?.find(p => p.id === currentSample.productId);
-        const ownr = MOCK_USERS[currentSample.ownerId];
+        // FIX: Use the typesafe usersMap.
+        const ownr = usersMap.get(currentSample.ownerId);
 
         const sampleNotes = (allNotes || []).filter(n => n.sampleId === currentSample.id)
             .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -93,9 +99,9 @@ const SampleDetailPage: React.FC = () => {
             .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
         return { recipient: rec, product: prod, owner: ownr, notes: sampleNotes, activities: sampleActivities };
-    }, [currentSample, prospects, companies, products, allNotes, allActivities]);
+    }, [currentSample, prospects, companies, products, allNotes, allActivities, usersMap]);
     
-    const loading = sampleLoading || prospectsLoading || companiesLoading || productsLoading || notesLoading || activitiesLoading;
+    const loading = sampleLoading || prospectsLoading || companiesLoading || productsLoading || notesLoading || activitiesLoading || usersLoading;
     
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (error || !currentSample) return <div className="text-center p-12">Muestra no encontrada</div>;
@@ -141,7 +147,8 @@ const SampleDetailPage: React.FC = () => {
                     <InfoCard title="Actividad Reciente">
                         <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                             {activities.length > 0 ? activities.map(activity => {
-                                const user = MOCK_USERS[activity.userId];
+                                // FIX: Use the typesafe usersMap.
+                                const user = usersMap.get(activity.userId);
                                 const iconMap: Record<ActivityLog['type'], string> = { 'Llamada': 'call', 'Email': 'email', 'Reunión': 'groups', 'Nota': 'note', 'Vista de Perfil': 'visibility', 'Análisis IA': 'auto_awesome', 'Cambio de Estado': 'change_circle', 'Sistema': 'dns' };
                                 return (
                                     <div key={activity.id} className="flex items-start gap-3 text-sm">

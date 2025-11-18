@@ -2,10 +2,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { Company, Note, ActivityLog, Contact, SalesOrder, SalesOrderStatus, CompanyPipelineStage, Quote, Sample, QuoteStatus, SampleStatus } from '../types';
+import { Company, Note, ActivityLog, Contact, SalesOrder, SalesOrderStatus, CompanyPipelineStage, Quote, Sample, QuoteStatus, SampleStatus, User } from '../types';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
-import { MOCK_USERS } from '../data/mockData';
 import { GoogleGenAI } from '@google/genai';
 import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
@@ -134,13 +133,15 @@ const HubItem: React.FC<{ item: any, type: 'quote' | 'sales-order' | 'sample', o
 
 const ClientDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const { data: initialCompany, loading, error } = useDoc<Company>('companies', id || '');
+    const { data: initialCompany, loading: companyLoading, error } = useDoc<Company>('companies', id || '');
     const { data: allContacts } = useCollection<Contact>('contacts');
     const { data: allSalesOrders } = useCollection<SalesOrder>('salesOrders');
     const { data: allActivities } = useCollection<ActivityLog>('activities');
     const { data: allNotes } = useCollection<Note>('notes');
     const { data: allQuotes } = useCollection<Quote>('quotes');
     const { data: allSamples } = useCollection<Sample>('samples');
+    const { data: users, loading: usersLoading } = useCollection<User>('users');
+
 
     const [company, setCompany] = useState<Company | null>(null);
     const [currentStage, setCurrentStage] = useState<CompanyPipelineStage | undefined>();
@@ -158,6 +159,8 @@ const ClientDetailPage: React.FC = () => {
             alert('Estado de la empresa guardado.');
         }
     };
+
+    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u.name])), [users]);
 
     const { activities, contacts, salesOrders, totalRevenue, lastActivityDate, notes, quotes, samples } = useMemo(() => {
         if (!id) return { activities: [], contacts: [], salesOrders: [], totalRevenue: 0, lastActivityDate: null, notes: [], quotes: [], samples: [] };
@@ -199,10 +202,10 @@ const ClientDetailPage: React.FC = () => {
     };
 
 
-    if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
+    if (companyLoading || usersLoading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (error || !company) return <div className="text-center p-12">Cliente no encontrado</div>;
     
-    const owner = MOCK_USERS[company.ownerId];
+    const ownerName = usersMap.get(company.ownerId) || 'N/A';
     const stageOptions = COMPANIES_PIPELINE_COLUMNS.map(s => ({ value: s.stage, name: s.stage }));
 
     return (
@@ -258,7 +261,7 @@ const ClientDetailPage: React.FC = () => {
                 {/* Right Sidebar */}
                 <div className="lg:col-span-4 xl:col-span-3 space-y-6">
                     <InfoCard title="Detalles">
-                        <InfoRow label="Responsable" value={owner?.name || 'N/A'} />
+                        <InfoRow label="Responsable" value={ownerName} />
                         <InfoRow label="Industria" value={company.industry || 'N/A'} />
                         <InfoRow label="Prioridad" value={<Badge text={company.priority} color={company.priority === 'Alta' ? 'red' : company.priority === 'Media' ? 'yellow' : 'gray'} />} />
                     </InfoCard>

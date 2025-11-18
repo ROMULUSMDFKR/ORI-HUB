@@ -1,9 +1,12 @@
 
 
-import React, { useState } from 'react';
+
+
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { SalesOrder, Delivery, DeliveryStatus } from '../../types';
-import { MOCK_COMPANIES } from '../../data/mockData';
+import { SalesOrder, Delivery, DeliveryStatus, Company } from '../../types';
+// FIX: Removed MOCK data import and will fetch data using a hook.
+import { useCollection } from '../../hooks/useCollection';
 
 interface SalesOrderCardProps {
   item: SalesOrder;
@@ -12,7 +15,9 @@ interface SalesOrderCardProps {
 }
 
 const SalesOrderCard: React.FC<SalesOrderCardProps> = ({ item, deliveries = [], onDragStart }) => {
-  const client = MOCK_COMPANIES.find(c => c.id === item.companyId);
+  // FIX: Fetch data with useCollection hook instead of using mock data.
+  const { data: companies } = useCollection<Company>('companies');
+  const client = useMemo(() => companies?.find(c => c.id === item.companyId), [companies, item.companyId]);
 
   const completedDeliveries = deliveries.filter(d => d.status === DeliveryStatus.Entregada).length;
   const totalDeliveries = deliveries.length;

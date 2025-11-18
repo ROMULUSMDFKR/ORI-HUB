@@ -1,9 +1,8 @@
-
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Drawer from '../ui/Drawer';
 import { Task, TaskStatus, Priority, User, Project, Comment, Subtask } from '../../types';
-import { MOCK_USERS, MOCK_PROJECTS } from '../../data/mockData';
+import { useCollection } from '../../hooks/useCollection';
+import { useAuth } from '../../hooks/useAuth';
 import Badge from '../ui/Badge';
 import Checkbox from '../ui/Checkbox';
 
@@ -18,20 +17,11 @@ const UserSelector: React.FC<{
     label: string;
     selectedUserIds: string[];
     onToggleUser: (userId: string) => void;
-}> = ({ label, selectedUserIds, onToggleUser }) => {
+    users: User[];
+}> = ({ label, selectedUserIds, onToggleUser, users }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
-
-    const uniqueUsers = useMemo(() => {
-        const allUsers = Object.values(MOCK_USERS);
-        const seen = new Set();
-        return allUsers.filter(user => {
-            const duplicate = seen.has(user.id);
-            seen.add(user.id);
-            return !duplicate;
-        });
-    }, []);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -44,13 +34,13 @@ const UserSelector: React.FC<{
     }, []);
 
     const selectedUsers = useMemo(() =>
-        uniqueUsers.filter(u => selectedUserIds?.includes(u.id)),
-        [selectedUserIds, uniqueUsers]
+        users.filter(u => selectedUserIds?.includes(u.id)),
+        [selectedUserIds, users]
     );
 
     const filteredUsers = useMemo(() =>
-        uniqueUsers.filter(u => u.name.toLowerCase().includes(search.toLowerCase())),
-        [search, uniqueUsers]
+        users.filter(u => u.name.toLowerCase().includes(search.toLowerCase())),
+        [search, users]
     );
 
     return (
@@ -101,6 +91,11 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ isOpen, onClose, task, onSave }
     const [showUserSuggestions, setShowUserSuggestions] = useState(false);
     const [userSuggestionQuery, setUserSuggestionQuery] = useState('');
     const commentInputRef = useRef<HTMLTextAreaElement>(null);
+
+    const { user: currentUser } = useAuth();
+    const { data: users } = useCollection<User>('users');
+    const { data: projects } = useCollection<Project>('projects');
+    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
     
     useEffect(() => {
         if (isOpen) {
@@ -182,8 +177,8 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ isOpen, onClose, task, onSave }
     };
     
     const handleAddComment = () => {
-        if (newComment.trim() === '') return;
-        const comment: Comment = { id: `comment-${Date.now()}`, text: newComment, userId: 'user-1', createdAt: new Date().toISOString() };
+        if (newComment.trim() === '' || !currentUser) return;
+        const comment: Comment = { id: `comment-${Date.now()}`, text: newComment, userId: currentUser.id, createdAt: new Date().toISOString() };
         handleFieldChange('comments', [...(editedTask.comments || []), comment]);
         setNewComment('');
     };
@@ -195,9 +190,9 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ isOpen, onClose, task, onSave }
     };
     
     const userSuggestions = useMemo(() => {
-        if (!userSuggestionQuery) return [];
-        return Object.values(MOCK_USERS).filter(u => u.name.toLowerCase().startsWith(userSuggestionQuery.toLowerCase()));
-    }, [userSuggestionQuery]);
+        if (!userSuggestionQuery || !users) return [];
+        return users.filter(u => u.name.toLowerCase().startsWith(userSuggestionQuery.toLowerCase()));
+    }, [userSuggestionQuery, users]);
     
     return (
         <Drawer isOpen={isOpen} onClose={onClose} title={task?.id ? 'Editar Tarea' : 'Nueva Tarea'}>
@@ -208,15 +203,15 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ isOpen, onClose, task, onSave }
                         
                         <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Estado</label><select value={editedTask.status || ''} onChange={e => handleFieldChange('status', e.target.value as TaskStatus)}>{Object.values(TaskStatus).map(s => <option key={s} value={s}>{s}</option>)}</select></div><div><label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Prioridad</label><select value={editedTask.priority || ''} onChange={e => handleFieldChange('priority', e.target.value as Priority)}>{Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}</select></div></div>
                         
-                        <UserSelector label="Asignados" selectedUserIds={editedTask.assignees || []} onToggleUser={(userId) => handleFieldChange('assignees', (editedTask.assignees || []).includes(userId) ? (editedTask.assignees || []).filter(id => id !== userId) : [...(editedTask.assignees || []), userId])} />
-                        <UserSelector label="Seguidores" selectedUserIds={editedTask.watchers || []} onToggleUser={(userId) => handleFieldChange('watchers', (editedTask.watchers || []).includes(userId) ? (editedTask.watchers || []).filter(id => id !== userId) : [...(editedTask.watchers || []), userId])} />
+                        <UserSelector users={users || []} label="Asignados" selectedUserIds={editedTask.assignees || []} onToggleUser={(userId) => handleFieldChange('assignees', (editedTask.assignees || []).includes(userId) ? (editedTask.assignees || []).filter(id => id !== userId) : [...(editedTask.assignees || []), userId])} />
+                        <UserSelector users={users || []} label="Seguidores" selectedUserIds={editedTask.watchers || []} onToggleUser={(userId) => handleFieldChange('watchers', (editedTask.watchers || []).includes(userId) ? (editedTask.watchers || []).filter(id => id !== userId) : [...(editedTask.watchers || []), userId])} />
 
                         <div className="grid grid-cols-2 gap-4">
                             <div><label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Fecha de Inicio</label><input type="date" value={editedTask.startDate?.split('T')[0] || ''} onChange={e => handleFieldChange('startDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}/></div>
                             <div><label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Fecha de Vencimiento</label><input type="date" value={editedTask.dueAt?.split('T')[0] || ''} onChange={e => handleFieldChange('dueAt', e.target.value ? new Date(e.target.value).toISOString() : undefined)}/></div>
                         </div>
 
-                        <div><label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Proyecto</label><select value={editedTask.projectId || ''} onChange={e => handleFieldChange('projectId', e.target.value)}><option value="">Ninguno</option>{MOCK_PROJECTS.map((p: Project) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Proyecto</label><select value={editedTask.projectId || ''} onChange={e => handleFieldChange('projectId', e.target.value)}><option value="">Ninguno</option>{(projects || []).map((p: Project) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                         
                         <div><label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Etiquetas</label><div className="flex flex-wrap gap-2 mt-1">{editedTask.tags?.map(tag => <div key={tag} className="flex items-center gap-1 bg-gray-200 rounded-full pl-2 pr-1 text-sm"><Badge text={tag} /><button onClick={() => handleRemoveTag(tag)} className="text-gray-500 hover:text-gray-800">&times;</button></div>)}</div><input type="text" value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={handleAddTag} placeholder="Añade una etiqueta y presiona Enter" className="mt-2" /></div>
 
@@ -235,7 +230,7 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ isOpen, onClose, task, onSave }
                         {task?.id && (
                             <div className="border-t pt-4 relative">
                                 <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">Comentarios</h4>
-                                <div className="space-y-3 max-h-60 overflow-y-auto pr-2">{editedTask.comments?.map(comment => { const user = Object.values(MOCK_USERS).find(u => u.id === comment.userId); return (<div key={comment.id} className="flex items-start gap-2"><img src={user?.avatarUrl} alt={user?.name} className="w-6 h-6 rounded-full mt-1" /><div className="flex-1 bg-slate-100 dark:bg-slate-700 p-2 rounded-lg"><p className="text-xs font-semibold">{user?.name} <span className="font-normal text-slate-500 dark:text-slate-400 ml-2">{new Date(comment.createdAt).toLocaleString()}</span></p><p className="text-sm mt-1">{comment.text}</p></div></div>);})}</div>
+                                <div className="space-y-3 max-h-60 overflow-y-auto pr-2">{editedTask.comments?.map(comment => { const user = usersMap.get(comment.userId); return (<div key={comment.id} className="flex items-start gap-2"><img src={user?.avatarUrl} alt={user?.name} className="w-6 h-6 rounded-full mt-1" /><div className="flex-1 bg-slate-100 dark:bg-slate-700 p-2 rounded-lg"><p className="text-xs font-semibold">{user?.name} <span className="font-normal text-slate-500 dark:text-slate-400 ml-2">{new Date(comment.createdAt).toLocaleString()}</span></p><p className="text-sm mt-1">{comment.text}</p></div></div>);})}</div>
                                 {showUserSuggestions && userSuggestions.length > 0 && (<div className="absolute bottom-20 mb-2 w-full bg-white dark:bg-slate-800 border rounded-md shadow-lg z-10 max-h-40 overflow-y-auto"><ul>{userSuggestions.map(user => (<li key={user.id} onClick={() => handleMentionSelect(user.name)} className="flex items-center gap-2 p-2 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"><img src={user.avatarUrl} alt={user.name} className="w-6 h-6 rounded-full" /><span className="text-sm">{user.name}</span></li>))}</ul></div>)}
                                 <div className="mt-4 flex gap-2"><textarea ref={commentInputRef} placeholder="Añadir un comentario... (@ para mencionar)" value={newComment} onChange={handleCommentChange} rows={2} className="flex-1"/><button onClick={handleAddComment} className="bg-indigo-600 text-white font-semibold px-3 rounded-lg shadow-sm self-end h-10">Enviar</button></div>
                             </div>

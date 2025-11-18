@@ -1,15 +1,22 @@
 
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { MOCK_USERS, MOCK_AUDIT_LOGS } from '../data/mockData';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AuditLog, Commission, CommissionStatus, ConnectedEmailAccount, User } from '../types';
 import { useCollection } from '../hooks/useCollection';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
+import { api } from '../api/firebaseApi';
+import CustomSelect from '../components/ui/CustomSelect';
+import { COUNTRIES } from '../constants';
+import ImageCropperModal from '../components/ui/ImageCropperModal';
 
-type ProfileTab = 'overview' | 'edit-profile' | 'security' | 'connected-accounts' | 'notifications' | 'preferences' | 'my-commissions';
+interface ProfilePageProps {
+  user: User;
+  refreshUser: () => void;
+}
+
+type ProfileTab = 'overview' | 'edit-profile' | 'my-commissions' | 'security' | 'preferences' | 'notifications' | 'connected-accounts';
 
 const BannerModal: React.FC<{ isOpen: boolean; onClose: () => void; onSelect: (style: React.CSSProperties) => void; }> = ({ isOpen, onClose, onSelect }) => {
     const gradients = [
@@ -213,11 +220,86 @@ const ConnectedAccountsTab: React.FC<{ userId: string }> = ({ userId }) => {
     )
 }
 
-const ProfilePage: React.FC = () => {
-    const user = MOCK_USERS['user-2']; // Using David as he is a sales person
+const ProfilePage: React.FC<ProfilePageProps> = ({ user, refreshUser }) => {
     const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
     const [bannerStyle, setBannerStyle] = useState<React.CSSProperties>({ backgroundImage: 'linear-gradient(to right, #6366f1, #ec4899)' });
     const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
+    const { data: auditLogs } = useCollection<AuditLog>('auditLogs');
+    const [editedUser, setEditedUser] = useState<Partial<User>>({});
+    const [isSaving, setIsSaving] = useState(false);
+    
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+    const [isCropperOpen, setIsCropperOpen] = useState(false);
+
+
+    useEffect(() => {
+        if (user) {
+            setEditedUser({
+                fullName: user.fullName || user.name || '',
+                nickname: user.nickname || '',
+                phone: user.phone || '',
+                birthday: user.birthday || '',
+                interests: user.interests || '',
+                country: user.country || '',
+            });
+        }
+    }, [user]);
+
+    const handleFieldChange = (field: keyof typeof editedUser, value: string) => {
+        setEditedUser(prev => ({...prev, [field]: value }));
+    };
+
+    const handleSaveChanges = async () => {
+        setIsSaving(true);
+        try {
+            await api.updateDoc('users', user.id, editedUser);
+            refreshUser();
+            alert('Perfil actualizado con éxito.');
+        } catch (error) {
+            alert('Error al guardar los cambios.');
+            console.error(error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleAvatarClick = () => {
+        avatarInputRef.current?.click();
+    };
+
+    const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                setImageToCrop(reader.result as string);
+                setIsCropperOpen(true);
+            };
+            reader.readAsDataURL(file);
+        }
+        event.target.value = '';
+    };
+
+    const handleCropComplete = async (croppedBlob: Blob | null) => {
+        setIsCropperOpen(false);
+        if (!croppedBlob || !user) return;
+
+        const file = new File([croppedBlob], "avatar.png", { type: "image/png" });
+        setIsUploadingAvatar(true);
+        try {
+            const downloadURL = await api.uploadFile(file, `avatars/${user.id}`);
+            await api.updateDoc('users', user.id, { avatarUrl: downloadURL });
+            refreshUser();
+            alert('Foto de perfil actualizada.');
+        } catch (error) {
+            console.error("Error uploading avatar:", error);
+            alert("No se pudo actualizar la foto de perfil.");
+        } finally {
+            setIsUploadingAvatar(false);
+        }
+    };
 
     const [theme, setTheme] = useState(() => {
         return localStorage.getItem('crm-theme-mode') || 'light';
@@ -233,135 +315,178 @@ const ProfilePage: React.FC = () => {
         }
     }, [theme]);
 
-    const userActivity = MOCK_AUDIT_LOGS.filter(log => log.by === user.id).slice(0, 5);
+    const userActivity = useMemo(() => {
+        if (!user || !auditLogs) return [];
+        return auditLogs.filter(log => log.by === user.id).slice(0, 5);
+    }, [user, auditLogs]);
 
     const tabs: { id: ProfileTab; name: string; icon: string, condition?: () => boolean }[] = [
         { id: 'overview', name: 'Resumen', icon: 'person' },
         { id: 'edit-profile', name: 'Editar Perfil', icon: 'edit' },
-        { id: 'my-commissions', name: 'Mis Comisiones', icon: 'paid', condition: () => user.role === 'Ventas' },
+        { id: 'my-commissions', name: 'Mis Comisiones', icon: 'paid', condition: () => user?.role === 'Ventas' },
         { id: 'security', name: 'Seguridad', icon: 'lock' },
         { id: 'preferences', name: 'Preferencias', icon: 'tune' },
         { id: 'notifications', name: 'Notificaciones', icon: 'notifications' },
         { id: 'connected-accounts', name: 'Cuentas Conectadas', icon: 'link' },
     ];
 
+    if (!user) {
+        return <div className="flex justify-center items-center h-full"><Spinner /></div>;
+    }
+
     return (
-        <div className="space-y-6">
-            <div className="h-48 rounded-xl relative group" style={bannerStyle}>
-                <button 
-                    onClick={() => setIsBannerModalOpen(true)}
-                    className="absolute top-4 right-4 bg-black/30 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                    <span className="material-symbols-outlined">edit</span>
-                </button>
-                <div className="absolute -bottom-12 left-8">
-                    <div className="w-28 h-28 rounded-full border-4 border-slate-50 dark:border-slate-900 bg-slate-200 overflow-hidden">
-                        <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover"/>
-                    </div>
-                </div>
-            </div>
-
-            <div className="pt-14 px-8 flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">{user.name}</h1>
-                    <p className="text-slate-500 dark:text-slate-400">{user.role}</p>
-                </div>
-                {/* Add action button if needed */}
-            </div>
-            
-            <div className="border-b border-slate-200 dark:border-slate-700">
-                <nav className="-mb-px flex space-x-6 px-8" aria-label="Tabs">
-                    {tabs.filter(tab => tab.condition ? tab.condition() : true).map(tab => (
-                         <button 
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)} 
-                            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeTab === tab.id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'}`}
+        <>
+            <div className="space-y-6">
+                <div className="h-48 rounded-xl relative group" style={bannerStyle}>
+                    <button 
+                        onClick={() => setIsBannerModalOpen(true)}
+                        className="absolute top-4 right-4 bg-black/30 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                        <span className="material-symbols-outlined">edit</span>
+                    </button>
+                    <div className="absolute -bottom-12 left-8">
+                        <input
+                            type="file"
+                            accept="image/png, image/jpeg"
+                            ref={avatarInputRef}
+                            onChange={handleAvatarChange}
+                            className="hidden"
+                        />
+                        <div 
+                            className="w-28 h-28 rounded-full border-4 border-slate-50 dark:border-slate-900 bg-slate-200 overflow-hidden relative group/avatar cursor-pointer"
+                            onClick={handleAvatarClick}
+                            title="Cambiar foto de perfil"
                         >
-                            <span className="material-symbols-outlined text-base">{tab.icon}</span>
-                            {tab.name}
-                        </button>
-                    ))}
-                </nav>
-            </div>
-
-            <div className="p-2 md:p-4">
-                {activeTab === 'overview' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                            <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Actividad Reciente</h3>
-                            <ul className="space-y-3">
-                                {userActivity.map(log => (
-                                    <li key={log.id} className="text-sm text-slate-500 dark:text-slate-400">
-                                        <span className="font-semibold text-slate-700 dark:text-slate-300">{log.action}</span> en {log.entity}
-                                        <p className="text-xs">{new Date(log.at).toLocaleString()}</p>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                            <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Información</h3>
-                             <div className="space-y-3 text-sm">
-                                <p><strong className="text-slate-500 dark:text-slate-400">Email:</strong> {user.email}</p>
-                                <p><strong className="text-slate-500 dark:text-slate-400">Teléfono:</strong> {user.phone || 'No especificado'}</p>
-                                <p><strong className="text-slate-500 dark:text-slate-400">Equipo:</strong> {user.teamId}</p>
-                                <p><strong className="text-slate-500 dark:text-slate-400">Apodo:</strong> {user.nickname || 'N/A'}</p>
-                                <p><strong className="text-slate-500 dark:text-slate-400">Cumpleaños:</strong> {user.birthday ? new Date(user.birthday + 'T00:00:00').toLocaleDateString() : 'N/A'}</p>
-                                <p><strong className="text-slate-500 dark:text-slate-400">Intereses:</strong> {user.interests || 'N/A'}</p>
+                            <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover"/>
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+                                {isUploadingAvatar ? (
+                                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+                                ) : (
+                                    <span className="material-symbols-outlined text-white">edit</span>
+                                )}
                             </div>
                         </div>
                     </div>
-                )}
-                {activeTab === 'edit-profile' && (
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                </div>
+
+                <div className="pt-14 px-8 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">{user.name}</h1>
+                        <p className="text-slate-500 dark:text-slate-400">{user.role}</p>
+                    </div>
+                    {/* Add action button if needed */}
+                </div>
+                
+                <div className="border-b border-slate-200 dark:border-slate-700">
+                    <nav className="-mb-px flex space-x-6 px-8" aria-label="Tabs">
+                        {tabs.filter(tab => tab.condition ? tab.condition() : true).map(tab => (
+                            <button 
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)} 
+                                className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeTab === tab.id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'}`}
+                            >
+                                <span className="material-symbols-outlined text-base">{tab.icon}</span>
+                                {tab.name}
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+
+                <div className="p-2 md:p-4">
+                    {activeTab === 'overview' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <Input label="Nombre Completo" value={user.fullName || ''} onChange={() => {}} placeholder="Tu nombre legal" />
-                           <Input label="Apodo" value={user.nickname || ''} onChange={() => {}} placeholder="Como te gusta que te digan" />
-                           <Input label="Email" value={user.email} onChange={() => {}} disabled/>
-                           <Input label="Teléfono" value={user.phone || ''} onChange={() => {}} />
-                           <Input label="Título / Rol" value={user.role} onChange={() => {}} />
-                           <Input label="Fecha de Cumpleaños" type="date" value={user.birthday || ''} onChange={()=>{}} />
-                        </div>
-                         <div className="mt-6">
-                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Intereses</label>
-                            <textarea rows={3} className="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border-transparent rounded-lg p-2 text-sm" value={user.interests || ''} onChange={()=>{}}/>
-                        </div>
-                        <div className="mt-6 flex justify-end">
-                            <button onClick={() => alert('Guardando cambios... (simulación)')} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Cambios</button>
-                        </div>
-                    </div>
-                )}
-                 {activeTab === 'my-commissions' && <MyCommissionsTab userId={user.id} />}
-                 {activeTab === 'security' && (
-                     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                        <h3 className="text-lg font-semibold mb-4">Cambiar Contraseña</h3>
-                        <div className="space-y-4 max-w-sm">
-                           <Input label="Contraseña Actual" type="password" value="" onChange={() => {}} />
-                           <Input label="Nueva Contraseña" type="password" value="" onChange={() => {}} />
-                           <Input label="Confirmar Nueva Contraseña" type="password" value="" onChange={() => {}} />
-                        </div>
-                        <div className="mt-6 flex justify-end">
-                            <button onClick={() => alert('Actualizando contraseña... (simulación)')} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Actualizar Contraseña</button>
-                        </div>
-                    </div>
-                 )}
-                {activeTab === 'preferences' && (
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                        <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Tema de la Aplicación</h3>
-                        <div className="flex items-center justify-between mt-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-700/50">
-                            <div>
-                                <p className="font-medium text-slate-800 dark:text-slate-200">Modo Oscuro</p>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">Ideal para trabajar de noche.</p>
+                            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                                <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Actividad Reciente</h3>
+                                <ul className="space-y-3">
+                                    {userActivity.map(log => (
+                                        <li key={log.id} className="text-sm text-slate-500 dark:text-slate-400">
+                                            <span className="font-semibold text-slate-700 dark:text-slate-300">{log.action}</span> en {log.entity}
+                                            <p className="text-xs">{new Date(log.at.toDate()).toLocaleString()}</p>
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
-                            <ToggleSwitch enabled={theme === 'dark'} onToggle={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')} />
+                            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                                <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Información</h3>
+                                <div className="space-y-3 text-sm">
+                                    <p><strong className="text-slate-500 dark:text-slate-400">Email:</strong> {user.email}</p>
+                                    <p><strong className="text-slate-500 dark:text-slate-400">Teléfono:</strong> {user.phone || 'No especificado'}</p>
+                                    <p><strong className="text-slate-500 dark:text-slate-400">Equipo:</strong> {user.teamId}</p>
+                                    <p><strong className="text-slate-500 dark:text-slate-400">Apodo:</strong> {user.nickname || 'N/A'}</p>
+                                    <p><strong className="text-slate-500 dark:text-slate-400">Cumpleaños:</strong> {user.birthday ? new Date(user.birthday + 'T00:00:00').toLocaleDateString() : 'N/A'}</p>
+                                    <p><strong className="text-slate-500 dark:text-slate-400">Intereses:</strong> {user.interests || 'N/A'}</p>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                )}
-                 {activeTab === 'notifications' && <NotificationSettings />}
-                 {activeTab === 'connected-accounts' && <ConnectedAccountsTab userId={user.id} />}
-            </div>
+                    )}
+                    {activeTab === 'edit-profile' && (
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Input label="Nombre Completo" value={editedUser.fullName || ''} onChange={(val) => handleFieldChange('fullName', val)} placeholder="Tu nombre legal" />
+                            <Input label="Apodo" value={editedUser.nickname || ''} onChange={(val) => handleFieldChange('nickname', val)} placeholder="Como te gusta que te digan" />
+                            <Input label="Email" value={user.email} onChange={() => {}} disabled/>
+                            <Input label="Teléfono" value={editedUser.phone || ''} onChange={(val) => handleFieldChange('phone', val)} />
+                            <Input label="Título / Rol" value={user.role} onChange={() => {}} disabled />
+                            <Input label="Fecha de Cumpleaños" type="date" value={editedUser.birthday || ''} onChange={(val) => handleFieldChange('birthday', val)} />
+                            <CustomSelect label="País" options={COUNTRIES} value={editedUser.country || ''} onChange={(val) => handleFieldChange('country', val)} placeholder="Selecciona tu país..." />
+                            </div>
+                            <div className="mt-6">
+                                <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Intereses</label>
+                                <textarea rows={3} className="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border-transparent rounded-lg p-2 text-sm" value={editedUser.interests || ''} onChange={(e) => handleFieldChange('interests', e.target.value)}/>
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                                <button 
+                                    onClick={handleSaveChanges} 
+                                    disabled={isSaving}
+                                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm flex items-center disabled:opacity-50"
+                                >
+                                    {isSaving && <span className="material-symbols-outlined animate-spin mr-2 !text-base">progress_activity</span>}
+                                    {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    {activeTab === 'my-commissions' && <MyCommissionsTab userId={user.id} />}
+                    {activeTab === 'security' && (
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                            <h3 className="text-lg font-semibold mb-4">Cambiar Contraseña</h3>
+                            <div className="space-y-4 max-w-sm">
+                            <Input label="Contraseña Actual" type="password" value="" onChange={() => {}} />
+                            <Input label="Nueva Contraseña" type="password" value="" onChange={() => {}} />
+                            <Input label="Confirmar Nueva Contraseña" type="password" value="" onChange={() => {}} />
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                                <button onClick={() => alert('Actualizando contraseña... (simulación)')} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Actualizar Contraseña</button>
+                            </div>
+                        </div>
+                    )}
+                    {activeTab === 'preferences' && (
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                            <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Tema de la Aplicación</h3>
+                            <div className="flex items-center justify-between mt-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+                                <div>
+                                    <p className="font-medium text-slate-800 dark:text-slate-200">Modo Oscuro</p>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">Ideal para trabajar de noche.</p>
+                                </div>
+                                <ToggleSwitch enabled={theme === 'dark'} onToggle={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')} />
+                            </div>
+                        </div>
+                    )}
+                    {activeTab === 'notifications' && <NotificationSettings />}
+                    {activeTab === 'connected-accounts' && <ConnectedAccountsTab userId={user.id} />}
+                </div>
 
-            <BannerModal isOpen={isBannerModalOpen} onClose={() => setIsBannerModalOpen(false)} onSelect={setBannerStyle} />
-        </div>
+                <BannerModal isOpen={isBannerModalOpen} onClose={() => setIsBannerModalOpen(false)} onSelect={setBannerStyle} />
+            </div>
+            {imageToCrop && (
+                <ImageCropperModal
+                    isOpen={isCropperOpen}
+                    onClose={() => setIsCropperOpen(false)}
+                    imageSrc={imageToCrop}
+                    onCrop={handleCropComplete}
+                />
+            )}
+        </>
     );
 };
 

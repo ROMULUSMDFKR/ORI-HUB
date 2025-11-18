@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-// FIX: Changed import path to a dedicated api module.
-import { api } from '../data/mockData';
+import { api } from '../api/firebaseApi';
 
 interface UseCollectionResult<T> {
   data: T[] | null;

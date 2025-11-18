@@ -1,10 +1,13 @@
 
 
-import React, { useState } from 'react';
+
+
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Company } from '../../types';
+import { Company, User } from '../../types';
 import Badge from '../ui/Badge';
-import { MOCK_USERS } from '../../data/mockData';
+// FIX: Removed MOCK_USERS import and will fetch data using a hook.
+import { useCollection } from '../../hooks/useCollection';
 
 interface CompanyCardProps {
   item: Company;
@@ -12,7 +15,10 @@ interface CompanyCardProps {
 }
 
 const CompanyCard: React.FC<CompanyCardProps> = ({ item, onDragStart }) => {
-  const owner = MOCK_USERS[item.ownerId] || null;
+  // FIX: Fetch users with useCollection hook instead of using mock data.
+  const { data: users } = useCollection<User>('users');
+  const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+  const owner = usersMap.get(item.ownerId) || null;
   const [menuOpen, setMenuOpen] = useState(false);
 
   const getPriorityColor = (priority: Company['priority']) => {

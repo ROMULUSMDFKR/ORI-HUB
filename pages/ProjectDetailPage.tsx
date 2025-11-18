@@ -2,24 +2,30 @@ import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { Project, Task, User, TaskStatus } from '../types';
-import { MOCK_TASKS, MOCK_USERS } from '../data/mockData';
+// FIX: Se eliminaron las importaciones de datos falsos.
 import Spinner from '../components/ui/Spinner';
+import { useCollection } from '../hooks/useCollection';
 
 const ProjectDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const { data: project, loading } = useDoc<Project>('projects', id || '');
+    const { data: project, loading: pLoading } = useDoc<Project>('projects', id || '');
+    // FIX: Se obtienen las tareas y usuarios de la base de datos.
+    const { data: allTasks, loading: tLoading } = useCollection<Task>('tasks');
+    const { data: allUsers, loading: uLoading } = useCollection<User>('users');
+
+    const loading = pLoading || tLoading || uLoading;
 
     const { progress, tasks, members } = React.useMemo(() => {
-        if (!project) return { progress: 0, tasks: [], members: [] };
+        if (!project || !allTasks || !allUsers) return { progress: 0, tasks: [], members: [] };
 
-        const projectTasks = MOCK_TASKS.filter(t => t.projectId === project.id);
+        const projectTasks = allTasks.filter(t => t.projectId === project.id);
         const completedTasks = projectTasks.filter(t => t.status === TaskStatus.Hecho).length;
         const calculatedProgress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
         
-        const projectMembers = project.members.map(userId => Object.values(MOCK_USERS).find(u => u.id === userId)).filter(Boolean) as User[];
+        const projectMembers = project.members.map(userId => allUsers.find(u => u.id === userId)).filter(Boolean) as User[];
 
         return { progress: calculatedProgress, tasks: projectTasks, members: projectMembers };
-    }, [project]);
+    }, [project, allTasks, allUsers]);
 
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (!project) return <div className="text-center p-12">Proyecto no encontrado</div>;

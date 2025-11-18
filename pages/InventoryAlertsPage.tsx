@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { Product, ProductLot, LotStatus } from '../types';

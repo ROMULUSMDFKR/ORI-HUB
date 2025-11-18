@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Task, TaskStatus, Priority, Project, Subtask, User, Team } from '../types';
-import { MOCK_USERS, MOCK_PROJECTS } from '../data/mockData';
+// FIX: Se eliminaron las importaciones de datos falsos no utilizadas.
 import { useCollection } from '../hooks/useCollection';
 import Badge from '../components/ui/Badge';
 import Checkbox from '../components/ui/Checkbox';

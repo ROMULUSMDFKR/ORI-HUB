@@ -1,10 +1,11 @@
 import React from 'react';
-import { Task, Priority } from '../../types';
-import { MOCK_USERS, MOCK_PROJECTS } from '../../data/mockData';
+import { Task, Priority, User, Project } from '../../types';
 import Badge from '../ui/Badge';
 
 interface TaskCardProps {
   task: Task;
+  usersMap: Map<string, User>;
+  projectsMap: Map<string, Project>;
   onDragStart: (e: React.DragEvent<HTMLDivElement>, taskId: string) => void;
   onClick: () => void;
 }
@@ -18,9 +19,9 @@ const getPriorityBadgeColor = (priority?: Priority) => {
     }
 };
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onDragStart, onClick }) => {
-  const assignees = task.assignees.map(id => MOCK_USERS[id]).filter(Boolean);
-  const project = MOCK_PROJECTS.find(p => p.id === task.projectId);
+const TaskCard: React.FC<TaskCardProps> = ({ task, usersMap, projectsMap, onDragStart, onClick }) => {
+  const assignees = task.assignees.map(id => usersMap.get(id)).filter(Boolean);
+  const project = task.projectId ? projectsMap.get(task.projectId) : null;
   
   const isOverdue = task.dueAt && new Date(task.dueAt) < new Date();
 

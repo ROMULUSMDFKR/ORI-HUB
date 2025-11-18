@@ -1,10 +1,13 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
-import { Task, Prospect, SalesOrder } from '../../types';
-import { MOCK_USERS } from '../../data/mockData';
+import { Task, Prospect, SalesOrder, User } from '../../types';
+// FIX: Se eliminó la importación de datos falsos y se usará `useCollection`.
+import { api } from '../../data/mockData';
 // FIX: Add missing import for Spinner component.
 import Spinner from '../ui/Spinner';
+import { useCollection } from '../../hooks/useCollection';
 
 interface AiAssistantWidgetProps {
     tasks: Task[];
@@ -25,9 +28,14 @@ const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ tasks, prospects,
     const [closingStatement, setClosingStatement] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    const currentUser = MOCK_USERS['user-1'];
+    // FIX: Se obtienen los usuarios de la colección.
+    const { data: users } = useCollection<User>('users');
+    const currentUser = useMemo(() => users?.find(u => u.id === 'user-1'), [users]);
 
     const generateSummary = async () => {
+        // FIX: Se comprueba que currentUser exista antes de continuar.
+        if (!currentUser) return;
+
         setIsLoading(true);
         setError('');
         setSummaryCards([]);
@@ -130,8 +138,11 @@ const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ tasks, prospects,
     };
     
     useEffect(() => {
-        generateSummary();
-    }, []);
+        // FIX: Se asegura de que currentUser exista antes de generar el resumen.
+        if(currentUser) {
+            generateSummary();
+        }
+    }, [currentUser]);
 
     const cardTypeStyles = {
         info: {

@@ -1,5 +1,5 @@
 
-import { ProspectStage, SampleStatus, QuotePipelineStage, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm } from './types';
+import { ProspectStage, SampleStatus, QuotePipelineStage, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role } from './types';
 
 export const NAV_LINKS = [
   { name: 'Hoy', path: '/today', icon: 'home' },
@@ -117,6 +117,7 @@ export const NAV_LINKS = [
     icon: 'settings',
     sublinks: [
       { name: 'Usuarios y Permisos', path: '/settings/users', icon: 'manage_accounts' },
+      { name: 'Roles y Permisos', path: '/settings/roles', icon: 'admin_panel_settings' },
       { name: 'Equipos', path: '/settings/teams', icon: 'groups' },
       { name: 'Seguridad', path: '/settings/security', icon: 'security' },
       { name: 'Cuentas de Correo', path: '/settings/email-accounts', icon: 'alternate_email' },
@@ -210,3 +211,82 @@ export const REQUIRED_DOCS_OPTIONS = ['Constancia de Situación Fiscal', 'Acta C
 export const APPROVAL_CRITERIA_OPTIONS = ['Precio', 'Calidad', 'Tiempo de Entrega', 'Condiciones de Pago', 'Servicio Post-Venta'];
 export const EQUIPMENT_OPTIONS = ['Montacargas', 'Báscula', 'Grúa', 'Patín Hidráulico'];
 export const ACCESS_RESTRICTIONS_OPTIONS = ['Cita Previa', 'Horario Restringido', 'Equipo de Seguridad Obligatorio (EPP)', 'Unidad no mayor a 3.5 ton'];
+
+
+// --- PERMISSIONS CONFIG ---
+// Updated: Enabled ALL actions for ALL pages to give full control to the admin.
+export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'create' | 'edit' | 'delete')[]>> = {
+    'Prospección IA': { 
+        'Candidatos': ['view', 'create', 'edit', 'delete'], 
+        'Importar Datos': ['view', 'create', 'edit', 'delete'] 
+    },
+    'Hubs': { 
+        'Prospectos': ['view', 'create', 'edit', 'delete'], 
+        'Muestras': ['view', 'create', 'edit', 'delete'], 
+        'Cotizaciones': ['view', 'create', 'edit', 'delete'], 
+        'Órdenes de Venta': ['view', 'create', 'edit', 'delete'], 
+        'Empresas': ['view', 'create', 'edit', 'delete'] 
+    },
+    'Productos': { 
+        'Lista de Productos': ['view', 'create', 'edit', 'delete'], 
+        'Categorías': ['view', 'create', 'edit', 'delete'] 
+    },
+    'Compras': { 
+        'Órdenes de Compra': ['view', 'create', 'edit', 'delete'], 
+        'Proveedores': ['view', 'create', 'edit', 'delete'] 
+    },
+    'Inventario': { 
+        'Stock Actual': ['view', 'create', 'edit', 'delete'], 
+        'Movimientos': ['view', 'create', 'edit', 'delete'], 
+        'Alertas': ['view', 'create', 'edit', 'delete'], 
+        'Ubicaciones': ['view', 'create', 'edit', 'delete'] 
+    },
+    'Logística': { 
+        'Entregas': ['view', 'create', 'edit', 'delete'], 
+        'Transportistas': ['view', 'create', 'edit', 'delete'], 
+        'Precios de Flete': ['view', 'create', 'edit', 'delete'] 
+    },
+    'Productividad': { 
+        'Tareas': ['view', 'create', 'edit', 'delete'], 
+        'Proyectos': ['view', 'create', 'edit', 'delete'], 
+        'Calendario': ['view', 'create', 'edit', 'delete'] 
+    },
+    'Finanzas': { 
+        'Facturación': ['view', 'create', 'edit', 'delete'], 
+        'Pagos Pendientes': ['view', 'create', 'edit', 'delete'], 
+        'Pagos Recibidos': ['view', 'create', 'edit', 'delete'], 
+        'Gastos': ['view', 'create', 'edit', 'delete'], 
+        'Comisiones': ['view', 'create', 'edit', 'delete'] 
+    },
+    'Sistema': { 
+        'Archivos': ['view', 'create', 'edit', 'delete'], 
+        'Auditoría': ['view', 'create', 'edit', 'delete'] 
+    }
+};
+
+export const ALL_ACTIONS: ('view' | 'create' | 'edit' | 'delete')[] = ['view', 'create', 'edit', 'delete'];
+export const ACTION_TRANSLATIONS: Record<string, string> = { view: 'Ver', create: 'Crear', edit: 'Editar', delete: 'Eliminar' };
+
+export const getDefaultPermissions = (): Role['permissions'] => {
+    const permissions: Role['permissions'] = {
+      dataScope: 'all',
+      pages: {}
+    };
+  
+    Object.entries(PAGE_PERMISSIONS_CONFIG).forEach(([moduleName, pages]) => {
+      permissions.pages[moduleName] = {};
+      Object.entries(pages).forEach(([pageName, actions]) => {
+        permissions.pages[moduleName][pageName] = [...actions];
+      });
+    });
+  
+    return permissions;
+};
+
+export const COUNTRIES = [
+    { value: 'MX', name: 'México' },
+    { value: 'US', name: 'Estados Unidos' },
+    { value: 'CO', name: 'Colombia' },
+    { value: 'ES', name: 'España' },
+    { value: 'AR', name: 'Argentina' },
+];

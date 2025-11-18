@@ -1,17 +1,25 @@
 import React from 'react';
 import { useCollection } from '../hooks/useCollection';
-import { Project } from '../types';
+import { Project, Task, User } from '../types';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import ProjectCard from '../components/tasks/ProjectCard';
 import { Link, useNavigate } from 'react-router-dom';
 
 const ProjectsPage: React.FC = () => {
-  const { data: projects, loading, error } = useCollection<Project>('projects');
+  // FIX: Se destructuran los errores para poder gestionarlos.
+  const { data: projects, loading: pLoading, error: pError } = useCollection<Project>('projects');
+  const { data: tasks, loading: tLoading, error: tError } = useCollection<Task>('tasks');
+  const { data: users, loading: uLoading, error: uError } = useCollection<User>('users');
   const navigate = useNavigate();
   
+  const loading = pLoading || tLoading || uLoading;
+  // FIX: Se combina el estado de error de todas las colecciones.
+  const error = pError || tError || uError;
+
   const renderContent = () => {
     if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
+    // FIX: Se comprueba la variable de error combinada.
     if (error) return <p className="text-center text-red-500 py-12">Error al cargar los proyectos.</p>;
     if (!projects || projects.length === 0) {
         return (
@@ -26,7 +34,7 @@ const ProjectsPage: React.FC = () => {
     }
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map(project => <ProjectCard key={project.id} project={project} />)}
+            {projects.map(project => <ProjectCard key={project.id} project={project} tasks={tasks || []} users={users || []} />)}
         </div>
     );
   };

@@ -1,10 +1,14 @@
 
 
 
-import React, { useState } from 'react';
+
+
+
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Sample } from '../../types';
-import { MOCK_COMPANIES, MOCK_PRODUCTS, MOCK_PROSPECTS } from '../../data/mockData';
+import { Sample, Company, Product, Prospect } from '../../types';
+// FIX: Removed MOCK data imports and will fetch data using a hook.
+import { useCollection } from '../../hooks/useCollection';
 
 interface SampleCardProps {
   item: Sample;
@@ -13,12 +17,23 @@ interface SampleCardProps {
 }
 
 const SampleCard: React.FC<SampleCardProps> = ({ item, onDragStart, onArchive }) => {
-  const recipient = item.companyId
-    ? MOCK_COMPANIES.find(c => c.id === item.companyId)
-    : MOCK_PROSPECTS.find(p => p.id === item.prospectId);
+  // FIX: Fetch data with useCollection hook instead of using mock data.
+  const { data: companies } = useCollection<Company>('companies');
+  const { data: products } = useCollection<Product>('products');
+  const { data: prospects } = useCollection<Prospect>('prospects');
 
-  const product = MOCK_PRODUCTS.find(p => p.id === item.productId);
-  const recipientName = item.companyId ? (recipient as any)?.shortName : recipient?.name;
+  const recipient = useMemo(() => {
+    if (item.companyId && companies) {
+      return companies.find(c => c.id === item.companyId);
+    }
+    if (item.prospectId && prospects) {
+      return prospects.find(p => p.id === item.prospectId);
+    }
+    return null;
+  }, [item, companies, prospects]);
+
+  const product = useMemo(() => products?.find(p => p.id === item.productId), [products, item.productId]);
+  const recipientName = item.companyId ? (recipient as Company)?.shortName || recipient?.name : recipient?.name;
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (

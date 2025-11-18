@@ -1,18 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Prospect, ProspectStage, Priority, User } from '../types';
-import { MOCK_USERS } from '../data/mockData';
 import { useDoc } from '../hooks/useDoc';
+import { useCollection } from '../hooks/useCollection';
 import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
 
 const EditProspectPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { data: initialProspect, loading } = useDoc<Prospect>('prospects', id || '');
+    const { data: initialProspect, loading: pLoading } = useDoc<Prospect>('prospects', id || '');
+    const { data: users, loading: uLoading } = useCollection<User>('users');
 
     const [prospect, setProspect] = useState<Partial<Prospect> | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const loading = pLoading || uLoading;
 
     useEffect(() => {
         if (initialProspect) {
@@ -38,7 +41,7 @@ const EditProspectPage: React.FC = () => {
         if (validate()) {
             console.log("Prospecto Actualizado:", prospect);
             alert("Prospecto actualizado (revisa la consola).");
-            navigate(`/crm/prospects/${id}`);
+            navigate(`/hubs/prospects/${id}`);
         }
     };
 
@@ -59,9 +62,8 @@ const EditProspectPage: React.FC = () => {
         </div>
     );
     
-    const creator = Object.values(MOCK_USERS).find(u => u.id === prospect.createdById);
-    
-    const userOptions = Object.values(MOCK_USERS).filter((v,i,a)=>a.findIndex(t=>(t.id === v.id))===i).map(u => ({ value: u.id, name: u.name }));
+    const creator = users?.find(u => u.id === prospect.createdById);
+    const userOptions = (users || []).map(u => ({ value: u.id, name: u.name }));
     const stageOptions = Object.values(ProspectStage).map(s => ({ value: s, name: s }));
     const priorityOptions = Object.values(Priority).map(p => ({ value: p, name: p }));
 
@@ -70,7 +72,7 @@ const EditProspectPage: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Editar Prospecto</h2>
                 <div className="flex space-x-2">
-                    <button onClick={() => navigate(`/crm/prospects/${id}`)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">
+                    <button onClick={() => navigate(`/hubs/prospects/${id}`)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">
                         Cancelar
                     </button>
                     <button onClick={handleSubmit} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700">

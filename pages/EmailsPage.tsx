@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { Email, Attachment, User, ConnectedEmailAccount } from '../types';
 import Spinner from '../components/ui/Spinner';
-import { MOCK_USERS } from '../data/mockData';
+// FIX: Se eliminó la importación de datos falsos.
 import { emailFooterHtml } from '../components/emails/EmailFooter';
 import CustomSelect from '../components/ui/CustomSelect';
+import { useAuth } from '../hooks/useAuth';
 
 type EmailFolder = 'inbox' | 'sent' | 'drafts' | 'trash';
 type ComposeMode = 'new' | 'reply' | 'forward';
@@ -195,8 +196,9 @@ const EmailsPage: React.FC = () => {
     
     const [selectedAccountEmail, setSelectedAccountEmail] = useState<string | null>(null);
 
-    const currentUser = MOCK_USERS['user-2'];
-    const userSignature = (currentUser as any).signature || '';
+    // FIX: Se obtiene el usuario actual desde el hook de autenticación.
+    const { user: currentUser } = useAuth();
+    const userSignature = (currentUser as any)?.signature || '';
 
     useEffect(() => {
         if (allEmails) {
@@ -205,9 +207,9 @@ const EmailsPage: React.FC = () => {
     }, [allEmails]);
     
     const userAccounts = useMemo(() => {
-        if (!allAccounts) return [];
+        if (!allAccounts || !currentUser) return [];
         return allAccounts.filter(acc => acc.userId === currentUser.id);
-    }, [allAccounts, currentUser.id]);
+    }, [allAccounts, currentUser]);
 
     useEffect(() => {
         if (userAccounts.length > 0 && !selectedAccountEmail) {
@@ -265,7 +267,7 @@ const EmailsPage: React.FC = () => {
     };
 
      const handleSendEmail = (emailData: { to: string; cc?: string; bcc?: string; subject: string; body: string; attachments: File[] }) => {
-        if (!selectedAccountEmail) return;
+        if (!selectedAccountEmail || !currentUser) return;
         const newAttachments: Attachment[] = emailData.attachments.map(file => ({
             id: `att-${Date.now()}-${file.name}`,
             name: file.name,

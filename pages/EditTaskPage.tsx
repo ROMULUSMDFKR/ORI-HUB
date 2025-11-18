@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Task, TaskStatus, Priority, Project, Subtask, User, Team } from '../types';
+// FIX: Se eliminaron las importaciones de datos falsos no utilizadas.
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { Task, TaskStatus, Priority, Project, Subtask, User, Team } from '../types';
-import { MOCK_USERS, MOCK_PROJECTS } from '../../data/mockData';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import Checkbox from '../components/ui/Checkbox';

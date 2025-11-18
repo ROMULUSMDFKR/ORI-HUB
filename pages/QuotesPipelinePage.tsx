@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MOCK_QUOTES, MOCK_ACTIVITIES, MOCK_USERS } from '../data/mockData';
+import { useCollection } from '../hooks/useCollection';
 import { QUOTES_PIPELINE_COLUMNS } from '../constants';
-import { Quote, QuotePipelineStage, ActivityLog } from '../types';
+import { Quote, QuotePipelineStage, ActivityLog, User } from '../types';
 import QuoteCard from '../components/hubs/QuoteCard';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
+import Spinner from '../components/ui/Spinner';
 
 const PipelineColumn: React.FC<{
   stage: QuotePipelineStage;
@@ -37,9 +38,21 @@ const PipelineColumn: React.FC<{
 
 
 const QuotesPipelinePage: React.FC = () => {
-  const [quotes, setQuotes] = useState<Quote[]>(MOCK_QUOTES);
-  const [activities] = useState<ActivityLog[]>(MOCK_ACTIVITIES);
+  const { data: quotesData, loading: quotesLoading } = useCollection<Quote>('quotes');
+  const { data: activities, loading: activitiesLoading } = useCollection<ActivityLog>('activities');
+  const { data: users, loading: usersLoading } = useCollection<User>('users');
+  
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
+
+  useEffect(() => {
+    if (quotesData) {
+      setQuotes(quotesData);
+    }
+  }, [quotesData]);
+
+  const loading = quotesLoading || activitiesLoading || usersLoading;
+  const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
 
   const groupedColumns = useMemo(() => {
     return QUOTES_PIPELINE_COLUMNS.reduce((acc, column) => {
@@ -51,6 +64,7 @@ const QuotesPipelinePage: React.FC = () => {
   }, []);
   
   const pipelineActivities = useMemo(() => {
+    if (!activities) return [];
     const quoteIds = new Set(quotes.map(q => q.id));
     return activities
       .filter(a => a.quoteId && quoteIds.has(a.quoteId))
@@ -90,6 +104,8 @@ const QuotesPipelinePage: React.FC = () => {
   ];
 
   const renderContent = () => {
+    if (loading) return <div className="flex-1 flex items-center justify-center"><Spinner /></div>;
+
     switch(view) {
         case 'pipeline':
              return (
@@ -116,7 +132,7 @@ const QuotesPipelinePage: React.FC = () => {
                 { header: 'Folio', accessor: (q: Quote) => <Link to={`/hubs/quotes/${q.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{q.folio}</Link> },
                 { header: 'Estado', accessor: (q: Quote) => <Badge text={q.status} />},
                 { header: 'Total', accessor: (q: Quote) => `$${q.totals.grandTotal.toLocaleString()}`},
-                { header: 'Responsable', accessor: (q: Quote) => MOCK_USERS[q.salespersonId]?.name || 'N/A' },
+                { header: 'Responsable', accessor: (q: Quote) => usersMap.get(q.salespersonId)?.name || 'N/A' },
                 { header: 'Creación', accessor: (q: Quote) => new Date(q.createdAt).toLocaleDateString()},
             ];
             return <Table columns={columns} data={quotes} />;
@@ -124,8 +140,9 @@ const QuotesPipelinePage: React.FC = () => {
             return (
                 <ul className="space-y-4">
                     {pipelineActivities.map(activity => {
-                        const user = MOCK_USERS[activity.userId];
+                        const user = usersMap.get(activity.userId);
                         const quote = quotes.find(q => q.id === activity.quoteId);
+                        if (!user || !quote) return null;
                         return (
                             <li key={activity.id} className="flex items-start gap-3 text-sm p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
                                 <div><img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full" /></div>

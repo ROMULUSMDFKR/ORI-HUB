@@ -1,13 +1,16 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
-import { Candidate, Note, ActivityLog, CandidateStatus, CandidateTag, CandidateAiAnalysis, RejectionReason, BlacklistReason, Prospect, ProspectStage } from '../types';
+import { Candidate, Note, ActivityLog, CandidateStatus, CandidateTag, CandidateAiAnalysis, RejectionReason, BlacklistReason, Prospect, ProspectStage, User } from '../types';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
-import { MOCK_USERS, api } from '../data/mockData';
+// FIX: Removed MOCK_USERS import and will use useCollection to fetch users.
+import { api } from '../data/mockData';
 import { GoogleGenAI, Type } from '@google/genai';
 import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
+// FIX: Added useCollection to fetch user data.
+import { useCollection } from '../hooks/useCollection';
 
 
 const SocialIcon: React.FC<{ url: string }> = ({ url }) => {
@@ -94,7 +97,7 @@ const CompletenessCriteria: React.FC<{ candidate: Candidate }> = ({ candidate })
     );
 };
 
-const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) => {
+const ActivityFeed: React.FC<{ activities: ActivityLog[], usersMap: Map<string, User> }> = ({ activities, usersMap }) => {
     const iconMap: Record<ActivityLog['type'], string> = {
         'Llamada': 'call',
         'Email': 'email',
@@ -111,7 +114,7 @@ const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) =
             {activities.length > 0 ? (
                  <ul className="space-y-4 max-h-96 overflow-y-auto pr-2">
                      {activities.map(activity => {
-                        const author = MOCK_USERS[activity.userId];
+                        const author = usersMap.get(activity.userId);
                         return (
                             <li key={activity.id} className="flex items-start gap-3">
                                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center ring-4 ring-white dark:ring-slate-800">
@@ -137,11 +140,15 @@ const ActivityFeed: React.FC<{ activities: ActivityLog[] }> = ({ activities }) =
 const CandidateDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { data: candidate, loading, error } = useDoc<Candidate>('candidates', id || '');
+    const { data: candidate, loading: candidateLoading, error } = useDoc<Candidate>('candidates', id || '');
+    // FIX: Fetch users to replace mock data.
+    const { data: users, loading: usersLoading } = useCollection<User>('users');
     const [currentCandidate, setCurrentCandidate] = useState<Candidate | null>(null);
     const [isLoadingAI, setIsLoadingAI] = useState(false);
     const [aiError, setAiError] = useState('');
-    const currentUser = MOCK_USERS['user-1'];
+    // FIX: Get current user from fetched data.
+    const currentUser = useMemo(() => users?.find(u => u.id === 'user-1'), [users]);
+    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
 
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
     const [isBlacklistModalOpen, setIsBlacklistModalOpen] = useState(false);
@@ -149,15 +156,16 @@ const CandidateDetailPage: React.FC = () => {
     const [aiScriptTab, setAiScriptTab] = useState<'whatsapp' | 'phone' | 'email'>('whatsapp');
     
     useEffect(() => {
-        if (candidate) {
+        if (candidate && currentUser) {
             setCurrentCandidate(candidate);
             setNewStatus(candidate.status);
             const hasViewed = candidate.activityLog.some(log => log.type === 'Vista de Perfil' && log.userId === currentUser.id);
             if (!hasViewed) addActivityLog('Vista de Perfil', 'Perfil visto', candidate.id);
         }
-    }, [candidate, currentUser.id]);
+    }, [candidate, currentUser]);
     
     const addActivityLog = async (type: ActivityLog['type'], description: string, candidateId: string) => {
+        if (!currentUser) return;
         const log: ActivityLog = { id: `log-${Date.now()}`, candidateId, type, description, userId: currentUser.id, createdAt: new Date().toISOString() };
         await api.addDoc('activities', log);
         setCurrentCandidate(prev => prev ? { ...prev, activityLog: [log, ...prev.activityLog] } : null);
@@ -184,7 +192,7 @@ const CandidateDetailPage: React.FC = () => {
     };
     
     const handleApprove = async () => {
-        if (!currentCandidate) return;
+        if (!currentCandidate || !currentUser) return;
         const newProspect: Prospect = { id: `prospect-${Date.now()}`, name: currentCandidate.name, stage: ProspectStage.Nueva, ownerId: currentUser.id, createdById: currentUser.id, estValue: 0, createdAt: new Date().toISOString(), origin: 'Prospección IA' };
         await api.addDoc('prospects', newProspect);
         await handleStatusChange(CandidateStatus.Aprobado, 'Aprobado y convertido en prospecto');
@@ -277,6 +285,8 @@ const CandidateDetailPage: React.FC = () => {
         }
     };
     
+    const loading = candidateLoading || usersLoading;
+
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (error || !currentCandidate) return <div className="text-center p-12">Candidato no encontrado</div>;
     
@@ -352,7 +362,7 @@ const CandidateDetailPage: React.FC = () => {
                          </div>
                         }
                     </InfoCard>
-                    <ActivityFeed activities={currentCandidate.activityLog} />
+                    <ActivityFeed activities={currentCandidate.activityLog} usersMap={usersMap} />
                 </div>
 
                 <div className="lg:col-span-1 space-y-6">

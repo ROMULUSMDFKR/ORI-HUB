@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Company, Address, Stakeholder, CompanyPipelineStage, ActivityLog, Note } from '../types';
+import { Company, Address, Stakeholder, CompanyPipelineStage, ActivityLog, Note, User } from '../types';
 import { useDoc } from '../hooks/useDoc';
+import { useCollection } from '../hooks/useCollection';
 import Spinner from '../components/ui/Spinner';
 import { APPROVAL_CRITERIA_OPTIONS, COMMUNICATION_CHANNELS, EQUIPMENT_OPTIONS, FORMALITY_OPTIONS, INCOTERM_OPTIONS, PAYMENT_TERM_OPTIONS, PREFERRED_DAYS_OPTIONS, PRESENTATION_OPTIONS, PURCHASE_FREQUENCY_OPTIONS, PURCHASE_TYPE_OPTIONS, QUOTE_FORMAT_OPTIONS, REQUIRED_DOCS_OPTIONS, SLA_OPTIONS, TONE_OPTIONS, ACCESS_RESTRICTIONS_OPTIONS } from '../constants';
-import { MOCK_ACTIVITIES, MOCK_NOTES, MOCK_USERS } from '../data/mockData';
 import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
 
@@ -45,10 +45,7 @@ const Toggle: React.FC<{ label: string; enabled: boolean; onToggle: (val: boolea
     </div>
 );
 
-const ActivityFeed: React.FC<{ companyId: string }> = ({ companyId }) => {
-    const activities = MOCK_ACTIVITIES.filter(a => a.companyId === companyId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
+const ActivityFeed: React.FC<{ activities: ActivityLog[], usersMap: Map<string, User> }> = ({ activities, usersMap }) => {
     const iconMap: Record<ActivityLog['type'], string> = {
         'Llamada': 'call',
         'Email': 'email',
@@ -79,7 +76,7 @@ const ActivityFeed: React.FC<{ companyId: string }> = ({ companyId }) => {
                                     <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
                                         <div>
                                             <p className="text-sm text-slate-500 dark:text-slate-400">
-                                                {activity.description} por <span className="font-medium text-slate-900 dark:text-slate-200">{MOCK_USERS[activity.userId]?.name}</span>
+                                                {activity.description} por <span className="font-medium text-slate-900 dark:text-slate-200">{usersMap.get(activity.userId)?.name}</span>
                                             </p>
                                         </div>
                                         <div className="text-right text-sm whitespace-nowrap text-slate-500 dark:text-slate-400">
@@ -99,13 +96,31 @@ const ActivityFeed: React.FC<{ companyId: string }> = ({ companyId }) => {
 const EditClientPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const [activeTab, setActiveTab] = useState<Tab>('General');
-    const { data: company, loading, error } = useDoc<Company>('companies', id || '');
-    const [notes, setNotes] = useState(MOCK_NOTES.filter(n => n.companyId === id)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    const { data: company, loading: cLoading, error } = useDoc<Company>('companies', id || '');
+    const { data: allNotes, loading: nLoading } = useCollection<Note>('notes');
+    const { data: allActivities, loading: aLoading } = useCollection<ActivityLog>('activities');
+    const { data: users, loading: uLoading } = useCollection<User>('users');
+
+    const [notes, setNotes] = useState<Note[]>([]);
+    
+    useEffect(() => {
+        if(allNotes && id) {
+            setNotes(allNotes.filter(n => n.companyId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        }
+    }, [allNotes, id]);
+
+    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+    
+    const activities = useMemo(() => {
+        if (!allActivities || !id) return [];
+        return allActivities.filter(a => a.companyId === id).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [allActivities, id]);
 
     const handleNoteAdded = (note: Note) => {
         setNotes(prev => [note, ...prev]);
     }
+
+    const loading = cLoading || nLoading || aLoading || uLoading;
 
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (error || !company) return <div className="text-center p-12">Empresa no encontrada</div>;
@@ -118,7 +133,7 @@ const EditClientPage: React.FC = () => {
                     <Input label="Nombre corto (alias)" value={company.shortName || ''} onChange={() => {}} />
                     <Input label="RFC" value={company.rfc || ''} onChange={() => {}} />
                     <Select label="Industria" value={company.industry || ''} onChange={() => {}} options={['Industrial', 'Agricultura', 'Transporte', 'Construcción']} />
-                    <Select label="Responsable Principal" value={company.ownerId || ''} onChange={() => {}} options={['Natalia', 'David']} />
+                    <CustomSelect label="Responsable Principal" options={(users || []).map(u => ({ value: u.id, name: u.name }))} value={company.ownerId || ''} onChange={() => {}} />
                     <Select label="Prioridad" value={company.priority || ''} onChange={() => {}} options={['Alta', 'Media', 'Baja']} />
                     <Select label="Etapa del Cliente" value={company.stage || ''} onChange={() => {}} options={Object.values(CompanyPipelineStage)} />
                     <Input label="Sitio Web" value={company.website || ''} onChange={() => {}} />
@@ -166,7 +181,7 @@ const EditClientPage: React.FC = () => {
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Días Preferidos</label>
                         <div className="flex flex-wrap gap-2 mt-2">
                             {PREFERRED_DAYS_OPTIONS.map(day => (
-                                <span key={day} className={`px-3 py-1 text-sm rounded-full cursor-pointer ${company.profile?.communication?.days.includes(day) ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                                <span key={day} className={`px-3 py-1 text-sm rounded-full cursor-pointer ${(company.profile?.communication?.days || []).includes(day) ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700'}`}>
                                     {day}
                                 </span>
                             ))}
@@ -281,7 +296,7 @@ const EditClientPage: React.FC = () => {
             <div className="mt-6">
                 {activeTab === 'General' && renderGeneralTab()}
                 {activeTab === 'Perfil' && renderProfileTab()}
-                {activeTab === 'Actividad' && <ActivityFeed companyId={company.id} />}
+                {activeTab === 'Actividad' && <ActivityFeed activities={activities} usersMap={usersMap} />}
                 {activeTab === 'Notas' && (
                     <NotesSection 
                         entityId={company.id}

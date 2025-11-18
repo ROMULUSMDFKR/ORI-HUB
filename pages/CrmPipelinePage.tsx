@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { MOCK_PROSPECTS, MOCK_USERS, MOCK_ACTIVITIES } from '../data/mockData';
+import { useCollection } from '../hooks/useCollection';
 import { PIPELINE_COLUMNS } from '../constants';
-import { Prospect, ProspectStage, ActivityLog } from '../types';
+import { Prospect, ProspectStage, ActivityLog, User } from '../types';
 import ProspectCard from '../components/crm/ProspectCard';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
+import Spinner from '../components/ui/Spinner';
 
 const PipelineColumn: React.FC<{
   stage: ProspectStage;
@@ -36,9 +37,20 @@ const PipelineColumn: React.FC<{
 };
 
 const CrmPipelinePage: React.FC = () => {
-  const [prospects, setProspects] = useState<Prospect[]>(MOCK_PROSPECTS);
-  const [activities] = useState<ActivityLog[]>(MOCK_ACTIVITIES);
+  const { data: prospectsData, loading: prospectsLoading } = useCollection<Prospect>('prospects');
+  const { data: users, loading: usersLoading } = useCollection<User>('users');
+  const { data: activities, loading: activitiesLoading } = useCollection<ActivityLog>('activities');
+
+  const [prospects, setProspects] = useState<Prospect[]>([]);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
+
+  React.useEffect(() => {
+    if (prospectsData) {
+      setProspects(prospectsData);
+    }
+  }, [prospectsData]);
+  
+  const loading = prospectsLoading || usersLoading || activitiesLoading;
 
   const groupedColumns = useMemo(() => {
     return PIPELINE_COLUMNS.reduce((acc, column) => {
@@ -50,11 +62,17 @@ const CrmPipelinePage: React.FC = () => {
   }, []);
   
   const pipelineActivities = useMemo(() => {
+    if (!activities) return [];
     const prospectIds = new Set(prospects.map(p => p.id));
     return activities
       .filter(a => a.prospectId && prospectIds.has(a.prospectId))
       .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [prospects, activities]);
+  
+  const usersMap = useMemo(() => {
+      if (!users) return new Map();
+      return new Map(users.map(u => [u.id, u.name]));
+  }, [users]);
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
@@ -79,6 +97,7 @@ const CrmPipelinePage: React.FC = () => {
           p.id === prospectId ? { ...p, stage: targetStage } : p
         )
       );
+      // Here you would call an API to persist the change
     }
   };
   
@@ -89,6 +108,8 @@ const CrmPipelinePage: React.FC = () => {
   ];
 
   const renderContent = () => {
+    if (loading) return <div className="flex-1 flex items-center justify-center"><Spinner /></div>;
+
     switch(view) {
         case 'pipeline':
             return (
@@ -112,10 +133,10 @@ const CrmPipelinePage: React.FC = () => {
             );
         case 'list':
             const columns = [
-                { header: 'Nombre', accessor: (p: Prospect) => <Link to={`/crm/prospects/${p.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{p.name}</Link> },
+                { header: 'Nombre', accessor: (p: Prospect) => <Link to={`/hubs/prospects/${p.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{p.name}</Link> },
                 { header: 'Etapa', accessor: (p: Prospect) => <Badge text={p.stage} color="blue" />},
                 { header: 'Valor Est.', accessor: (p: Prospect) => `$${p.estValue.toLocaleString()}`},
-                { header: 'Responsable', accessor: (p: Prospect) => MOCK_USERS[p.ownerId]?.name || 'N/A' },
+                { header: 'Responsable', accessor: (p: Prospect) => usersMap.get(p.ownerId) || 'N/A' },
                 { header: 'Creación', accessor: (p: Prospect) => new Date(p.createdAt).toLocaleDateString()},
             ];
             return <Table columns={columns} data={prospects} />;
@@ -123,15 +144,16 @@ const CrmPipelinePage: React.FC = () => {
             return (
                 <ul className="space-y-4">
                     {pipelineActivities.map(activity => {
-                        const user = MOCK_USERS[activity.userId];
+                        const user = users?.find(u => u.id === activity.userId);
                         const prospect = prospects.find(p => p.id === activity.prospectId);
+                        if (!user || !prospect) return null;
                         return (
                             <li key={activity.id} className="flex items-start gap-3 text-sm p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
                                 <div><img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full" /></div>
                                 <div className="flex-1">
                                     <p className="text-slate-800 dark:text-slate-200">{activity.description}</p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                        {user.name} en <Link to={`/crm/prospects/${prospect?.id}`} className="font-semibold hover:underline">{prospect?.name}</Link> &bull; {new Date(activity.createdAt).toLocaleString()}
+                                        {user.name} en <Link to={`/hubs/prospects/${prospect?.id}`} className="font-semibold hover:underline">{prospect?.name}</Link> &bull; {new Date(activity.createdAt).toLocaleString()}
                                     </p>
                                 </div>
                             </li>
@@ -150,7 +172,7 @@ const CrmPipelinePage: React.FC = () => {
             <ViewSwitcher views={pipelineViews} activeView={view} onViewChange={(v) => setView(v as 'pipeline' | 'list' | 'history')} />
         </div>
         <Link 
-          to="/crm/prospects/new"
+          to="/hubs/prospects/new"
           className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
           <span className="material-symbols-outlined mr-2">add</span>
           Nuevo Prospecto

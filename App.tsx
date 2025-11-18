@@ -2,15 +2,19 @@
 
 import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { User as FirebaseUser } from 'firebase/auth';
+import { useAuth } from './hooks/useAuth'; // Import the new hook
+
 import Header from './components/layout/Header';
 import QuickTaskModal from './components/layout/QuickTaskModal';
 import PrimarySidebar from './components/layout/PrimarySidebar';
 import ContentLayout from './components/layout/ContentLayout';
 import { NAV_LINKS } from './constants';
 import SecondarySidebar from './components/layout/SecondarySidebar';
+import { User } from './types';
 
 const PageLoader: React.FC = () => (
-  <div className="w-full h-full flex items-center justify-center">
+  <div className="w-full h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
   </div>
 );
@@ -117,29 +121,17 @@ const IndustryManagementPage = lazy(() => import('./pages/settings/IndustryManag
 const PipelineManagementPage = lazy(() => import('./pages/settings/PipelineManagement'));
 const AiAccessSettingsPage = lazy(() => import('./pages/settings/AiAccessSettings'));
 const EmailAppearancePage = lazy(() => import('./pages/CrmPage'));
+const RoleManagementPage = lazy(() => import('./pages/settings/RoleManagementPage'));
+const EditRolePage = lazy(() => import('./pages/settings/EditRolePage'));
 
 // Auth & Onboarding
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
+const ActivateAccountPage = lazy(() => import('./pages/ActivateAccountPage'));
+const AcceptInvitationPage = lazy(() => import('./pages/AcceptInvitationPage'));
 
-const useAuth = () => {
-    const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
-
-    const login = useCallback(() => {
-        localStorage.setItem('isAuthenticated', 'true');
-        setIsAuthenticated(true);
-    }, []);
-
-    const logout = useCallback(() => {
-        localStorage.removeItem('isAuthenticated');
-        setIsAuthenticated(false);
-    }, []);
-
-    return { isAuthenticated, login, logout };
-};
-
-const AppContent: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () => void }> = ({ user, onLogout, refreshUser }) => {
     const location = useLocation();
     const [isQuickTaskOpen, setIsQuickTaskOpen] = useState(false);
     const [headerTitle, setHeaderTitle] = useState('Hoy');
@@ -200,12 +192,12 @@ const AppContent: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                 />
             )}
             <div className="flex-1 flex flex-col overflow-hidden">
-                <Header onLogout={onLogout} pageTitle={headerTitle} />
+                <Header user={user} onLogout={onLogout} pageTitle={headerTitle} />
                 <ContentLayout>
                     <Suspense fallback={<PageLoader />}>
                         <Routes>
                             <Route path="/" element={<Navigate to="/today" replace />} />
-                            <Route path="/today" element={<DashboardPage />} />
+                            <Route path="/today" element={<DashboardPage user={user} />} />
                             {/* Prospecting */}
                             <Route path="/prospecting/candidates" element={<CandidatesPage />} />
                             <Route path="/prospecting/candidates/:id" element={<CandidateDetailPage />} />
@@ -280,12 +272,15 @@ const AppContent: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                             <Route path="/finance/commissions" element={<CommissionsPage />} />
                             {/* System */}
                             <Route path="/archives" element={<ArchivesPage />} />
-                            <Route path="/profile" element={<ProfilePage />} />
+                            <Route path="/profile" element={<ProfilePage user={user} refreshUser={refreshUser} />} />
                             <Route path="/insights/audit" element={<AuditPage />} />
                              {/* Settings */}
                             <Route path="/settings" element={<Navigate to="/settings/users" replace />} />
                             <Route path="/settings/users" element={<UserManagementPage />} />
                             <Route path="/settings/users/:id/edit" element={<EditUserPage />} />
+                            <Route path="/settings/roles" element={<RoleManagementPage />} />
+                            <Route path="/settings/roles/new" element={<EditRolePage />} />
+                            <Route path="/settings/roles/:id/edit" element={<EditRolePage />} />
                             <Route path="/settings/teams" element={<TeamManagementPage />} />
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />
                             <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />
@@ -306,38 +301,61 @@ const AppContent: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
 
 const AuthRoutes: React.FC = () => {
-    const { isAuthenticated, login, logout } = useAuth();
+    const { user, loading, login, logout, signup, refreshUser } = useAuth();
     const navigate = useNavigate();
 
-    const handleLogin = () => {
-        login();
+    const handleLogin = async (email, password) => {
+        await login(email, password);
         navigate('/today', { replace: true });
     };
     
-    const handleSignup = () => {
-        login(); // Auto-login after signup for simplicity
+    const handleSignup = async (email, password, fullName) => {
+        await signup(email, password, fullName);
         navigate('/onboarding', { replace: true });
     };
 
     const handleOnboardingComplete = () => {
+        refreshUser();
         navigate('/today', { replace: true });
     };
+
+    if (loading) {
+        return <PageLoader />;
+    }
 
     return (
         <Suspense fallback={<PageLoader />}>
             <Routes>
-                {!isAuthenticated ? (
+                {!user ? (
                     <>
                         <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-                        <Route path="/signup" element={<SignupPage onSignup={handleSignup} />} />
+                        <Route path="/signup" element={<SignupPage />} />
+                        {/* The activation pages are now legacy/deprecated but kept for route safety */}
+                        <Route path="/activate-account" element={<ActivateAccountPage />} />
+                        <Route path="/join" element={<AcceptInvitationPage />} />
                         <Route path="*" element={<Navigate to="/login" replace />} />
                     </>
                 ) : (
                     <>
-                        <Route path="/onboarding" element={<OnboardingPage onComplete={handleOnboardingComplete} />} />
-                        <Route path="/login" element={<Navigate to="/today" replace />} />
-                        <Route path="/signup" element={<Navigate to="/today" replace />} />
-                        <Route path="/*" element={<AppContent onLogout={logout} />} />
+                         {/* 
+                            ROUTE GUARD: If user hasn't completed onboarding, they MUST go there.
+                            Otherwise, they can access the rest of the app.
+                         */}
+                         {!user.hasCompletedOnboarding ? (
+                            <>
+                                <Route path="/onboarding" element={<OnboardingPage onComplete={handleOnboardingComplete} />} />
+                                <Route path="*" element={<Navigate to="/onboarding" replace />} />
+                            </>
+                         ) : (
+                            <>
+                                <Route path="/onboarding" element={<Navigate to="/today" replace />} />
+                                <Route path="/login" element={<Navigate to="/today" replace />} />
+                                <Route path="/signup" element={<Navigate to="/today" replace />} />
+                                <Route path="/activate-account" element={<Navigate to="/today" replace />} />
+                                <Route path="/join" element={<Navigate to="/today" replace />} />
+                                <Route path="/*" element={<AppContent user={user} onLogout={logout} refreshUser={refreshUser} />} />
+                            </>
+                         )}
                     </>
                 )}
             </Routes>

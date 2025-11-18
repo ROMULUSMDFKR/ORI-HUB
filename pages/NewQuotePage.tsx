@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { Company, Prospect, Product, ProductLot, User, Unit, CommissionType, ManeuverType, FreightPricingRule, QuoteHandling } from '../types';
-import { MOCK_MY_COMPANIES } from '../data/mockData';
-import { api } from '../data/mockData';
+// FIX: Removed MOCK_MY_COMPANIES as it is no longer exported. Will use `companies` from useCollection.
+import { api } from '../api/firebaseApi';
 import CustomSelect from '../components/ui/CustomSelect';
 import { convertQuantityToKg } from '../utils/calculations';
 
@@ -239,7 +240,8 @@ const NewQuotePage: React.FC = () => {
                     <QuoteSectionCard title="Información General">
                         <FormRow>
                              <InputGroup label="Empresa que Atiende">
-                                <CustomSelect options={MOCK_MY_COMPANIES.map(c => ({ value: c.id, name: c.name }))} value={attendingCompany} onChange={setAttendingCompany} placeholder="Seleccionar..."/>
+                                {/* FIX: Use `companies` from useCollection instead of `MOCK_MY_COMPANIES`. */}
+                                <CustomSelect options={(companies || []).map(c => ({ value: c.id, name: c.name }))} value={attendingCompany} onChange={setAttendingCompany} placeholder="Seleccionar..."/>
                             </InputGroup>
                         </FormRow>
                         <FormRow>

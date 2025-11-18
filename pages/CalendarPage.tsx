@@ -2,10 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { Task, LogisticsDelivery, Prospect, Sample, PurchaseOrder, Quote, Company, Birthday } from '../types';
-import { MOCK_USERS } from '../data/mockData';
+// FIX: Se eliminó la importación de datos falsos.
 import Spinner from '../components/ui/Spinner';
 import { getOverdueStatus } from '../utils/time';
 import EventDrawer from '../components/calendar/EventDrawer';
+import { useAuth } from '../hooks/useAuth';
 
 const EVENT_TYPES = {
   task: { label: 'Tareas', color: 'bg-blue-500', textColor: 'text-blue-500', borderColor: 'border-blue-500', selectedBg: 'bg-blue-500', selectedText: 'text-white' },
@@ -76,7 +77,8 @@ const CalendarPage: React.FC = () => {
       Object.keys(EVENT_TYPES).reduce((acc, key) => ({ ...acc, [key]: true }), {})
     );
     const [showMyEvents, setShowMyEvents] = useState(false);
-    const currentUser = MOCK_USERS['user-1'];
+    // FIX: Se obtiene el usuario actual desde el hook de autenticación.
+    const { user: currentUser } = useAuth();
 
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [localTasks, setLocalTasks] = useState<Task[] | null>(null);
@@ -140,6 +142,8 @@ const CalendarPage: React.FC = () => {
     }, [localTasks, deliveries, prospects, samples, purchaseOrders, companies, birthdays, currentDate]);
 
     const filteredEvents = useMemo(() => {
+        // FIX: Se comprueba que currentUser exista antes de filtrar.
+        if (!currentUser) return [];
         return allEvents.filter(event => {
             const typeMatch = filters[event.type];
             if (!typeMatch) return false;
@@ -363,7 +367,7 @@ const CalendarPage: React.FC = () => {
         }
     }
 
-    if (loading) return <div className="flex justify-center items-center h-full"><Spinner/></div>
+    if (loading || !currentUser) return <div className="flex justify-center items-center h-full"><Spinner/></div>
 
     return (
         <>

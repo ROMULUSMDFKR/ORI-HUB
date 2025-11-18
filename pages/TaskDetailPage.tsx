@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { Task, User, Comment } from '../types';
-import { MOCK_USERS } from '../data/mockData';
+// FIX: Removed MOCK_USERS import and will fetch users via a hook.
+import { useCollection } from '../hooks/useCollection';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import Checkbox from '../components/ui/Checkbox';
@@ -29,7 +30,9 @@ const PeopleRow: React.FC<{ user: User }> = ({ user }) => (
 const TaskDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { data: initialTask, loading } = useDoc<Task>('tasks', id || '');
+    const { data: initialTask, loading: taskLoading } = useDoc<Task>('tasks', id || '');
+    // FIX: Fetch users from the collection to replace mock data.
+    const { data: users, loading: usersLoading } = useCollection<User>('users');
     
     const [task, setTask] = useState<Task | null>(null);
     const [newComment, setNewComment] = useState('');
@@ -40,20 +43,27 @@ const TaskDetailPage: React.FC = () => {
         }
     }, [initialTask]);
     
+    // FIX: Create a memoized map for efficient user lookups.
+    const usersMap = useMemo(() => {
+        if (!users) return new Map<string, User>();
+        return new Map(users.map(u => [u.id, u]));
+    }, [users]);
+
     const { assignees, watchers, creator, completedSubtasks, totalSubtasks, progress } = useMemo(() => {
         if (!task) {
             return { assignees: [], watchers: [], creator: null, completedSubtasks: 0, totalSubtasks: 0, progress: 0 };
         }
-        const assignees = task.assignees.map(id => Object.values(MOCK_USERS).find(u => u.id === id)).filter(Boolean) as User[];
-        const watchers = task.watchers.map(id => Object.values(MOCK_USERS).find(u => u.id === id)).filter(Boolean) as User[];
-        const creator = task.createdById ? Object.values(MOCK_USERS).find(u => u.id === task.createdById) || null : null;
+        // FIX: Use the usersMap to get full user objects. This fixes type errors.
+        const assignees = task.assignees.map(id => usersMap.get(id)).filter(Boolean) as User[];
+        const watchers = task.watchers.map(id => usersMap.get(id)).filter(Boolean) as User[];
+        const creator = task.createdById ? usersMap.get(task.createdById) || null : null;
         
         const completed = task.subtasks?.filter(st => st.isCompleted).length || 0;
         const total = task.subtasks?.length || 0;
         const progress = total > 0 ? (completed / total) * 100 : 0;
 
         return { assignees, watchers, creator, completedSubtasks: completed, totalSubtasks: total, progress };
-    }, [task]);
+    }, [task, usersMap]);
 
 
     const handleAddComment = () => {
@@ -70,6 +80,8 @@ const TaskDetailPage: React.FC = () => {
         }
     };
 
+    // FIX: Combine loading states.
+    const loading = taskLoading || usersLoading;
 
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (!task) return <div className="text-center p-12">Tarea no encontrada</div>;
@@ -137,8 +149,9 @@ const TaskDetailPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="space-y-4 max-h-96 overflow-y-auto pr-2 border-t border-slate-200 dark:border-slate-700 pt-4">
+                                {/* FIX: Use the typesafe usersMap to get the comment author. */}
                                 {(task.comments && task.comments.length > 0) ? task.comments.map(comment => { 
-                                    const user = Object.values(MOCK_USERS).find(u => u.id === comment.userId); 
+                                    const user = usersMap.get(comment.userId); 
                                     return (
                                         <div key={comment.id} className="flex items-start gap-3">
                                             <img src={user?.avatarUrl} alt={user?.name} className="w-8 h-8 rounded-full mt-1" />

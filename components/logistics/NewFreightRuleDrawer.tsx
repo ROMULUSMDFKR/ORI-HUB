@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Drawer from '../ui/Drawer';
 import CustomSelect from '../ui/CustomSelect';
 import { FreightPricingRule } from '../../types';
-import { MOCK_LOCATIONS } from '../../data/mockData';
+// FIX: Se eliminó la importación de datos falsos.
+import { useCollection } from '../../hooks/useCollection';
 
 interface NewFreightRuleDrawerProps {
   isOpen: boolean;
@@ -20,6 +21,8 @@ const NewFreightRuleDrawer: React.FC<NewFreightRuleDrawerProps> = ({ isOpen, onC
         flatRate: 0,
     };
     const [rule, setRule] = useState(initialState);
+    // FIX: Se obtienen las ubicaciones de la colección.
+    const { data: locations } = useCollection<any>('locations');
 
     useEffect(() => {
         if (!isOpen) {
@@ -40,7 +43,8 @@ const NewFreightRuleDrawer: React.FC<NewFreightRuleDrawerProps> = ({ isOpen, onC
         onSave(rule);
     };
 
-    const originOptions = MOCK_LOCATIONS.map(loc => ({ value: loc.name, name: loc.name }));
+    // FIX: Se usan las ubicaciones reales para las opciones.
+    const originOptions = (locations || []).map((loc: any) => ({ value: loc.name, name: loc.name }));
 
     return (
         <Drawer isOpen={isOpen} onClose={onClose} title="Añadir Nueva Regla de Flete">

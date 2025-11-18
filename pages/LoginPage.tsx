@@ -1,15 +1,42 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Checkbox from '../components/ui/Checkbox';
 import Aurora from '../components/ui/Aurora';
 
 interface LoginPageProps {
-    onLogin: () => void;
+    onLogin: (email: string, password: string) => Promise<void>;
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+  const [email, setEmail] = useState('contacto@robertoortega.me');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+        await onLogin(email, password);
+    } catch (err: any) {
+        switch (err.code) {
+            case 'auth/user-not-found':
+            case 'auth/wrong-password':
+            case 'auth/invalid-credential':
+                setError('Correo o contraseña incorrectos.');
+                break;
+            default:
+                setError('Ocurrió un error. Inténtalo de nuevo.');
+                break;
+        }
+    } finally {
+        setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-black p-4 font-sans relative overflow-hidden">
@@ -27,21 +54,23 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         <div
           className="w-full max-w-xl rounded-2xl bg-black/40 backdrop-blur-sm p-8 shadow-2xl shadow-black/20 animate-slide-in-up"
         >
-            <form onSubmit={(e) => { e.preventDefault(); onLogin(); }} className="space-y-6">
+            <form onSubmit={handleLogin} className="space-y-6">
                 <div>
                     <label className="block text-sm font-medium text-slate-400 mb-2">Email o Usuario</label>
-                    <input type="email" defaultValue="natalia.v@crmstudio.com" className="login-input" />
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="login-input" />
                 </div>
 
                 <div>
                     <label className="block text-sm font-medium text-slate-400 mb-2">Contraseña</label>
                     <div className="relative">
-                        <input type={showPassword ? "text" : "password"} defaultValue="password" className="login-input pr-10" />
+                        <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required className="login-input pr-10" />
                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-white">
                             <span className="material-symbols-outlined !text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
                         </button>
                     </div>
                 </div>
+
+                {error && <p className="text-sm text-red-400 text-center">{error}</p>}
 
                 <div className="flex items-center justify-between">
                     <Checkbox id="remember-me" checked={rememberMe} onChange={setRememberMe}>
@@ -51,17 +80,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 </div>
 
                 <div>
-                    <button type="submit" className="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors">
-                        Iniciar Sesión
+                    <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 flex justify-center items-center">
+                        {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div> : 'Iniciar Sesión'}
                     </button>
                 </div>
             </form>
 
              <p className="mt-8 text-center text-sm text-slate-400">
-                ¿Nuevo en nuestra plataforma?{' '}
-                <Link to="/signup" className="font-semibold text-indigo-400 hover:text-indigo-300">
-                    Crea una cuenta
-                </Link>
+                El registro es solo por invitación de un administrador.
             </p>
         </div>
       </div>

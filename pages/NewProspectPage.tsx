@@ -1,8 +1,11 @@
 
-import React, { useState } from 'react';
+
+
+
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Prospect, ProspectStage, Priority, User, Company } from '../types';
-import { MOCK_USERS } from '../data/mockData';
+// FIX: Removed unused MOCK_USERS import.
 import CustomSelect from '../components/ui/CustomSelect';
 import { useCollection } from '../hooks/useCollection';
 import DuplicateChecker from '../components/ui/DuplicateChecker';
@@ -11,8 +14,8 @@ import DuplicateChecker from '../components/ui/DuplicateChecker';
 const initialProspectState: Partial<Prospect> = {
     name: '',
     estValue: 0,
-    ownerId: MOCK_USERS['user-1'].id,
-    createdById: MOCK_USERS['user-1'].id,
+    ownerId: 'user-1', // Default value, can be updated from fetched users
+    createdById: 'user-1', // Default value
     stage: ProspectStage.Nueva,
     priority: 'Media',
     origin: '',
@@ -28,6 +31,8 @@ const NewProspectPage: React.FC = () => {
 
     const { data: companies } = useCollection<Company>('companies');
     const { data: prospects } = useCollection<Prospect>('prospects');
+    // FIX: Fetch users with useCollection hook.
+    const { data: users } = useCollection<User>('users');
 
 
     const validate = (): boolean => {
@@ -63,7 +68,8 @@ const NewProspectPage: React.FC = () => {
         }
     };
     
-    const userOptions = Object.values(MOCK_USERS).filter((v,i,a)=>a.findIndex(t=>(t.id === v.id))===i).map(u => ({ value: u.id, name: u.name }));
+    // FIX: Ensure userOptions are derived from fetched users.
+    const userOptions = useMemo(() => (users || []).map(u => ({ value: u.id, name: u.name })), [users]);
     const stageOptions = Object.values(ProspectStage).map(s => ({ value: s, name: s }));
     const priorityOptions = Object.values(Priority).map(p => ({ value: p, name: p }));
 

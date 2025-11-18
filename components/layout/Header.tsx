@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MOCK_USERS } from '../../data/mockData';
+import { User } from '../../types';
 
 type UserStatus = 'online' | 'away' | 'dnd' | 'offline';
 
@@ -88,8 +88,7 @@ const NotificationMenu: React.FC = () => {
     );
 };
 
-const UserMenu: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
-    const user = MOCK_USERS['user-1'];
+const UserMenu: React.FC<{ user: User | null; onLogout: () => void; }> = ({ user, onLogout }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [status, setStatus] = useState<UserStatus>('online');
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -112,16 +111,23 @@ const UserMenu: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
         setIsOpen(false);
     };
 
+    if (!user) {
+        return null;
+    }
+
+    const userName = user.name || user.email || 'Usuario';
+    const userRole = user.role || 'Miembro';
+
     return (
         <div className="relative" ref={dropdownRef}>
             <button onClick={() => setIsOpen(!isOpen)} className="flex items-center space-x-2 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                  <div className="relative">
-                    <img className="h-8 w-8 rounded-full object-cover" src={user.avatarUrl} alt={user.name} />
+                    <img className="h-8 w-8 rounded-full object-cover bg-slate-200" src={user.avatarUrl || `https://i.pravatar.cc/150?u=${user.id}`} alt={userName} />
                     <span className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ${STATUS_CONFIG[status].color} ring-2 ring-white dark:ring-slate-800`}></span>
                 </div>
                 <div className="hidden md:block text-left">
-                    <div className="text-sm font-medium text-slate-800 dark:text-slate-200">{user.name}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{user.role}</div>
+                    <div className="text-sm font-medium text-slate-800 dark:text-slate-200 capitalize">{userName}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{userRole}</div>
                 </div>
             </button>
             {isOpen && (
@@ -156,7 +162,7 @@ const UserMenu: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 };
 
 
-const Header: React.FC<{ onLogout: () => void; pageTitle?: string; }> = ({ onLogout, pageTitle }) => {
+const Header: React.FC<{ user: User | null; onLogout: () => void; pageTitle?: string; }> = ({ user, onLogout, pageTitle }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -188,7 +194,7 @@ const Header: React.FC<{ onLogout: () => void; pageTitle?: string; }> = ({ onLog
           />
         </div>
         <NotificationMenu />
-        <UserMenu onLogout={onLogout} />
+        <UserMenu user={user} onLogout={onLogout} />
       </div>
     </header>
   );

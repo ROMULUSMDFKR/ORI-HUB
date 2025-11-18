@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useCollection } from '../hooks/useCollection';
-import { Email, Attachment, User } from '../types';
+import { Email, Attachment, User, ConnectedEmailAccount } from '../types';
 import Spinner from '../components/ui/Spinner';
 import { MOCK_USERS } from '../data/mockData';
 import { emailFooterHtml } from '../components/emails/EmailFooter';
+import CustomSelect from '../components/ui/CustomSelect';
 
 type EmailFolder = 'inbox' | 'sent' | 'drafts' | 'trash';
 type ComposeMode = 'new' | 'reply' | 'forward';
@@ -183,32 +184,48 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
 
 
 const EmailsPage: React.FC = () => {
-    const { data: initialEmails, loading } = useCollection<Email>('emails');
-    const [allEmails, setAllEmails] = useState<Email[] | null>(null);
+    const { data: allEmails, loading: emailsLoading } = useCollection<Email>('emails');
+    const { data: allAccounts, loading: accountsLoading } = useCollection<ConnectedEmailAccount>('connectedAccounts');
+    const [allEmailsState, setAllEmailsState] = useState<Email[] | null>(null);
     const [selectedFolder, setSelectedFolder] = useState<EmailFolder>('inbox');
     const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
     
     const [composeMode, setComposeMode] = useState<ComposeMode | null>(null);
     const [composeInitialData, setComposeInitialData] = useState<Partial<Email>>({});
+    
+    const [selectedAccountEmail, setSelectedAccountEmail] = useState<string | null>(null);
 
     const currentUser = MOCK_USERS['user-2'];
     const userSignature = (currentUser as any).signature || '';
 
     useEffect(() => {
-        if (initialEmails) {
-            setAllEmails(initialEmails);
+        if (allEmails) {
+            setAllEmailsState(allEmails);
         }
-    }, [initialEmails]);
+    }, [allEmails]);
+    
+    const userAccounts = useMemo(() => {
+        if (!allAccounts) return [];
+        return allAccounts.filter(acc => acc.userId === currentUser.id);
+    }, [allAccounts, currentUser.id]);
+
+    useEffect(() => {
+        if (userAccounts.length > 0 && !selectedAccountEmail) {
+            setSelectedAccountEmail(userAccounts[0].email);
+        }
+    }, [userAccounts, selectedAccountEmail]);
 
     const filteredEmails = useMemo(() => {
-        if (!allEmails) return [];
-        return allEmails.filter(email => email.folder === selectedFolder).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    }, [allEmails, selectedFolder]);
+        if (!allEmailsState || !selectedAccountEmail) return [];
+        return allEmailsState
+            .filter(email => (email as any).recipientEmail === selectedAccountEmail && email.folder === selectedFolder)
+            .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    }, [allEmailsState, selectedFolder, selectedAccountEmail]);
 
     const selectedEmail = useMemo(() => {
-        if (!selectedEmailId || !allEmails) return null;
-        return allEmails.find(e => e.id === selectedEmailId);
-    }, [selectedEmailId, allEmails]);
+        if (!selectedEmailId || !allEmailsState) return null;
+        return allEmailsState.find(e => e.id === selectedEmailId);
+    }, [selectedEmailId, allEmailsState]);
 
     useEffect(() => {
         if (filteredEmails.length > 0) {
@@ -248,6 +265,7 @@ const EmailsPage: React.FC = () => {
     };
 
      const handleSendEmail = (emailData: { to: string; cc?: string; bcc?: string; subject: string; body: string; attachments: File[] }) => {
+        if (!selectedAccountEmail) return;
         const newAttachments: Attachment[] = emailData.attachments.map(file => ({
             id: `att-${Date.now()}-${file.name}`,
             name: file.name,
@@ -255,9 +273,9 @@ const EmailsPage: React.FC = () => {
             url: '#' // Dummy URL for simulation
         }));
 
-        const newEmail: Email = {
+        const newEmail: any = {
             id: `email-${Date.now()}`,
-            from: { name: currentUser.name, email: currentUser.email },
+            from: { name: currentUser.name, email: selectedAccountEmail },
             to: stringToRecipients(emailData.to),
             cc: stringToRecipients(emailData.cc || ''),
             bcc: stringToRecipients(emailData.bcc || ''),
@@ -267,16 +285,19 @@ const EmailsPage: React.FC = () => {
             status: 'read',
             folder: 'sent',
             attachments: newAttachments,
+            recipientEmail: selectedAccountEmail,
         };
 
-        setAllEmails(prev => (prev ? [...prev, newEmail] : [newEmail]));
+        setAllEmailsState(prev => (prev ? [...prev, newEmail] : [newEmail]));
         handleCloseCompose();
         setSelectedFolder('sent');
         setTimeout(() => setSelectedEmailId(newEmail.id), 0);
     };
 
+    const loading = emailsLoading || accountsLoading;
+
     const renderContent = () => {
-        if (loading && !allEmails) return <div className="flex-1 flex justify-center items-center"><Spinner /></div>;
+        if (loading && !allEmailsState) return <div className="flex-1 flex justify-center items-center"><Spinner /></div>;
         return (
             <>
                 <div className="w-1/3 border-r border-slate-200 dark:border-slate-700 flex flex-col">
@@ -287,6 +308,9 @@ const EmailsPage: React.FC = () => {
                         {filteredEmails.map(email => (
                             <EmailListItem key={email.id} email={email} isSelected={selectedEmailId === email.id} onSelect={() => setSelectedEmailId(email.id)} />
                         ))}
+                         {filteredEmails.length === 0 && (
+                            <li className="text-center text-sm text-slate-500 dark:text-slate-400 p-8">No hay correos en esta carpeta.</li>
+                        )}
                     </ul>
                 </div>
 
@@ -335,6 +359,17 @@ const EmailsPage: React.FC = () => {
         <div className="flex h-[calc(100vh-120px)] bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="w-64 border-r border-slate-200 dark:border-slate-700 flex flex-col bg-slate-50 dark:bg-slate-900/50">
                 <div className="p-4"><button onClick={() => handleOpenCompose('new')} className="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center shadow-sm hover:opacity-90 transition-colors"><span className="material-symbols-outlined mr-2">edit</span>Redactar</button></div>
+                
+                <div className="px-4 py-2 border-y border-slate-200 dark:border-slate-700">
+                    <CustomSelect
+                        label="Cuenta"
+                        options={userAccounts.map(acc => ({ value: acc.email, name: acc.email }))}
+                        value={selectedAccountEmail || ''}
+                        onChange={(val) => setSelectedAccountEmail(val)}
+                        placeholder="Seleccionar cuenta..."
+                    />
+                </div>
+
                 <nav className="flex-1 px-2 py-2">
                     {FOLDER_CONFIG.map(folder => (
                         <button key={folder.id} onClick={() => setSelectedFolder(folder.id)} className={`w-full flex items-center p-3 rounded-lg text-left transition-colors duration-200 ${selectedFolder === folder.id ? 'bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-semibold' : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}>

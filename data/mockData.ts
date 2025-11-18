@@ -471,7 +471,7 @@ export const MOCK_CHAT_MESSAGES: ChatMessage[] = [
     { id: 'chat-group-3', senderId: 'user-1', receiverId: 'group-1', text: '¡Excelente Abigail! David, ¿necesitas apoyo con algo?', timestamp: daysAgo(0.3) },
 ];
 
-export const MOCK_EMAILS: Email[] = [
+export const MOCK_EMAILS: any[] = [
     // Thread 1: Inquiry and Reply with attachment
     {
         id: 'email-1',
@@ -482,6 +482,7 @@ export const MOCK_EMAILS: Email[] = [
         timestamp: daysAgo(2.5),
         status: 'read',
         folder: 'inbox',
+        recipientEmail: 'david.r@crmstudio.com',
     },
     {
         id: 'email-2',
@@ -494,7 +495,8 @@ export const MOCK_EMAILS: Email[] = [
         folder: 'sent',
         attachments: [
             { id: 'att-1', name: 'Ficha_Tecnica_Urea_Perlada_2024.pdf', size: 870400, url: '#' } // 850 KB
-        ]
+        ],
+        recipientEmail: 'david.r@crmstudio.com',
     },
     {
         id: 'email-3',
@@ -505,6 +507,7 @@ export const MOCK_EMAILS: Email[] = [
         timestamp: daysAgo(2.2),
         status: 'read',
         folder: 'inbox',
+        recipientEmail: 'david.r@crmstudio.com',
     },
     // Thread 2: Unread email
     {
@@ -516,6 +519,31 @@ export const MOCK_EMAILS: Email[] = [
         timestamp: daysAgo(0.1), // very recent
         status: 'unread',
         folder: 'inbox',
+        recipientEmail: 'david.r@crmstudio.com',
+    },
+    // Emails for Roberto
+    {
+        id: 'email-5',
+        from: { name: 'Proveedor Agroquímicos', email: 'ventas@agroproveedor.com' },
+        to: [{ name: 'Roberto', email: 'roberto@tradeaitirik.com.mx' }],
+        subject: 'Cotización Especial - Urea y Glifosato',
+        body: 'Hola Roberto,\n\nAdjunto la cotización especial que solicitaste. Avísanos si tienes alguna duda.\n\nSaludos,\nEquipo de Ventas Agroproveedor',
+        timestamp: daysAgo(0.5),
+        status: 'unread',
+        folder: 'inbox',
+        recipientEmail: 'roberto@tradeaitirik.com.mx',
+        attachments: [ { id: 'att-2', name: 'Cotizacion_Agro_RT.pdf', size: 450000, url: '#' } ]
+    },
+    {
+        id: 'email-6',
+        from: { name: 'Logística Interna', email: 'logistica@ori.com' },
+        to: [{ name: 'Roberto', email: 'roberto@tradeaitirik.com.mx' }],
+        subject: 'Confirmación de Entrega - Muestra Agro Fields',
+        body: 'Roberto,\n\nTe confirmo que la muestra para Agro Fields ha sido enviada. El número de guía es 12345XYZ.\n\nSaludos.',
+        timestamp: daysAgo(1),
+        status: 'read',
+        folder: 'inbox',
+        recipientEmail: 'roberto@tradeaitirik.com.mx'
     }
 ];
 
@@ -584,6 +612,9 @@ const mockApi = {
      switch (collectionName) {
         case 'birthdays':
             MOCK_BIRTHDAYS.push(newDoc as Birthday);
+            break;
+        case 'connectedAccounts':
+            MOCK_CONNECTED_ACCOUNTS.push(newDoc as ConnectedEmailAccount);
             break;
         default:
             // This is a simulation, it doesn't actually persist the data.

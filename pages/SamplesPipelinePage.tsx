@@ -8,6 +8,9 @@ import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
 import Spinner from '../components/ui/Spinner';
+import { useAuth } from '../hooks/useAuth';
+import { api } from '../api/firebaseApi';
+import { useToast } from '../hooks/useToast';
 
 const PipelineColumn: React.FC<{
   stage: SampleStatus;
@@ -35,10 +38,13 @@ const PipelineColumn: React.FC<{
 
 const SamplesPipelinePage: React.FC = () => {
   const { data: samplesData, loading: sLoading } = useCollection<Sample>('samples');
-  const { data: activities, loading: aLoading } = useCollection<ActivityLog>('activities');
+  const { data: activitiesData, loading: aLoading } = useCollection<ActivityLog>('activities');
   const { data: users, loading: uLoading } = useCollection<User>('users');
+  const { user: currentUser } = useAuth();
+  const { showToast } = useToast();
   
   const [samples, setSamples] = useState<Sample[]>([]);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
   
   useEffect(() => {
@@ -46,6 +52,12 @@ const SamplesPipelinePage: React.FC = () => {
       setSamples(samplesData);
     }
   }, [samplesData]);
+
+  useEffect(() => {
+    if (activitiesData) {
+      setActivities(activitiesData);
+    }
+  }, [activitiesData]);
 
   const loading = sLoading || aLoading || uLoading;
   const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
@@ -81,24 +93,53 @@ const SamplesPipelinePage: React.FC = () => {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleArchive = (sampleId: string) => {
+  const handleArchive = async (sampleId: string) => {
+    const originalSample = samples.find(s => s.id === sampleId);
+    if (!originalSample) return;
+
     setSamples(prev => prev.filter(s => s.id !== sampleId));
-    alert('Muestra archivada correctamente.');
+    try {
+        await api.updateDoc('samples', sampleId, { status: SampleStatus.Archivada });
+        showToast('success', 'Muestra archivada correctamente.');
+    } catch (error) {
+        showToast('error', 'No se pudo archivar la muestra.');
+        setSamples(prev => [...prev, originalSample]);
+    }
   };
   
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStage: SampleStatus) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetStage: SampleStatus) => {
     e.preventDefault();
     const itemId = e.dataTransfer.getData('text/plain');
-    if (itemId) {
-      if (targetStage === SampleStatus.Archivada) {
-        handleArchive(itemId);
-      } else {
-        setSamples(prevItems =>
-          prevItems.map(p =>
-            p.id === itemId ? { ...p, status: targetStage } : p
-          )
-        );
-      }
+    if (!itemId || !currentUser) return;
+
+    if (targetStage === SampleStatus.Archivada) {
+      handleArchive(itemId);
+      return;
+    }
+
+    const originalSample = samples.find(s => s.id === itemId);
+    if (!originalSample || originalSample.status === targetStage) return;
+
+    setSamples(prevItems =>
+      prevItems.map(p =>
+        p.id === itemId ? { ...p, status: targetStage } : p
+      )
+    );
+    
+    try {
+        await api.updateDoc('samples', itemId, { status: targetStage });
+        const activity: Omit<ActivityLog, 'id'> = {
+            sampleId: itemId,
+            type: 'Cambio de Estado',
+            description: `Muestra movida de "${originalSample.status}" a "${targetStage}"`,
+            userId: currentUser.id,
+            createdAt: new Date().toISOString()
+        };
+        const newActivity = await api.addDoc('activities', activity);
+        setActivities(prev => [newActivity, ...prev]);
+    } catch(error) {
+        showToast('error', 'No se pudo actualizar la etapa.');
+        setSamples(prev => prev.map(p => p.id === itemId ? originalSample : p));
     }
   };
   

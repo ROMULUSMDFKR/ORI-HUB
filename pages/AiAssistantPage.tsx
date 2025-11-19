@@ -1,18 +1,11 @@
-
-
-
-
-
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GoogleGenAI, FunctionDeclaration, Type } from '@google/genai';
 import { useCollection } from '../hooks/useCollection';
-import { SalesOrder, Prospect, Task, User } from '../types';
-// FIX: Removed MOCK_USERS import as it is no longer exported.
-import { api } from '../data/mockData';
+import { SalesOrder, Prospect, Task, User, ProspectStage } from '../types';
+import { api } from '../api/firebaseApi';
+import { useAuth } from '../hooks/useAuth';
 
 // Polyfill for browser compatibility
-// FIX: Cast window to `any` to access non-standard SpeechRecognition properties.
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
 interface Message {
@@ -22,11 +15,11 @@ interface Message {
 }
 
 // MOCK PERMISSIONS - In a real app, this would come from a user context
-const MOCK_ACTION_PERMISSIONS: Record<NonNullable<User['role']>, Record<string, boolean>> = {
-    'Owner': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
-    'Admin': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
-    'Ventas': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true },
-    'Logística': { 'createTask': true, 'updateClientStatus': false, 'getSummary': true },
+const MOCK_ACTION_PERMISSIONS: Record<string, Record<string, boolean>> = {
+    'Owner': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true, 'createProspect': true },
+    'Admin': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true, 'createProspect': true },
+    'Ventas': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true, 'createProspect': true },
+    'Logística': { 'createTask': true, 'updateClientStatus': false, 'getSummary': true, 'createProspect': false },
 };
 
 // DEFINE ALL POSSIBLE AI FUNCTIONS
@@ -41,6 +34,20 @@ const ALL_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
                 dueDate: { type: Type.STRING, description: 'La fecha de vencimiento en formato ISO 8601.' },
             },
             required: ['title'],
+        },
+    },
+    {
+        name: 'createProspect',
+        description: 'Crea un nuevo prospecto o candidato en el CRM.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                name: { type: Type.STRING, description: 'Nombre del prospecto o contacto principal.' },
+                company: { type: Type.STRING, description: 'Nombre de la empresa (opcional).' },
+                estValue: { type: Type.NUMBER, description: 'Valor estimado de la oportunidad en números (opcional).' },
+                notes: { type: Type.STRING, description: 'Notas o descripción adicional (opcional).' },
+            },
+            required: ['name'],
         },
     },
     {
@@ -61,24 +68,22 @@ const AiAssistantPage: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 0,
-            text: "¡Hola! Soy tu asistente de IA. Puedes pedirme que cree tareas, resuma datos o actualice el estado de un cliente (si tienes permiso). También puedes usar el micrófono para hablar.",
+            text: "¡Hola! Soy tu asistente de IA. Puedes pedirme que cree tareas, registre nuevos prospectos, resuma datos o actualice el estado de un cliente. También puedes usar el micrófono para hablar.",
             sender: 'ai'
         }
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
-    // FIX: Use `any` for the ref type to avoid a name collision with the `SpeechRecognition` variable defined above.
     const recognitionRef = useRef<any | null>(null);
     const chatEndRef = useRef<null | HTMLDivElement>(null);
 
     const { data: salesOrders } = useCollection<SalesOrder>('salesOrders');
     const { data: prospects } = useCollection<Prospect>('prospects');
     const { data: tasks } = useCollection<Task>('tasks');
-    // FIX: Fetch users from the collection instead of using mock data.
-    const { data: users } = useCollection<User>('users');
-    const currentUser = useMemo(() => users?.find(u => u.id === 'user-1'), [users]);
-
+    
+    // Use the authenticated user from the hook
+    const { user: currentUser } = useAuth();
 
     // Initialize Speech Recognition
     useEffect(() => {
@@ -125,7 +130,7 @@ const AiAssistantPage: React.FC = () => {
 
     const handleSendMessage = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        // FIX: Add a check for currentUser to ensure it's loaded.
+        
         if (input.trim() === '' || isLoading || !currentUser) return;
         
         if (isRecording) {
@@ -145,7 +150,7 @@ const AiAssistantPage: React.FC = () => {
             
             const context = `
                 Datos del CRM:
-                - Usuario actual: ${currentUser.name} (Rol: ${currentUser.role})
+                - Usuario actual: ${currentUser.name} (Rol: ${currentUser.role}, ID: ${currentUser.id})
                 - Tareas vencidas del usuario: ${overdueTasks.length}
                 - Pregunta del usuario: "${currentInput}"
             `;
@@ -159,7 +164,7 @@ const AiAssistantPage: React.FC = () => {
 
             const prompt = `
                 Eres "Studio AI", un asistente de IA experto en CRM. Responde a la pregunta del usuario de forma concisa y útil.
-                Si la pregunta parece una orden para ejecutar una acción (como 'crear', 'actualizar', 'modificar'), utiliza las herramientas disponibles. 
+                Si la pregunta parece una orden para ejecutar una acción (como 'crear', 'actualizar', 'registrar', 'modificar'), utiliza las herramientas disponibles. 
                 Si no tienes una herramienta para la acción o no tienes permiso, informa al usuario amablemente.
                 De lo contrario, responde basándote en el contexto.
                 Contexto: ${context}
@@ -182,6 +187,30 @@ const AiAssistantPage: React.FC = () => {
                     console.log('AI wants to create a task:', functionCall.args);
                     await api.addDoc('tasks', { id: `task-${Date.now()}`, assignees: [currentUser.id], ...functionCall.args });
                     apiResponseText = `¡Tarea "${functionCall.args.title}" creada exitosamente!`;
+                } else if (functionCall.name === 'createProspect') {
+                    console.log('AI wants to create a prospect:', functionCall.args);
+                    
+                    const newProspect: any = {
+                        name: functionCall.args.name,
+                        stage: ProspectStage.Nueva,
+                        ownerId: currentUser.id,
+                        createdById: currentUser.id,
+                        estValue: functionCall.args.estValue || 0,
+                        createdAt: new Date().toISOString(),
+                        origin: 'Asistente IA',
+                        notes: functionCall.args.notes || '',
+                        industry: '', // Default empty
+                        priority: 'Media'
+                    };
+                    
+                    // If company name is provided, append to name or notes since Prospect interface is simple in this mock
+                    if (functionCall.args.company) {
+                         newProspect.notes += `\nEmpresa: ${functionCall.args.company}`;
+                    }
+
+                    await api.addDoc('prospects', newProspect);
+                    apiResponseText = `¡Prospecto "${functionCall.args.name}" creado exitosamente en la etapa "Nueva"!`;
+
                 } else if (functionCall.name === 'updateClientStatus') {
                     console.log('AI wants to update a client:', functionCall.args);
                     apiResponseText = `Acción simulada: Estatus de "${functionCall.args.clientName}" actualizado a "${functionCall.args.newStatus}".`;
@@ -251,7 +280,7 @@ const AiAssistantPage: React.FC = () => {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder="Pregúntale algo a tu asistente..."
-                        className="w-full pr-24"
+                        className="w-full !pr-24"
                         disabled={isLoading}
                     />
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">

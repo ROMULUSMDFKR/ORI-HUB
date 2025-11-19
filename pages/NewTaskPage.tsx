@@ -1,5 +1,4 @@
-
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Task, TaskStatus, Priority, Project, Subtask, User, Team } from '../types';
 import { useCollection } from '../hooks/useCollection';
@@ -10,6 +9,7 @@ import Checkbox from '../components/ui/Checkbox';
 import UserSelector from '../components/ui/UserSelector';
 import CustomSelect from '../components/ui/CustomSelect';
 import LinkEntityDrawer from '../components/tasks/LinkEntityDrawer';
+import { useToast } from '../hooks/useToast';
 
 const FormCard: React.FC<{ title: string, children: React.ReactNode}> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
@@ -25,6 +25,7 @@ const NewTaskPage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { data: teams } = useCollection<Team>('teams');
+    const { showToast } = useToast();
     
     // Ref to track if we have already auto-assigned the user
     const hasAssignedSelf = useRef(false);
@@ -58,9 +59,9 @@ const NewTaskPage: React.FC = () => {
         }
     }, [user]);
 
-    const handleFieldChange = (field: keyof Task, value: any) => {
+    const handleFieldChange = useCallback((field: keyof Task, value: any) => {
         setTask(prev => ({ ...prev, [field]: value }));
-    };
+    }, []);
 
     const handleLinkEntities = (links: any) => {
         handleFieldChange('links', links);
@@ -73,7 +74,7 @@ const NewTaskPage: React.FC = () => {
 
     const handleSave = async () => {
         if (!task.title?.trim()) {
-            alert('El título es requerido.');
+            showToast('warning', 'El título es requerido.');
             return;
         }
 
@@ -83,18 +84,37 @@ const NewTaskPage: React.FC = () => {
                 ...task,
                 createdAt: new Date().toISOString(),
                 createdById: user?.id,
-                // Ensure defaults
                 assignees: task.assignees || [],
                 watchers: task.watchers || [],
                 subtasks: task.subtasks || [],
                 tags: task.tags || [],
             };
             
-            await api.addDoc('tasks', finalTask);
+            const addedTask = await api.addDoc('tasks', finalTask);
+
+            // Create notifications for assignees
+            if (addedTask.assignees) {
+                for (const assigneeId of addedTask.assignees) {
+                    if (assigneeId === user?.id) continue; // Don't notify self
+
+                    const notification = {
+                        userId: assigneeId,
+                        title: 'Nueva tarea asignada',
+                        message: `Se te ha asignado la tarea: "${addedTask.title}"`,
+                        type: 'task' as 'task',
+                        link: `/tasks/${addedTask.id}`,
+                        isRead: false,
+                        createdAt: new Date().toISOString(),
+                    };
+                    await api.addDoc('notifications', notification);
+                }
+            }
+
+            showToast('success', 'Tarea creada con éxito.');
             navigate('/tasks');
         } catch (error) {
             console.error("Error creating task:", error);
-            alert("Hubo un error al guardar la tarea.");
+            showToast('error', 'Hubo un error al guardar la tarea.');
         } finally {
             setIsSaving(false);
         }
@@ -185,7 +205,7 @@ const NewTaskPage: React.FC = () => {
                                 {task.tags?.map(tag => (
                                     <span key={tag} className="bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-medium px-2 py-1 rounded-full flex items-center h-6">
                                         {tag}
-                                        <button onClick={() => handleRemoveTag(tag)} className="ml-1 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">&times;</button>
+                                        <button onClick={() => handleRemoveTag(tag)} className="ml-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">&times;</button>
                                     </span>
                                 ))}
                                 <input 

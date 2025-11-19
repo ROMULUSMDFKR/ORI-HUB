@@ -8,6 +8,9 @@ import Spinner from '../components/ui/Spinner';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
+import { useAuth } from '../hooks/useAuth';
+import { api } from '../api/firebaseApi';
+import { useToast } from '../hooks/useToast';
 
 const PipelineColumn: React.FC<{
   stage: CompanyPipelineStage;
@@ -34,10 +37,13 @@ const PipelineColumn: React.FC<{
 
 const CompaniesPipelinePage: React.FC = () => {
   const { data: initialCompanies, loading: cLoading } = useCollection<Company>('companies');
-  const { data: activities, loading: aLoading } = useCollection<ActivityLog>('activities');
+  const { data: activitiesData, loading: aLoading } = useCollection<ActivityLog>('activities');
   const { data: users, loading: uLoading } = useCollection<User>('users');
+  const { user: currentUser } = useAuth();
+  const { showToast } = useToast();
   
   const [companies, setCompanies] = useState<Company[] | null>(null);
+  const [activities, setActivities] = useState<ActivityLog[] | null>(null);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
   
   const loading = cLoading || aLoading || uLoading;
@@ -49,6 +55,12 @@ const CompaniesPipelinePage: React.FC = () => {
     }
   }, [initialCompanies]);
   
+  useEffect(() => {
+    if (activitiesData) {
+      setActivities(activitiesData);
+    }
+  }, [activitiesData]);
+
   const pipelineActivities = useMemo(() => {
     if(!companies || !activities) return [];
     const companyIds = new Set(companies.map(c => c.id));
@@ -80,15 +92,34 @@ const CompaniesPipelinePage: React.FC = () => {
     e.dataTransfer.dropEffect = 'move';
   };
   
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStage: CompanyPipelineStage) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetStage: CompanyPipelineStage) => {
     e.preventDefault();
     const itemId = e.dataTransfer.getData('text/plain');
-    if (itemId && companies) {
-        setCompanies(prevItems =>
-            prevItems!.map(p =>
-            p.id === itemId ? { ...p, stage: targetStage } : p
-            )
-        );
+    if (!itemId || !companies || !currentUser) return;
+    
+    const originalCompany = companies.find(c => c.id === itemId);
+    if (!originalCompany || originalCompany.stage === targetStage) return;
+
+    setCompanies(prevItems =>
+        prevItems!.map(p =>
+        p.id === itemId ? { ...p, stage: targetStage } : p
+        )
+    );
+
+    try {
+        await api.updateDoc('companies', itemId, { stage: targetStage });
+        const activity: Omit<ActivityLog, 'id'> = {
+            companyId: itemId,
+            type: 'Cambio de Estado',
+            description: `Empresa movida de "${originalCompany.stage}" a "${targetStage}"`,
+            userId: currentUser.id,
+            createdAt: new Date().toISOString()
+        };
+        const newActivity = await api.addDoc('activities', activity);
+        setActivities(prev => prev ? [newActivity, ...prev] : [newActivity]);
+    } catch (error) {
+        showToast('error', 'No se pudo actualizar la etapa.');
+        setCompanies(prev => prev!.map(p => p.id === itemId ? originalCompany : p));
     }
   };
 

@@ -2,18 +2,22 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { Quote, QuoteStatus, Note } from '../types';
+import { Quote, QuoteStatus, Note, ActivityLog } from '../types';
 import { QUOTES_PIPELINE_COLUMNS } from '../constants';
 import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
 import { api } from '../api/firebaseApi';
+import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 
 const QuoteDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const { data: quote, loading, error } = useDoc<Quote>('quotes', id || '');
     const { data: allNotes } = useCollection<Note>('notes');
     const [currentStatus, setCurrentStatus] = useState<QuoteStatus | undefined>();
+    const { user: currentUser } = useAuth();
+    const { showToast } = useToast();
 
     useEffect(() => {
         if (quote) {
@@ -27,14 +31,25 @@ const QuoteDetailPage: React.FC = () => {
         }
     };
 
+    const addActivityLog = async (description: string) => {
+        if (!currentUser || !id) return;
+        const log: Omit<ActivityLog, 'id'> = { quoteId: id, type: 'Cambio de Estado', description, userId: currentUser.id, createdAt: new Date().toISOString() };
+        try {
+            await api.addDoc('activities', log);
+        } catch (error) {
+            console.error("Error adding activity log:", error);
+        }
+    };
+
     const handleSaveStatus = async () => {
-        if (currentStatus && id) {
+        if (currentStatus && id && currentStatus !== quote?.status) {
             try {
                 await api.updateDoc('quotes', id, { status: currentStatus });
-                alert('Estado de la cotización actualizado.');
+                addActivityLog(`Estado de cotización actualizado de "${quote?.status}" a "${currentStatus}"`);
+                showToast('success', 'Estado de la cotización actualizado.');
             } catch (error) {
                 console.error("Error updating quote status:", error);
-                alert("Error al actualizar el estado.");
+                showToast('error', "Error al actualizar el estado.");
             }
         }
     };

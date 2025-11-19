@@ -1,27 +1,38 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sample, SampleStatus, Prospect, Company, Product, User } from '../types';
 import { useCollection } from '../hooks/useCollection';
-// FIX: Removed MOCK_USERS import and will fetch data using a hook.
 import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
+import { api } from '../api/firebaseApi';
+import { useToast } from '../hooks/useToast';
+
+// Moved outside
+const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
+        <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
+        <div className="space-y-4">
+            {children}
+        </div>
+    </div>
+);
 
 const NewSamplePage: React.FC = () => {
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [recipientType, setRecipientType] = useState<'prospect' | 'company'>('prospect');
     const [sample, setSample] = useState<Partial<Sample>>({
         name: '',
         status: SampleStatus.Solicitada,
-        ownerId: 'user-1', // Default value, can be updated from fetched users
+        ownerId: 'user-1', 
         requestDate: new Date().toISOString().split('T')[0],
     });
+    const [isSaving, setIsSaving] = useState(false);
 
     const { data: prospects, loading: pLoading } = useCollection<Prospect>('prospects');
     const { data: companies, loading: cLoading } = useCollection<Company>('companies');
     const { data: products, loading: prLoading } = useCollection<Product>('products');
-    // FIX: Fetch users with useCollection hook.
     const { data: users, loading: uLoading } = useCollection<User>('users');
 
     const loading = pLoading || cLoading || prLoading || uLoading;
@@ -29,7 +40,6 @@ const NewSamplePage: React.FC = () => {
     const prospectOptions = (prospects || []).map(p => ({ value: p.id, name: p.name }));
     const companyOptions = (companies || []).map(c => ({ value: c.id, name: c.shortName || c.name }));
     const productOptions = (products || []).map(p => ({ value: p.id, name: p.name }));
-    // FIX: Se derivan las opciones de usuario de los datos obtenidos.
     const userOptions = useMemo(() => (users || []).map(u => ({ value: u.id, name: u.name })), [users]);
 
 
@@ -42,41 +52,40 @@ const NewSamplePage: React.FC = () => {
         setSample(prev => ({...prev, prospectId: undefined, companyId: undefined}));
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!sample.name || !sample.productId || (!sample.prospectId && !sample.companyId)) {
-            alert('Por favor, completa los campos obligatorios.');
+            showToast('warning', 'Por favor, completa los campos obligatorios.');
             return;
         }
 
-        const newSample: Sample = {
-            id: `sample-${Date.now()}`,
-            ...sample
-        } as Sample;
+        setIsSaving(true);
+        const newSampleData: Omit<Sample, 'id'> = {
+            ...sample,
+        } as Omit<Sample, 'id'>;
 
-        console.log("Nueva Muestra Guardada:", newSample);
-        alert(`Muestra "${newSample.name}" creada (simulación).`);
-        navigate('/hubs/samples');
+        try {
+            await api.addDoc('samples', newSampleData);
+            showToast('success', 'Muestra guardada exitosamente.');
+            navigate('/hubs/samples');
+        } catch (error) {
+            console.error("Error saving sample:", error);
+            showToast('error', 'Error al guardar la muestra.');
+        } finally {
+            setIsSaving(false);
+        }
     };
-
-    const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
-            <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
-            <div className="space-y-4">
-                {children}
-            </div>
-        </div>
-    );
 
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Nueva Muestra</h2>
                 <div className="flex space-x-2">
-                    <button onClick={() => navigate('/hubs/samples')} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">
+                    <button onClick={() => navigate('/hubs/samples')} disabled={isSaving} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50">
                         Cancelar
                     </button>
-                    <button onClick={handleSubmit} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700">
+                    <button onClick={handleSubmit} disabled={isSaving} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+                        {isSaving && <span className="material-symbols-outlined animate-spin !text-sm">progress_activity</span>}
                         Guardar Muestra
                     </button>
                 </div>
@@ -87,7 +96,7 @@ const NewSamplePage: React.FC = () => {
                     <FormBlock title="Detalles de la Muestra">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre de la Muestra / Concepto *</label>
-                            <input type="text" value={sample.name || ''} onChange={(e) => handleChange('name', e.target.value)} />
+                            <input type="text" value={sample.name || ''} onChange={(e) => handleChange('name', e.target.value)} className="mt-1 w-full" />
                         </div>
                         
                         <CustomSelect label="Producto *" options={productOptions} value={sample.productId || ''} onChange={val => handleChange('productId', val)} />
@@ -110,7 +119,7 @@ const NewSamplePage: React.FC = () => {
                         
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fecha de Solicitud</label>
-                            <input type="date" value={sample.requestDate || ''} onChange={(e) => handleChange('requestDate', e.target.value)} />
+                            <input type="date" value={sample.requestDate || ''} onChange={(e) => handleChange('requestDate', e.target.value)} className="mt-1 w-full" />
                         </div>
 
                     </FormBlock>

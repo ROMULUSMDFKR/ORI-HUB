@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { PIPELINE_COLUMNS } from '../constants';
@@ -8,6 +8,9 @@ import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
 import Spinner from '../components/ui/Spinner';
+import { useToast } from '../hooks/useToast';
+import { api } from '../api/firebaseApi';
+import { useAuth } from '../hooks/useAuth';
 
 const PipelineColumn: React.FC<{
   stage: ProspectStage;
@@ -39,17 +42,26 @@ const PipelineColumn: React.FC<{
 const CrmPipelinePage: React.FC = () => {
   const { data: prospectsData, loading: prospectsLoading } = useCollection<Prospect>('prospects');
   const { data: users, loading: usersLoading } = useCollection<User>('users');
-  const { data: activities, loading: activitiesLoading } = useCollection<ActivityLog>('activities');
+  const { data: activitiesData, loading: activitiesLoading } = useCollection<ActivityLog>('activities');
+  const { showToast } = useToast();
+  const { user: currentUser } = useAuth();
 
   const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (prospectsData) {
       setProspects(prospectsData);
     }
   }, [prospectsData]);
   
+  useEffect(() => {
+    if (activitiesData) {
+      setActivities(activitiesData);
+    }
+  }, [activitiesData]);
+
   const loading = prospectsLoading || usersLoading || activitiesLoading;
 
   const groupedColumns = useMemo(() => {
@@ -71,7 +83,7 @@ const CrmPipelinePage: React.FC = () => {
   
   const usersMap = useMemo(() => {
       if (!users) return new Map();
-      return new Map(users.map(u => [u.id, u.name]));
+      return new Map(users.map(u => [u.id, u]));
   }, [users]);
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
@@ -88,16 +100,43 @@ const CrmPipelinePage: React.FC = () => {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStage: ProspectStage) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetStage: ProspectStage) => {
     e.preventDefault();
     const prospectId = e.dataTransfer.getData('text/plain');
-    if (prospectId) {
+    if (!prospectId || !currentUser) return;
+
+    const originalProspect = prospects.find(p => p.id === prospectId);
+    if (!originalProspect || originalProspect.stage === targetStage) return;
+
+    // Optimistic update
+    setProspects(prevProspects =>
+      prevProspects.map(p =>
+        p.id === prospectId ? { ...p, stage: targetStage } : p
+      )
+    );
+
+    try {
+      await api.updateDoc('prospects', prospectId, { stage: targetStage });
+      
+      // Add activity log
+      const activity: Omit<ActivityLog, 'id'> = {
+        prospectId,
+        type: 'Cambio de Estado',
+        description: `Cambió el estado de "${originalProspect.stage}" a "${targetStage}"`,
+        userId: currentUser.id,
+        createdAt: new Date().toISOString()
+      };
+      const newActivity = await api.addDoc('activities', activity);
+      setActivities(prev => [newActivity, ...prev]);
+
+    } catch (error) {
+      showToast('error', 'No se pudo actualizar la etapa.');
+      // Revert on failure
       setProspects(prevProspects =>
         prevProspects.map(p =>
-          p.id === prospectId ? { ...p, stage: targetStage } : p
+          p.id === prospectId ? originalProspect : p
         )
       );
-      // Here you would call an API to persist the change
     }
   };
   
@@ -136,7 +175,7 @@ const CrmPipelinePage: React.FC = () => {
                 { header: 'Nombre', accessor: (p: Prospect) => <Link to={`/hubs/prospects/${p.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{p.name}</Link> },
                 { header: 'Etapa', accessor: (p: Prospect) => <Badge text={p.stage} color="blue" />},
                 { header: 'Valor Est.', accessor: (p: Prospect) => `$${p.estValue.toLocaleString()}`},
-                { header: 'Responsable', accessor: (p: Prospect) => usersMap.get(p.ownerId) || 'N/A' },
+                { header: 'Responsable', accessor: (p: Prospect) => usersMap.get(p.ownerId)?.name || 'N/A' },
                 { header: 'Creación', accessor: (p: Prospect) => new Date(p.createdAt).toLocaleDateString()},
             ];
             return <Table columns={columns} data={prospects} />;
@@ -144,7 +183,7 @@ const CrmPipelinePage: React.FC = () => {
             return (
                 <ul className="space-y-4">
                     {pipelineActivities.map(activity => {
-                        const user = users?.find(u => u.id === activity.userId);
+                        const user = usersMap.get(activity.userId);
                         const prospect = prospects.find(p => p.id === activity.prospectId);
                         if (!user || !prospect) return null;
                         return (

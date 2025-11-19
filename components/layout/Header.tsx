@@ -1,8 +1,10 @@
-
-
-import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { User } from '../../types';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { User, Notification } from '../../types';
+import { useToast } from '../../hooks/useToast';
+import { useAuth } from '../../hooks/useAuth';
+import { useCollection } from '../../hooks/useCollection';
+import { api } from '../../api/firebaseApi';
 
 type UserStatus = 'online' | 'away' | 'dnd' | 'offline';
 
@@ -13,14 +15,7 @@ const STATUS_CONFIG: Record<UserStatus, { color: string; label: string }> = {
     offline: { color: 'bg-gray-400', label: 'No conectado' },
 };
 
-const sampleNotifications = [
-    { id: 1, type: 'task', text: 'Nueva tarea asignada: "Revisar contrato"', time: 'hace 5 min', unread: true, link: '/tasks/task-1' },
-    { id: 2, type: 'message', text: 'Nuevo mensaje de David', time: 'hace 25 min', unread: true, link: '/communication/chat' },
-    { id: 3, type: 'email', text: 'Recibiste un correo de Molelub', time: 'hace 1 hora', unread: false, link: '/communication/emails' },
-    { id: 4, type: 'system', text: 'La importación de candidatos ha finalizado.', time: 'hace 3 horas', unread: false, link: '/prospecting/candidates' },
-];
-
-const NOTIFICATION_ICONS: Record<string, string> = {
+const NOTIFICATION_ICONS: Record<Notification['type'], string> = {
     task: 'task_alt',
     message: 'chat',
     email: 'mail',
@@ -29,9 +24,19 @@ const NOTIFICATION_ICONS: Record<string, string> = {
 
 const NotificationMenu: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
-    const [notifications, setNotifications] = useState(sampleNotifications);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const unreadCount = notifications.filter(n => n.unread).length;
+    const { user: currentUser } = useAuth();
+    const navigate = useNavigate();
+    const { data: notifications } = useCollection<Notification>('notifications');
+
+    const userNotifications = useMemo(() => {
+        if (!notifications || !currentUser) return [];
+        return notifications
+            .filter(n => n.userId === currentUser.id)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [notifications, currentUser]);
+
+    const unreadCount = useMemo(() => userNotifications.filter(n => !n.isRead).length, [userNotifications]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -45,8 +50,28 @@ const NotificationMenu: React.FC = () => {
         };
     }, []);
 
-    const markAllAsRead = () => {
-        setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+    const markAllAsRead = async () => {
+        const unreadIds = userNotifications.filter(n => !n.isRead).map(n => n.id);
+        if (unreadIds.length === 0) return;
+        try {
+            for (const id of unreadIds) {
+                await api.updateDoc('notifications', id, { isRead: true });
+            }
+        } catch (error) {
+            console.error("Error marking all as read:", error);
+        }
+    };
+
+    const handleNotificationClick = async (notification: Notification) => {
+        if (!notification.isRead) {
+            try {
+                await api.updateDoc('notifications', notification.id, { isRead: true });
+            } catch (error) {
+                console.error("Error marking notification as read:", error);
+            }
+        }
+        setIsOpen(false);
+        navigate(notification.link);
     };
 
     return (
@@ -61,24 +86,26 @@ const NotificationMenu: React.FC = () => {
                 <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-lg z-20 border border-slate-200 dark:border-slate-700">
                     <div className="flex justify-between items-center p-3 border-b border-slate-200 dark:border-slate-700">
                         <h4 className="font-semibold text-sm">Notificaciones</h4>
-                        <button onClick={markAllAsRead} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">Marcar como leídas</button>
+                        <button onClick={markAllAsRead} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50" disabled={unreadCount === 0}>
+                            Marcar como leídas
+                        </button>
                     </div>
                     <ul className="py-1 max-h-80 overflow-y-auto">
-                        {notifications.map(notif => (
+                        {userNotifications.slice(0, 5).map(notif => (
                             <li key={notif.id}>
-                                <Link to={notif.link} onClick={() => setIsOpen(false)} className={`flex items-start p-3 hover:bg-slate-50 dark:hover:bg-slate-700 ${notif.unread ? 'bg-indigo-50 dark:bg-indigo-500/10' : ''}`}>
+                                <button onClick={() => handleNotificationClick(notif)} className={`w-full text-left flex items-start p-3 hover:bg-slate-50 dark:hover:bg-slate-700 ${!notif.isRead ? 'bg-indigo-50 dark:bg-indigo-500/10' : ''}`}>
                                     <span className="material-symbols-outlined text-base text-slate-500 dark:text-slate-400 mr-3 mt-1">{NOTIFICATION_ICONS[notif.type]}</span>
                                     <div className="flex-1">
-                                        <p className="text-sm text-slate-700 dark:text-slate-300">{notif.text}</p>
-                                        <p className="text-xs text-slate-400 dark:text-slate-500">{notif.time}</p>
+                                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{notif.title}</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">{notif.message}</p>
                                     </div>
-                                    {notif.unread && <span className="w-2 h-2 rounded-full bg-indigo-500 mt-2 ml-2"></span>}
-                                </Link>
+                                    {!notif.isRead && <span className="w-2 h-2 rounded-full bg-indigo-500 mt-2 ml-2 flex-shrink-0"></span>}
+                                </button>
                             </li>
                         ))}
                     </ul>
                      <div className="p-2 border-t border-slate-200 dark:border-slate-700 text-center">
-                        <Link to="/settings" onClick={() => setIsOpen(false)} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+                        <Link to="/notifications" onClick={() => setIsOpen(false)} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
                             Ver todas
                         </Link>
                     </div>
@@ -164,11 +191,12 @@ const UserMenu: React.FC<{ user: User | null; onLogout: () => void; }> = ({ user
 
 const Header: React.FC<{ user: User | null; onLogout: () => void; pageTitle?: string; }> = ({ user, onLogout, pageTitle }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const { showToast } = useToast();
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
       console.log('Searching for:', searchQuery);
-      alert(`Buscando: "${searchQuery}" (ver consola para detalles)`);
+      showToast('info', `Buscando: "${searchQuery}" (funcionalidad en desarrollo)`);
     }
   };
 

@@ -1,7 +1,7 @@
 
 
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Supplier, SupplierRating } from '../../types';
 import { api } from '../../api/firebaseApi';
@@ -44,7 +44,7 @@ const NewSupplierPage: React.FC = () => {
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleChange = (field: string, value: any) => {
+    const handleChange = useCallback((field: string, value: any) => {
         const keys = field.split('.');
         if (keys.length > 1) {
             setSupplier(prev => ({
@@ -57,7 +57,7 @@ const NewSupplierPage: React.FC = () => {
         } else {
             setSupplier(prev => ({ ...prev, [field]: value }));
         }
-    };
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

@@ -1,38 +1,25 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { ChatMessage, User, Group, Task, ActivityLog } from '../types';
+import { ChatMessage, User, Group } from '../types';
 import Spinner from '../components/ui/Spinner';
-import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
-import Drawer from '../components/ui/Drawer';
-import Checkbox from '../components/ui/Checkbox';
 import ChatSidebar from '../components/layout/ChatSidebar';
-// FIX: Add missing import for `MOCK_USERS`. // FIX: Se eliminó la importación no utilizada de MOCK_USERS.
-
+import { useAuth } from '../hooks/useAuth';
+import { api } from '../api/firebaseApi';
+import { useToast } from '../hooks/useToast';
 
 const ChatWindow: React.FC<{
     chatId: string;
     chatType: 'user' | 'group';
     onSendMessage: (text: string) => void;
-}> = ({ chatId, chatType }) => {
+    conversation: ChatMessage[];
+    loading: boolean;
+}> = ({ chatId, chatType, onSendMessage, conversation, loading }) => {
     const chatEndRef = useRef<null | HTMLDivElement>(null);
     const [newMessage, setNewMessage] = useState('');
     const { data: usersData } = useCollection<User>('users');
     const { data: groupsData } = useCollection<Group>('groups');
-    const { data: messagesData, loading } = useCollection<ChatMessage>('messages');
-    
-    const currentUser = useMemo(() => usersData?.find(u => u.id === 'user-1'), [usersData]);
-
-    const conversation = useMemo(() => {
-        if (!messagesData || !currentUser) return [];
-        if (chatType === 'user') {
-            return messagesData.filter(msg =>
-                (msg.senderId === currentUser.id && msg.receiverId === chatId) ||
-                (msg.senderId === chatId && msg.receiverId === currentUser.id)
-            );
-        }
-        return messagesData.filter(msg => msg.receiverId === chatId);
-    }, [messagesData, chatId, chatType, currentUser]);
+    const { user: currentUser } = useAuth();
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -40,7 +27,8 @@ const ChatWindow: React.FC<{
 
     const handleSendMessage = (e: React.FormEvent) => {
         e.preventDefault();
-        // onSendMessage(newMessage); // This should be handled in parent
+        if (!newMessage.trim()) return;
+        onSendMessage(newMessage);
         setNewMessage('');
     };
 
@@ -74,12 +62,12 @@ const ChatWindow: React.FC<{
                     const isMe = msg.senderId === currentUser.id;
                     return (
                         <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                            {chatType === 'group' && !isMe && (
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 ml-10">{sender?.name}</p>
+                            {chatType === 'group' && !isMe && sender && (
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 ml-10">{sender.name}</p>
                             )}
                              <div className={`flex items-end gap-2 max-w-lg ${isMe ? 'flex-row-reverse' : ''}`}>
                                 {sender && <img src={sender.avatarUrl} alt={sender.name} className="w-6 h-6 rounded-full mb-1" />}
-                                <div className={`p-3 rounded-lg ${isMe ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-700'}`}>
+                                <div className={`p-3 rounded-lg ${isMe ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200'}`}>
                                     <p className="text-sm">{msg.text}</p>
                                 </div>
                             </div>
@@ -109,23 +97,102 @@ const ChatWindow: React.FC<{
     );
 };
 
+
 const InternalChatPage: React.FC = () => {
     const { type, id } = useParams();
+    const { user: currentUser } = useAuth();
+    const { showToast } = useToast();
+    
+    // Replace useCollection with manual polling logic to ensure real-time-like updates
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [messagesLoading, setMessagesLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchMessages = async () => {
+            try {
+                const data = await api.getCollection('messages');
+                setMessages(data);
+            } catch (err) {
+                console.error("Error fetching messages:", err);
+            } finally {
+                setMessagesLoading(false);
+            }
+        };
+
+        // Initial fetch
+        fetchMessages();
+
+        // Poll for new messages every 3 seconds
+        const intervalId = setInterval(fetchMessages, 3000);
+
+        return () => clearInterval(intervalId);
+    }, []);
+
+    const handleSendMessage = async (text: string) => {
+        if (!text.trim() || !currentUser || !id || !type) return;
+
+        const newChatMessage: Omit<ChatMessage, 'id'> = {
+            senderId: currentUser.id,
+            receiverId: id,
+            text,
+            timestamp: new Date().toISOString(),
+        };
+
+        const tempId = `temp-${Date.now()}`;
+        setMessages(prev => [...(prev || []), { ...newChatMessage, id: tempId } as ChatMessage]);
+
+        try {
+            await api.addDoc('messages', newChatMessage);
+            
+            if (type === 'user' && id !== currentUser.id) {
+                const notification = {
+                    userId: id, // receiverId
+                    title: `Nuevo mensaje de ${currentUser.name}`,
+                    message: text,
+                    type: 'message' as 'message',
+                    link: `/communication/chat/user/${currentUser.id}`, // Link back to the sender
+                    isRead: false,
+                    createdAt: new Date().toISOString(),
+                };
+                await api.addDoc('notifications', notification);
+            }
+
+        } catch (error) {
+            console.error("Failed to send message:", error);
+            setMessages(prev => (prev || []).filter(msg => msg.id !== tempId));
+            showToast('error', "Error al enviar el mensaje.");
+        }
+    };
+
+    const conversation = useMemo(() => {
+        if (!messages || !currentUser || !id || !type) return [];
+        if (type === 'user') {
+            return messages.filter(msg =>
+                (msg.senderId === currentUser.id && msg.receiverId === id) ||
+                (msg.senderId === id && msg.receiverId === currentUser.id)
+            ).sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        }
+        // Group chat logic
+        return messages.filter(msg => msg.receiverId === id).sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    }, [messages, currentUser, id, type]);
+
 
     return (
-        <div className="flex h-full">
+        <div className="flex h-full bg-white dark:bg-slate-800">
             <ChatSidebar />
             {id ? (
                 <ChatWindow 
                     chatId={id} 
                     chatType={type as 'user' | 'group'} 
-                    onSendMessage={(text) => console.log('Send:', text)} // Placeholder
+                    onSendMessage={handleSendMessage}
+                    conversation={conversation}
+                    loading={messagesLoading}
                 />
             ) : (
                 <div className="flex-1 flex items-center justify-center bg-slate-100 dark:bg-slate-900/50">
                     <div className="text-center">
                         <span className="material-symbols-outlined text-6xl text-slate-400">forum</span>
-                        <p className="mt-2 text-lg text-slate-500">Selecciona una conversación para empezar</p>
+                        <p className="mt-2 text-lg text-slate-500 dark:text-slate-400">Selecciona una conversación para empezar</p>
                     </div>
                 </div>
             )}

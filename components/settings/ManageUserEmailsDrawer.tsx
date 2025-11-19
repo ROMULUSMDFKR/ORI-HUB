@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, ConnectedEmailAccount, SignatureTemplate } from '../../types';
 import { useCollection } from '../../hooks/useCollection';
-import { api } from '../../data/mockData';
+import { api } from '../../api/firebaseApi';
 import Drawer from '../ui/Drawer';
 import Spinner from '../ui/Spinner';
 import Badge from '../ui/Badge';
@@ -29,21 +30,35 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
     }, [user, allAccounts]);
 
     const handleSaveNewAccount = async (account: ConnectedEmailAccount) => {
-        await api.addDoc('connectedAccounts', account);
-        setUserAccounts(prev => [...prev, account]);
+        // FIX: Remove the temporary ID before saving to Firestore. 
+        // Firestore will generate a real ID, which is returned in 'addedAccount'.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, ...accountData } = account;
+        const addedAccount = await api.addDoc('connectedAccounts', accountData);
+        setUserAccounts(prev => [...prev, addedAccount]);
         setIsAddDrawerOpen(false);
     };
 
     const handleDeleteAccount = async (accountId: string) => {
         if (window.confirm('¿Estás seguro de que quieres eliminar esta cuenta de correo?')) {
-            // In a real app, call api.deleteDoc
-            setUserAccounts(prev => prev.filter(acc => acc.id !== accountId));
+            try {
+                await api.deleteDoc('connectedAccounts', accountId);
+                setUserAccounts(prev => prev.filter(acc => acc.id !== accountId));
+            } catch (error) {
+                console.error("Error deleting account:", error);
+                alert("Error al eliminar la cuenta.");
+            }
         }
     };
     
     const handleAssignTemplate = async (accountId: string, templateId: string) => {
-        await api.updateDoc('connectedAccounts', accountId, { signatureTemplate: templateId });
-        setUserAccounts(prev => prev.map(acc => acc.id === accountId ? { ...acc, signatureTemplate: templateId } : acc));
+        try {
+            await api.updateDoc('connectedAccounts', accountId, { signatureTemplate: templateId });
+            setUserAccounts(prev => prev.map(acc => acc.id === accountId ? { ...acc, signatureTemplate: templateId } : acc));
+        } catch (error) {
+            console.error("Error updating template:", error);
+            alert("Error al actualizar la plantilla.");
+        }
     };
 
     const getStatusColor = (status: ConnectedEmailAccount['status']) => {

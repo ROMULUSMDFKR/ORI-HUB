@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 
 interface Column<T> {
@@ -10,11 +11,13 @@ interface TableProps<T> {
   columns: Column<T>[];
   data: T[];
   itemsPerPage?: number;
+  onRowClick?: (item: T) => void;
 }
 
-const Table = <T extends { id: string }>({ columns, data, itemsPerPage = 10 }: TableProps<T>) => {
+const Table = <T extends { id: string }>({ columns, data, itemsPerPage = 10, onRowClick }: TableProps<T>) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.ceil(data.length / itemsPerPage);
+  const [pageSize, setPageSize] = useState(itemsPerPage);
+  const totalPages = Math.ceil(data.length / pageSize);
   
   // Reset to page 1 if data changes and current page becomes invalid
   React.useEffect(() => {
@@ -23,7 +26,7 @@ const Table = <T extends { id: string }>({ columns, data, itemsPerPage = 10 }: T
       }
   }, [data.length, totalPages, currentPage]);
   
-  const paginatedData = data.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedData = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -66,8 +69,8 @@ const Table = <T extends { id: string }>({ columns, data, itemsPerPage = 10 }: T
 
   const pages = useMemo(() => getPaginationButtons(), [totalPages, currentPage]);
 
-  const startItem = data.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
-  const endItem = Math.min(currentPage * itemsPerPage, data.length);
+  const startItem = data.length > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+  const endItem = Math.min(currentPage * pageSize, data.length);
   
   const commonButtonClasses = "relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-slate-300 dark:ring-slate-700 focus:z-20 focus:outline-offset-0";
   const activeClasses = "z-10 bg-indigo-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600";
@@ -89,7 +92,11 @@ const Table = <T extends { id: string }>({ columns, data, itemsPerPage = 10 }: T
           </thead>
           <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
             {paginatedData.map((item) => (
-              <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+              <tr 
+                key={item.id} 
+                className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 ${onRowClick ? 'cursor-pointer' : ''}`}
+                onClick={() => onRowClick && onRowClick(item)}
+              >
                 {columns.map((col, index) => (
                   <td key={index} className={`px-6 py-4 whitespace-nowrap text-sm text-slate-800 dark:text-slate-200 ${col.className}`}>
                     {col.accessor(item)}
@@ -101,13 +108,28 @@ const Table = <T extends { id: string }>({ columns, data, itemsPerPage = 10 }: T
         </table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="px-4 py-3 sm:px-6 flex items-center justify-between border-t border-slate-200 dark:border-slate-700">
-             <div className="flex-1">
+      {data.length > 0 && (
+        <div className="px-4 py-3 sm:px-6 flex flex-col sm:flex-row items-center justify-between border-t border-slate-200 dark:border-slate-700 gap-4">
+             <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                    <label htmlFor="pageSize" className="text-sm text-slate-500 dark:text-slate-400">Filas:</label>
+                    <select 
+                        id="pageSize"
+                        value={pageSize}
+                        onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                        className="block w-full rounded-md border-0 py-1.5 pl-3 pr-8 text-slate-900 dark:text-slate-200 dark:bg-slate-700 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6 cursor-pointer"
+                    >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                    </select>
+                </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Mostrando <span className="font-medium text-slate-700 dark:text-slate-200">{startItem}</span> a <span className="font-medium text-slate-700 dark:text-slate-200">{endItem}</span> de <span className="font-medium text-slate-700 dark:text-slate-200">{data.length}</span> resultados
+                    <span className="font-medium text-slate-700 dark:text-slate-200">{startItem}</span>-<span className="font-medium text-slate-700 dark:text-slate-200">{endItem}</span> de <span className="font-medium text-slate-700 dark:text-slate-200">{data.length}</span>
                 </p>
             </div>
+            {totalPages > 1 && (
             <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
                 <button
                     onClick={handlePrevPage}
@@ -140,6 +162,7 @@ const Table = <T extends { id: string }>({ columns, data, itemsPerPage = 10 }: T
                      <span className="material-symbols-outlined !text-base">chevron_right</span>
                 </button>
             </nav>
+            )}
         </div>
       )}
     </div>

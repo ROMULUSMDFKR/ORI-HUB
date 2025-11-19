@@ -9,9 +9,11 @@ interface NotesSectionProps {
     entityType: 'prospect' | 'company' | 'contact' | 'product' | 'supplier' | 'candidate' | 'sample' | 'quote' | 'salesOrder';
     notes: Note[];
     onNoteAdded: (note: Note) => void;
+    onNoteUpdated?: (noteId: string, newText: string) => void;
+    onNoteDeleted?: (noteId: string) => void;
 }
 
-const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes, onNoteAdded }) => {
+const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes, onNoteAdded, onNoteUpdated, onNoteDeleted }) => {
     const [newNote, setNewNote] = useState('');
     const [showUserSuggestions, setShowUserSuggestions] = useState(false);
     const [userSuggestionQuery, setUserSuggestionQuery] = useState('');
@@ -98,7 +100,15 @@ const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes
                     </div>
                 </div>
                 <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700 max-h-96 overflow-y-auto pr-2">
-                    {notes.length > 0 ? notes.map(note => <NoteCard key={note.id} note={note} usersMap={usersMap} />)
+                    {notes.length > 0 ? notes.map(note => (
+                        <NoteCard 
+                            key={note.id} 
+                            note={note} 
+                            usersMap={usersMap} 
+                            onUpdate={onNoteUpdated}
+                            onDelete={onNoteDeleted}
+                        />
+                    ))
                     : <p className="text-sm text-center text-slate-500 dark:text-slate-400 py-4">No hay notas para este registro.</p>}
                 </div>
             </div>

@@ -2,18 +2,22 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { SalesOrder, SalesOrderStatus, Note } from '../types';
+import { SalesOrder, SalesOrderStatus, Note, ActivityLog } from '../types';
 import { SALES_ORDERS_PIPELINE_COLUMNS } from '../constants';
 import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
 import { api } from '../api/firebaseApi';
+import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 
 const SalesOrderDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const { data: salesOrder, loading, error } = useDoc<SalesOrder>('salesOrders', id || '');
     const { data: allNotes } = useCollection<Note>('notes');
     const [currentStatus, setCurrentStatus] = useState<SalesOrderStatus | undefined>();
+    const { user: currentUser } = useAuth();
+    const { showToast } = useToast();
 
     useEffect(() => {
         if (salesOrder) {
@@ -26,15 +30,26 @@ const SalesOrderDetailPage: React.FC = () => {
             (allNotes as Note[]).unshift(note);
         }
     };
+    
+    const addActivityLog = async (description: string) => {
+        if (!currentUser || !id) return;
+        const log: Omit<ActivityLog, 'id'> = { salesOrderId: id, type: 'Cambio de Estado', description, userId: currentUser.id, createdAt: new Date().toISOString() };
+        try {
+            await api.addDoc('activities', log);
+        } catch (error) {
+            console.error("Error adding activity log:", error);
+        }
+    };
 
     const handleSaveStatus = async () => {
-        if (currentStatus && id) {
+        if (currentStatus && id && currentStatus !== salesOrder?.status) {
              try {
                 await api.updateDoc('salesOrders', id, { status: currentStatus });
-                alert('Estado de la orden actualizado.');
+                addActivityLog(`Estado de la orden actualizado de "${salesOrder?.status}" a "${currentStatus}"`);
+                showToast('success', 'Estado de la orden actualizado.');
             } catch (error) {
                 console.error("Error updating sales order status:", error);
-                alert("Error al actualizar el estado.");
+                showToast('error', "Error al actualizar el estado.");
             }
         }
     };

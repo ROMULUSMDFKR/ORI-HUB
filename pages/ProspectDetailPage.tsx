@@ -11,6 +11,8 @@ import { GoogleGenAI } from '@google/genai';
 import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
 import { PIPELINE_COLUMNS } from '../constants';
+import { useToast } from '../hooks/useToast';
+import { useAuth } from '../hooks/useAuth';
 
 
 // --- Reusable UI Components ---
@@ -169,11 +171,13 @@ const ProspectDetailPage: React.FC = () => {
     const navigate = useNavigate();
     const { data: initialProspect, loading: pLoading, error } = useDoc<Prospect>('prospects', id || '');
     const { data: allContacts } = useCollection<Contact>('contacts');
-    const { data: initialActivities } = useCollection<ActivityLog>('activities');
+    const { data: initialActivities, loading: aLoading } = useCollection<ActivityLog>('activities');
     const { data: quotes } = useCollection<Quote>('quotes');
     const { data: samples } = useCollection<Sample>('samples');
     const { data: allNotes } = useCollection<Note>('notes');
     const { data: users, loading: uLoading } = useCollection<User>('users');
+    const { showToast } = useToast();
+    const { user: currentUser } = useAuth();
     
     const [prospect, setProspect] = useState<Prospect | null>(null);
     const [activities, setActivities] = useState<ActivityLog[]>([]);
@@ -185,7 +189,7 @@ const ProspectDetailPage: React.FC = () => {
     const [currentStage, setCurrentStage] = useState<ProspectStage | undefined>();
 
     const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
-    const loading = pLoading || uLoading;
+    const loading = pLoading || uLoading || aLoading;
 
     useEffect(() => {
         if(initialProspect) {
@@ -204,6 +208,18 @@ const ProspectDetailPage: React.FC = () => {
         }
     }, [initialActivities, id]);
 
+    const addActivityLog = async (type: ActivityLog['type'], description: string, prospectId: string) => {
+        if (!currentUser) return;
+        const log: Omit<ActivityLog, 'id'> = { prospectId, type, description, userId: currentUser.id, createdAt: new Date().toISOString() };
+        try {
+            const newActivity = await api.addDoc('activities', log);
+            setActivities(prev => [newActivity, ...prev]);
+        } catch (error) {
+            console.error("Error adding activity log:", error);
+            showToast('error', 'No se pudo registrar la actividad.');
+        }
+    };
+    
     const handleAddActivity = (newActivity: ActivityLog) => {
         setActivities(prev => [newActivity, ...prev]);
     };
@@ -215,10 +231,18 @@ const ProspectDetailPage: React.FC = () => {
         }
     };
     
-    const handleSaveStatus = () => {
-        if (currentStage && prospect) {
-            setProspect(p => p ? { ...p, stage: currentStage } : null);
-            alert('Estado del prospecto guardado.');
+    const handleSaveStatus = async () => {
+        if (currentStage && prospect && id && currentStage !== prospect.stage) {
+            const oldStage = prospect.stage;
+            try {
+                await api.updateDoc('prospects', id, { stage: currentStage });
+                setProspect(p => p ? { ...p, stage: currentStage } : null);
+                addActivityLog('Cambio de Estado', `Cambió el estado de "${oldStage}" a "${currentStage}"`, id);
+                showToast('success', 'Estado del prospecto actualizado.');
+            } catch (error) {
+                console.error("Error saving prospect status:", error);
+                showToast('error', 'No se pudo guardar el estado.');
+            }
         }
     };
 
@@ -233,9 +257,10 @@ const ProspectDetailPage: React.FC = () => {
     }, [allContacts, id]);
 
     const prospectAnalysis = useMemo(() => {
-        if (!prospect || !activities) return null;
+        if (!prospect) return null;
         
-        const lastActivityDays = prospect.lastInteraction ? (new Date().getTime() - new Date(prospect.lastInteraction.date).getTime()) / (1000 * 3600 * 24) : 999;
+        const referenceDate = prospect.lastInteraction ? new Date(prospect.lastInteraction.date) : new Date(prospect.createdAt);
+        const lastActivityDays = (new Date().getTime() - referenceDate.getTime()) / (1000 * 3600 * 24);
         
         const recencyScore = Math.max(0, 100 - lastActivityDays * 5); 
         const frequencyScore = Math.min(50, activities.length * 5);
@@ -243,9 +268,14 @@ const ProspectDetailPage: React.FC = () => {
         const engagementScoreLabel = engagementScoreValue > 75 ? 'Caliente' : engagementScoreValue > 40 ? 'Tibio' : 'Frío';
 
         const alerts: string[] = [];
-        if (lastActivityDays > 15) alerts.push(`Sin contacto en ${Math.floor(lastActivityDays)} días.`);
-        if (!prospect.nextAction) alerts.push(`No hay una próxima acción programada.`);
-        else if (new Date(prospect.nextAction.dueDate) < new Date()) alerts.push(`La próxima acción está vencida.`);
+        if (lastActivityDays > 15 && prospect.stage !== ProspectStage.Nueva) {
+            alerts.push(`Sin contacto en ${Math.floor(lastActivityDays)} días.`);
+        }
+        if (!prospect.nextAction) {
+            alerts.push(`No hay una próxima acción programada.`);
+        } else if (new Date(prospect.nextAction.dueDate) < new Date()) {
+            alerts.push(`La próxima acción está vencida.`);
+        }
 
         return {
             engagementScore: { score: engagementScoreValue, label: engagementScoreLabel },
@@ -303,10 +333,7 @@ const ProspectDetailPage: React.FC = () => {
 
     const handleConvertToClient = async () => {
         if (!prospect) return;
-        if (!window.confirm(`¿Estás seguro de que quieres convertir a "${prospect.name}" en un cliente? Esta acción creará una nueva entidad de empresa.`)) {
-            return;
-        }
-
+        
         const newCompany: Company = {
             id: `comp-${Date.now()}`,
             name: prospect.name,
@@ -337,7 +364,7 @@ const ProspectDetailPage: React.FC = () => {
         
         await api.updateDoc('prospects', prospect.id, { stage: ProspectStage.Ganado });
 
-        alert(`${prospect.name} ha sido convertido a cliente. Se ha transferido su historial.`);
+        showToast('success', `${prospect.name} ha sido convertido a cliente.`);
         navigate(`/crm/clients/${newCompany.id}`);
     };
 
@@ -382,8 +409,7 @@ const ProspectDetailPage: React.FC = () => {
 
                     {prospectAnalysis && <AlertsPanel alerts={prospectAnalysis.alerts} />}
                     
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Datos Generales</h3>
+                    <InfoCard title="Datos Generales">
                         <div className="space-y-1">
                             <InfoRow label="Responsable" value={owner?.name || 'N/A'} />
                             <InfoRow label="Creado por" value={`${creator?.name} el ${new Date(prospect.createdAt).toLocaleDateString()}`} />
@@ -408,7 +434,24 @@ const ProspectDetailPage: React.FC = () => {
                                 Convertir en Cliente
                             </button>
                         </div>
-                    </div>
+                    </InfoCard>
+
+                    <InfoCard title="Información de Contacto">
+                        <div className="space-y-1">
+                            {prospect.phone && <InfoRow label="Teléfono" value={<a href={`tel:${prospect.phone}`} className="hover:underline">{prospect.phone}</a>} />}
+                            {prospect.email && <InfoRow label="Email" value={<a href={`mailto:${prospect.email}`} className="hover:underline">{prospect.email}</a>} />}
+                            {prospect.website && <InfoRow label="Sitio Web" value={<a href={prospect.website} target="_blank" rel="noopener noreferrer" className="hover:underline">{prospect.website}</a>} />}
+                            {prospect.address && <InfoRow label="Dirección" value={prospect.address} />}
+                            {prospect.candidateId && (
+                                <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700">
+                                     <Link to={`/prospecting/candidates/${prospect.candidateId}`} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+                                        <span className="material-symbols-outlined !text-base">person_search</span>
+                                        Ver Candidato Original
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                    </InfoCard>
 
                     <InfoCard title="Estado y Acciones">
                          {prospect.nextAction ? (
@@ -453,7 +496,7 @@ const ProspectDetailPage: React.FC = () => {
                         ) : (
                             <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No hay contactos asociados.</p>
                         )}
-                        <button onClick={() => alert('Funcionalidad para añadir contacto en desarrollo.')} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 flex items-center mt-2">
+                        <button onClick={() => showToast('info', 'Funcionalidad para añadir contacto en desarrollo.')} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 flex items-center mt-2">
                             <span className="material-symbols-outlined mr-1 text-lg">add_circle</span>
                             Añadir Contacto
                         </button>

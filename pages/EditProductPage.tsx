@@ -1,24 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
 import { Product, ProductLot, Category, Unit, Supplier, LotStatus } from '../types';
 import Spinner from '../components/ui/Spinner';
-import Drawer from '../components/ui/Drawer';
-// FIX: Changed import path to a dedicated api module.
 import { api } from '../data/mockData';
 import { UNITS } from '../constants';
 import CustomSelect from '../components/ui/CustomSelect';
-
-const initialLotState = {
-    code: '',
-    supplierId: '',
-    receptionDate: new Date().toISOString().split('T')[0],
-    initialQty: 0,
-    unitCost: 0,
-    minSellPrice: 0,
-    initialLocationId: ''
-};
+import AddLotDrawer from '../components/products/AddLotDrawer';
 
 const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
@@ -28,85 +17,6 @@ const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ tit
       </div>
     </div>
 );
-
-const AddLotDrawer: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    onSave: (newLot: any) => void;
-    suppliers: Supplier[];
-    locations: any[];
-    productSku?: string;
-}> = ({ isOpen, onClose, onSave, suppliers, locations, productSku }) => {
-    const [lot, setLot] = useState(initialLotState);
-
-    useEffect(() => {
-        if (isOpen && productSku) {
-            // Generate suggested lot code
-            const date = new Date();
-            const year = date.getFullYear().toString().slice(-2);
-            const month = (date.getMonth() + 1).toString().padStart(2, '0');
-            const day = date.getDate().toString().padStart(2, '0');
-            const suggestedCode = `${productSku}-${year}${month}${day}`;
-            setLot(prev => ({ ...prev, code: suggestedCode }));
-        } else if (!isOpen) {
-            setLot(initialLotState); // Reset form on close
-        }
-    }, [isOpen, productSku]);
-
-    const handleChange = (field: string, value: any) => {
-        setLot(prev => ({ ...prev, [field]: value }));
-    };
-    
-    const handleSave = () => {
-        // Simple validation
-        if (lot.code && lot.initialQty > 0 && lot.unitCost > 0 && lot.minSellPrice > 0 && lot.initialLocationId) {
-             onSave(lot);
-        } else {
-            alert("Por favor, complete todos los campos requeridos del lote.");
-        }
-    }
-    
-    const supplierOptions = (suppliers || []).map(s => ({ value: s.id, name: s.name }));
-    const locationOptions = (locations || []).map(l => ({ value: l.id, name: l.name }));
-
-    return (
-        <Drawer isOpen={isOpen} onClose={onClose} title="Añadir Nuevo Lote">
-            <div className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Código de Lote</label>
-                    <input type="text" value={lot.code} onChange={e => handleChange('code', e.target.value)} />
-                </div>
-                <CustomSelect label="Proveedor" options={supplierOptions} value={lot.supplierId} onChange={val => handleChange('supplierId', val)} />
-                 <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fecha de Recepción</label>
-                    <input type="date" value={lot.receptionDate} onChange={e => handleChange('receptionDate', e.target.value)} />
-                </div>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Cantidad Recibida</label>
-                        <input type="number" value={lot.initialQty} onChange={e => handleChange('initialQty', parseFloat(e.target.value) || 0)} />
-                    </div>
-                     <CustomSelect label="Ubicación Inicial" options={locationOptions} value={lot.initialLocationId} onChange={val => handleChange('initialLocationId', val)} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Costo Unitario</label>
-                        <input type="number" value={lot.unitCost} onChange={e => handleChange('unitCost', parseFloat(e.target.value) || 0)} />
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Precio Venta Mín.</label>
-                        <input type="number" value={lot.minSellPrice} onChange={e => handleChange('minSellPrice', parseFloat(e.target.value) || 0)} />
-                    </div>
-                </div>
-            </div>
-             <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
-                <button onClick={onClose} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
-                <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Lote</button>
-            </div>
-        </Drawer>
-    );
-}
-
 
 const EditProductPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -131,13 +41,13 @@ const EditProductPage: React.FC = () => {
         }
     }, [initialProduct]);
 
-    const handleChange = (field: keyof Product, value: any) => {
+    const handleChange = useCallback((field: keyof Product, value: any) => {
         setProduct(prev => (prev ? { ...prev, [field]: value } : null));
-    };
+    }, []);
 
-    const handlePricingChange = (field: keyof Product['pricing'], value: any) => {
+    const handlePricingChange = useCallback((field: keyof Product['pricing'], value: any) => {
          setProduct(prev => (prev ? { ...prev, pricing: { ...prev.pricing, [field]: value } } : null));
-    }
+    }, []);
     
     const handleSaveProduct = () => {
         console.log("Saving product...", product);
@@ -145,9 +55,10 @@ const EditProductPage: React.FC = () => {
         navigate(`/products/${id}`);
     };
 
-    const handleAddLot = (newLotData: any) => {
-        const newLot: ProductLot = {
-            id: `lot-${Date.now()}`,
+    const handleAddLot = async (newLotData: any) => {
+        if (!product || !product.id) return;
+        const newLot: Omit<ProductLot, 'id'> = {
+            productId: product.id,
             code: newLotData.code,
             unitCost: newLotData.unitCost,
             supplierId: newLotData.supplierId,
@@ -157,9 +68,16 @@ const EditProductPage: React.FC = () => {
             pricing: { min: newLotData.minSellPrice },
             stock: [{ locationId: newLotData.initialLocationId, qty: newLotData.initialQty }]
         };
-        setLots(prev => [...prev, newLot]);
-        setIsDrawerOpen(false);
-        alert(`Lote ${newLot.code} añadido localmente.`);
+
+        try {
+            const addedLot = await api.addDoc('lots', newLot);
+            setLots(prev => [...prev, addedLot]);
+            setIsDrawerOpen(false);
+            alert(`Lote ${addedLot.code} añadido exitosamente.`);
+        } catch (error) {
+            console.error("Error adding lot:", error);
+            alert("Error al añadir el lote.");
+        }
     }
 
     const loading = productLoading || categoriesLoading || suppliersLoading || locationsLoading;

@@ -3,10 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import { Product, ProductLot, Category, Note } from '../types';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { api } from '../data/mockData';
+import { api } from '../api/firebaseApi';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import NotesSection from '../components/shared/NotesSection';
+import { useToast } from '../hooks/useToast';
 
 const InfoCard: React.FC<{ title: string; children: React.ReactNode, className?: string }> = ({ title, children, className }) => (
     <div className={`bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm ${className}`}>
@@ -75,6 +76,7 @@ const ProductDetailPage: React.FC = () => {
     const { data: allNotes } = useCollection<Note>('notes');
     const [lots, setLots] = useState<ProductLot[]>([]);
     const [lotsLoading, setLotsLoading] = useState(true);
+    const { showToast } = useToast();
 
     useEffect(() => {
         const fetchLots = async () => {
@@ -110,9 +112,52 @@ const ProductDetailPage: React.FC = () => {
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [allNotes, id]);
 
-    const handleNoteAdded = (note: Note) => {
-        if (allNotes) {
-            (allNotes as Note[]).unshift(note);
+    const handleNoteAdded = async (note: Note) => {
+        try {
+            await api.addDoc('notes', note);
+            showToast('success', 'Nota guardada correctamente.');
+            if (allNotes) {
+                (allNotes as Note[]).unshift(note);
+            }
+        } catch (error) {
+            console.error("Error adding note:", error);
+            showToast('error', 'No se pudo guardar la nota.');
+        }
+    };
+
+    const handleNoteUpdated = async (noteId: string, newText: string) => {
+        try {
+            await api.updateDoc('notes', noteId, { text: newText });
+            showToast('success', 'Nota actualizada correctamente.');
+            
+            // Optimistic update
+            if (allNotes) {
+                const noteIndex = allNotes.findIndex(n => n.id === noteId);
+                if (noteIndex > -1) {
+                    allNotes[noteIndex].text = newText;
+                }
+            }
+        } catch (error) {
+            console.error("Error updating note:", error);
+            showToast('error', 'No se pudo actualizar la nota.');
+        }
+    };
+
+    const handleNoteDeleted = async (noteId: string) => {
+        try {
+            await api.deleteDoc('notes', noteId);
+            showToast('success', 'Nota eliminada correctamente.');
+
+            // Optimistic update
+            if (allNotes) {
+                const noteIndex = allNotes.findIndex(n => n.id === noteId);
+                if (noteIndex > -1) {
+                    allNotes.splice(noteIndex, 1);
+                }
+            }
+        } catch (error) {
+            console.error("Error deleting note:", error);
+            showToast('error', 'No se pudo eliminar la nota.');
         }
     };
 
@@ -170,6 +215,8 @@ const ProductDetailPage: React.FC = () => {
                         entityType="product"
                         notes={productNotes}
                         onNoteAdded={handleNoteAdded}
+                        onNoteUpdated={handleNoteUpdated}
+                        onNoteDeleted={handleNoteDeleted}
                     />
                 </div>
             </div>

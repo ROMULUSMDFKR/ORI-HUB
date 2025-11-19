@@ -10,6 +10,7 @@ import Badge from '../components/ui/Badge';
 import NotesSection from '../components/shared/NotesSection';
 import { api } from '../api/firebaseApi';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 
 // Reusable components from other detail pages
 const InfoCard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className }) => (
@@ -33,6 +34,7 @@ const SampleDetailPage: React.FC = () => {
     const { data: sample, loading: sampleLoading, error } = useDoc<Sample>('samples', id || '');
     const [currentSample, setCurrentSample] = useState<Sample | null>(null);
     const { user: currentUser } = useAuth();
+    const { showToast } = useToast();
 
     // Fetch related data
     const { data: prospects, loading: prospectsLoading } = useCollection<Prospect>('prospects');
@@ -51,20 +53,26 @@ const SampleDetailPage: React.FC = () => {
             if(feedbackNote) setFeedback(feedbackNote.text.replace("Feedback:", "").trim());
         }
     }, [sample, allNotes]);
-
-    const handleStatusChange = (newStatus: SampleStatus) => {
-        if (!currentSample) return;
-        setCurrentSample(prev => prev ? { ...prev, status: newStatus } : null);
-    };
     
+    const addActivityLog = async (type: ActivityLog['type'], description: string, sampleId: string) => {
+        if (!currentUser) return;
+        const log: Omit<ActivityLog, 'id'> = { sampleId, type, description, userId: currentUser.id, createdAt: new Date().toISOString() };
+        try {
+            await api.addDoc('activities', log);
+        } catch (error) {
+            console.error("Error adding activity log:", error);
+        }
+    };
+
     const handleSaveStatus = async () => {
-         if (!currentSample || !id) return;
+         if (!currentSample || !id || currentSample.status === sample?.status) return;
          try {
             await api.updateDoc('samples', id, { status: currentSample.status });
-            alert(`Estado de la muestra actualizado a: ${currentSample.status}`);
+            addActivityLog('Cambio de Estado', `Estado de la muestra actualizado a "${currentSample.status}"`, id);
+            showToast('success', `Estado de la muestra actualizado a: ${currentSample.status}`);
          } catch (error) {
              console.error("Error updating sample status:", error);
-             alert("Error al actualizar el estado.");
+             showToast('error', "Error al actualizar el estado.");
          }
     }
 
@@ -72,20 +80,18 @@ const SampleDetailPage: React.FC = () => {
         if(!currentSample || !feedback.trim() || !currentUser) return;
         
         try {
-            // Save as a note prefixed with "Feedback:"
-            const note: Note = {
-                id: `note-${Date.now()}`,
+            const note: Omit<Note, 'id'> = {
                 sampleId: currentSample.id,
                 text: `Feedback: ${feedback}`,
                 userId: currentUser.id,
                 createdAt: new Date().toISOString(),
-            } as Note;
+            } as Omit<Note, 'id'>;
 
             await api.addDoc('notes', note);
-            alert("Feedback guardado correctamente.");
+            showToast('success', "Feedback guardado correctamente.");
         } catch (error) {
             console.error("Error saving feedback:", error);
-            alert("Error al guardar el feedback.");
+            showToast('error', "Error al guardar el feedback.");
         }
     }
 
@@ -132,7 +138,7 @@ const SampleDetailPage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
                     <div className="w-full md:w-48">
-                         <CustomSelect options={statusOptions} value={currentSample.status || ''} onChange={val => handleStatusChange(val as SampleStatus)} />
+                         <CustomSelect options={statusOptions} value={currentSample.status || ''} onChange={val => setCurrentSample(s => s ? {...s, status: val as SampleStatus} : null)} />
                     </div>
                      <button onClick={handleSaveStatus} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 h-[42px]">Guardar</button>
                 </div>
@@ -187,7 +193,7 @@ const SampleDetailPage: React.FC = () => {
                             value={
                                 recipient ? (
                                     <Link 
-                                        to={currentSample.prospectId ? `/crm/prospects/${recipient.id}` : `/crm/clients/${recipient.id}`}
+                                        to={currentSample.prospectId ? `/hubs/prospects/${recipient.id}` : `/crm/clients/${recipient.id}`}
                                         className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
                                     >
                                         {(recipient as any).shortName || recipient.name}

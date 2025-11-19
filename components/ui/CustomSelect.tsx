@@ -5,9 +5,18 @@ interface CustomSelectOption {
     name: string;
 }
 
+// Add a type for a separator object
+interface SeparatorOption {
+    isSeparator: true;
+    value?: never; // Ensure it's just a separator
+    name?: never;
+}
+
+type SelectOption = CustomSelectOption | SeparatorOption;
+
 interface CustomSelectProps {
     label?: string;
-    options: CustomSelectOption[];
+    options: SelectOption[];
     value: string;
     onChange: (value: string) => void;
     placeholder?: string;
@@ -29,7 +38,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ label, options, value, onCh
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const selectedOption = options.find(opt => opt.value === value);
+    const selectedOption = options.find(opt => 'value' in opt && opt.value === value) as CustomSelectOption | undefined;
 
     const handleSelect = (optionValue: string) => {
         onChange(optionValue);
@@ -59,15 +68,21 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ label, options, value, onCh
                 {isOpen && (
                     <div className={dropdownClassName || defaultDropdownClasses}>
                         <ul className="max-h-60 overflow-y-auto">
-                            {options.map(option => (
-                                <li
-                                    key={option.value}
-                                    onClick={() => handleSelect(option.value)}
-                                    className={`px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer ${value === option.value ? 'font-semibold bg-slate-100 dark:bg-slate-700 text-indigo-600 dark:text-indigo-400' : 'text-slate-800 dark:text-slate-200'}`}
-                                >
-                                    {option.name}
-                                </li>
-                            ))}
+                            {options.map((option, index) => {
+                                if ('isSeparator' in option && option.isSeparator) {
+                                    return <hr key={`separator-${index}`} className="my-1 border-slate-200 dark:border-slate-600" />;
+                                }
+                                const opt = option as CustomSelectOption;
+                                return (
+                                    <li
+                                        key={opt.value}
+                                        onClick={() => handleSelect(opt.value)}
+                                        className={`px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer ${value === opt.value ? 'font-semibold bg-slate-100 dark:bg-slate-700 text-indigo-600 dark:text-indigo-400' : 'text-slate-800 dark:text-slate-200'}`}
+                                    >
+                                        {opt.name}
+                                    </li>
+                                );
+                            })}
                         </ul>
                     </div>
                 )}

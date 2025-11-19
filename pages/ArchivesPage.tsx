@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useCollection } from '../hooks/useCollection';
-import { ArchiveFile } from '../types';
+import { ArchiveFile, User } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
@@ -36,11 +36,17 @@ const getFileIcon = (fileName: string): string => {
 
 
 const ArchivesPage: React.FC = () => {
-    const { data: initialFiles, loading, error } = useCollection<ArchiveFile>('archives');
+    const { data: initialFiles, loading: filesLoading, error } = useCollection<ArchiveFile>('archives');
+    const { data: users, loading: usersLoading } = useCollection<User>('users');
     const [files, setFiles] = useState<ArchiveFile[] | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
     const { user: currentUser } = useAuth();
+
+    const usersMap = useMemo(() => {
+        if (!users) return new Map();
+        return new Map(users.map(u => [u.id, u.name]));
+    }, [users]);
 
     useEffect(() => {
         if (initialFiles) {
@@ -132,6 +138,10 @@ const ArchivesPage: React.FC = () => {
             accessor: (file: ArchiveFile) => new Date(file.lastModified).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
         },
         {
+            header: 'Subido por',
+            accessor: (file: ArchiveFile) => usersMap.get(file.uploadedById) || file.uploadedById
+        },
+        {
             header: 'Acciones',
             accessor: (file: ArchiveFile) => (
                 <div className="flex space-x-2">
@@ -144,7 +154,7 @@ const ArchivesPage: React.FC = () => {
     ];
 
     const renderContent = () => {
-        if (loading && !files) return <div className="flex justify-center py-12"><Spinner /></div>;
+        if (filesLoading || usersLoading) return <div className="flex justify-center py-12"><Spinner /></div>;
         if (error) return <p className="text-center text-red-500 py-12">Error al cargar los archivos.</p>;
         if (!files || files.length === 0) {
             return (

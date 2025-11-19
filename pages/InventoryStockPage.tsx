@@ -9,7 +9,6 @@ import Badge from '../components/ui/Badge';
 import FilterButton from '../components/ui/FilterButton';
 
 interface StockInfo {
-    // FIX: Add id for Table component key.
     id: string;
     product: Product;
     totalStock: number;
@@ -17,7 +16,8 @@ interface StockInfo {
 
 const InventoryStockPage: React.FC = () => {
     const { data: products, loading: pLoading } = useCollection<Product>('products');
-    const { data: lotsData, loading: lLoading } = useCollection<{[key: string]: ProductLot[]}>('lots');
+    // FIX: Changed generic type to ProductLot instead of nested object
+    const { data: lotsData, loading: lLoading } = useCollection<ProductLot>('lots');
     const { data: categories, loading: cLoading } = useCollection<Category>('categories');
     
     const [categoryFilter, setCategoryFilter] = useState('all');
@@ -26,15 +26,18 @@ const InventoryStockPage: React.FC = () => {
     const stockData = useMemo<StockInfo[]>(() => {
         if (!products || !lotsData) return [];
 
-        // FIX: The useCollection hook returns an array containing the object, so we extract the first element.
-        const lotsObject = (lotsData && lotsData.length > 0) ? lotsData[0] : {};
+        // FIX: Treat lotsData as a flat array of ProductLot
+        const allLots = lotsData;
         
         return products.map(product => {
-            const productLots = lotsObject[product.id] || [];
+            // Filter lots belonging to this product
+            const productLots = allLots.filter(lot => lot.productId === product.id);
+            
+            // Sum quantities from all locations within those lots
             const totalStock = productLots.reduce((sum, lot) => {
                 return sum + lot.stock.reduce((lotSum, s) => lotSum + s.qty, 0);
             }, 0);
-            // FIX: Add product.id to the returned object to match the StockInfo interface and satisfy Table props.
+
             return { id: product.id, product, totalStock };
         });
     }, [products, lotsData]);
@@ -105,10 +108,10 @@ const InventoryStockPage: React.FC = () => {
                     </div>
                     <FilterButton label="Categoría" options={categoryOptions} selectedValue={categoryFilter} onSelect={setCategoryFilter} allLabel="Todas" />
                 </div>
-                <button className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
+                <Link to="/inventory/movements" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                     <span className="material-symbols-outlined mr-2">add</span>
                     Nuevo Movimiento
-                </button>
+                </Link>
             </div>
 
             {loading ? <div className="flex justify-center py-12"><Spinner /></div> : <Table columns={columns} data={filteredStockData} />}

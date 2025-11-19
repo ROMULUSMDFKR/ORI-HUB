@@ -8,6 +8,9 @@ import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
 import Spinner from '../components/ui/Spinner';
+import { useAuth } from '../hooks/useAuth';
+import { api } from '../api/firebaseApi';
+import { useToast } from '../hooks/useToast';
 
 const PipelineColumn: React.FC<{
   stage: QuotePipelineStage;
@@ -39,10 +42,13 @@ const PipelineColumn: React.FC<{
 
 const QuotesPipelinePage: React.FC = () => {
   const { data: quotesData, loading: quotesLoading } = useCollection<Quote>('quotes');
-  const { data: activities, loading: activitiesLoading } = useCollection<ActivityLog>('activities');
+  const { data: activitiesData, loading: activitiesLoading } = useCollection<ActivityLog>('activities');
   const { data: users, loading: usersLoading } = useCollection<User>('users');
+  const { user: currentUser } = useAuth();
+  const { showToast } = useToast();
   
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
 
   useEffect(() => {
@@ -50,6 +56,12 @@ const QuotesPipelinePage: React.FC = () => {
       setQuotes(quotesData);
     }
   }, [quotesData]);
+  
+  useEffect(() => {
+    if (activitiesData) {
+      setActivities(activitiesData);
+    }
+  }, [activitiesData]);
 
   const loading = quotesLoading || activitiesLoading || usersLoading;
   const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
@@ -85,15 +97,34 @@ const QuotesPipelinePage: React.FC = () => {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStage: QuotePipelineStage) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetStage: QuotePipelineStage) => {
     e.preventDefault();
     const itemId = e.dataTransfer.getData('text/plain');
-    if (itemId) {
-        setQuotes(prevItems =>
-            prevItems.map(p =>
-                p.id === itemId ? { ...p, status: targetStage } : p
-            )
-        );
+    if (!itemId || !currentUser) return;
+
+    const originalQuote = quotes.find(q => q.id === itemId);
+    if (!originalQuote || originalQuote.status === targetStage) return;
+
+    setQuotes(prevItems =>
+        prevItems.map(p =>
+            p.id === itemId ? { ...p, status: targetStage } : p
+        )
+    );
+    
+    try {
+        await api.updateDoc('quotes', itemId, { status: targetStage });
+        const activity: Omit<ActivityLog, 'id'> = {
+            quoteId: itemId,
+            type: 'Cambio de Estado',
+            description: `Cotización movida de "${originalQuote.status}" a "${targetStage}"`,
+            userId: currentUser.id,
+            createdAt: new Date().toISOString()
+        };
+        const newActivity = await api.addDoc('activities', activity);
+        setActivities(prev => [newActivity, ...prev]);
+    } catch(error) {
+        showToast('error', 'No se pudo actualizar la etapa.');
+        setQuotes(prev => prev.map(p => p.id === itemId ? originalQuote : p));
     }
   };
   

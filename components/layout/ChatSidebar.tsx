@@ -4,6 +4,7 @@ import { useCollection } from '../../hooks/useCollection';
 import { User, Group } from '../../types';
 import ViewSwitcher, { ViewOption } from '../ui/ViewSwitcher';
 import Spinner from '../ui/Spinner';
+import { useAuth } from '../../hooks/useAuth';
 
 const ChatSidebar: React.FC = () => {
     const { type, id } = useParams();
@@ -11,10 +12,7 @@ const ChatSidebar: React.FC = () => {
     const { data: groupsData, loading: groupsLoading } = useCollection<Group>('groups');
     const [view, setView] = useState<'dms' | 'groups'>('dms');
     
-    const currentUser = useMemo(() => {
-        if (!usersData) return null;
-        return usersData.find(u => u.id === 'user-1');
-    }, [usersData]);
+    const { user: currentUser } = useAuth();
 
     const users = useMemo(() => {
         if (!usersData || !currentUser) return [];

@@ -29,7 +29,8 @@ const getCollection = async (collectionName: string): Promise<any[]> => {
     const querySnapshot = await getDocs(collection(db, collectionName));
     const data: any[] = [];
     querySnapshot.forEach((doc) => {
-      data.push({ id: doc.id, ...doc.data() });
+      // FIX: Spread doc.data() first, then overwrite id with doc.id to ensure we use the real Firestore ID
+      data.push({ ...doc.data(), id: doc.id });
     });
     return data;
   } catch (error) {
@@ -45,7 +46,8 @@ const getDoc = async (collectionName: string, docId: string): Promise<any | null
     const docSnap = await getFirestoreDoc(docRef);
 
     if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() };
+      // FIX: Spread docSnap.data() first, then overwrite id with docSnap.id
+      return { ...docSnap.data(), id: docSnap.id };
     } else {
       console.log(`No such document! (${collectionName}/${docId})`);
       return null;
@@ -66,7 +68,8 @@ const addFirebaseDoc = async (collectionName: string, newDoc: any): Promise<any>
         }
 
         // Devolvemos el documento nuevo con el ID que Firestore le asignó.
-        return { id: docRef.id, ...newDoc };
+        // FIX: Ensure we return the real ID from docRef
+        return { ...newDoc, id: docRef.id };
     } catch(error) {
         console.error(`Error adding document to ${collectionName}:`, error);
         throw error;
@@ -179,7 +182,8 @@ const setFirebaseDoc = async (collectionName: string, docId: string, data: any):
         }
 
         // Return the full document with its ID for local state updates
-        return { id: docId, ...data };
+        // FIX: Ensure we return the ID used to set the doc
+        return { ...data, id: docId };
     } catch (error) {
         console.error(`Error setting document ${collectionName}/${docId}:`, error);
         throw error;
@@ -253,7 +257,8 @@ const getInvitation = async (invitationId: string): Promise<Invitation | null> =
         const docRef = doc(db, 'invitations', invitationId);
         const docSnap = await getFirestoreDoc(docRef);
         if (docSnap.exists()) {
-            return { id: docSnap.id, ...docSnap.data() } as Invitation;
+            // FIX: Spread docSnap.data() first
+            return { ...docSnap.data(), id: docSnap.id } as Invitation;
         }
         return null;
     } catch (error) {

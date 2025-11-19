@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Company, Address, Stakeholder, CompanyPipelineStage, ActivityLog, Note, User } from '../types';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
@@ -95,14 +95,22 @@ const ActivityFeed: React.FC<{ activities: ActivityLog[], usersMap: Map<string, 
 
 const EditClientPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<Tab>('General');
-    const { data: company, loading: cLoading, error } = useDoc<Company>('companies', id || '');
+    const { data: initialCompany, loading: cLoading, error } = useDoc<Company>('companies', id || '');
     const { data: allNotes, loading: nLoading } = useCollection<Note>('notes');
     const { data: allActivities, loading: aLoading } = useCollection<ActivityLog>('activities');
     const { data: users, loading: uLoading } = useCollection<User>('users');
 
+    const [editedCompany, setEditedCompany] = useState<Company | null>(null);
     const [notes, setNotes] = useState<Note[]>([]);
     
+    useEffect(() => {
+        if(initialCompany) {
+            setEditedCompany(initialCompany);
+        }
+    }, [initialCompany]);
+
     useEffect(() => {
         if(allNotes && id) {
             setNotes(allNotes.filter(n => n.companyId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
@@ -116,39 +124,66 @@ const EditClientPage: React.FC = () => {
         return allActivities.filter(a => a.companyId === id).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [allActivities, id]);
 
+    const handleChange = useCallback((field: string, value: any) => {
+        setEditedCompany(prev => {
+            if (!prev) return null;
+            const keys = field.split('.');
+            if (keys.length === 1) {
+                return { ...prev, [field]: value };
+            } else {
+                return {
+                    ...prev,
+                    [keys[0]]: {
+                        ...(prev as any)[keys[0]],
+                        [keys[1]]: value
+                    }
+                }
+            }
+        });
+    }, []);
+
     const handleNoteAdded = (note: Note) => {
         setNotes(prev => [note, ...prev]);
-    }
+    };
+
+    const handleSave = async () => {
+        if (editedCompany) {
+            // In a real app, you would have an API call here.
+            console.log("Saving company:", editedCompany);
+            alert("Cambios guardados (simulación).");
+            navigate(`/crm/clients/${id}`);
+        }
+    };
 
     const loading = cLoading || nLoading || aLoading || uLoading;
 
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
-    if (error || !company) return <div className="text-center p-12">Empresa no encontrada</div>;
+    if (error || !editedCompany) return <div className="text-center p-12">Empresa no encontrada</div>;
 
     const renderGeneralTab = () => (
         <div className="space-y-6">
             <FormBlock title="Información del Cliente">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Input label="Nombre / Razón Social" value={company.name} onChange={() => {}} required />
-                    <Input label="Nombre corto (alias)" value={company.shortName || ''} onChange={() => {}} />
-                    <Input label="RFC" value={company.rfc || ''} onChange={() => {}} />
-                    <Select label="Industria" value={company.industry || ''} onChange={() => {}} options={['Industrial', 'Agricultura', 'Transporte', 'Construcción']} />
-                    <CustomSelect label="Responsable Principal" options={(users || []).map(u => ({ value: u.id, name: u.name }))} value={company.ownerId || ''} onChange={() => {}} />
-                    <Select label="Prioridad" value={company.priority || ''} onChange={() => {}} options={['Alta', 'Media', 'Baja']} />
-                    <Select label="Etapa del Cliente" value={company.stage || ''} onChange={() => {}} options={Object.values(CompanyPipelineStage)} />
-                    <Input label="Sitio Web" value={company.website || ''} onChange={() => {}} />
+                    <Input label="Nombre / Razón Social" value={editedCompany.name} onChange={(val) => handleChange('name', val)} required />
+                    <Input label="Nombre corto (alias)" value={editedCompany.shortName || ''} onChange={(val) => handleChange('shortName', val)} />
+                    <Input label="RFC" value={editedCompany.rfc || ''} onChange={(val) => handleChange('rfc', val)} />
+                    <Select label="Industria" value={editedCompany.industry || ''} onChange={(val) => handleChange('industry', val)} options={['Industrial', 'Agricultura', 'Transporte', 'Construcción']} />
+                    <CustomSelect label="Responsable Principal" options={(users || []).map(u => ({ value: u.id, name: u.name }))} value={editedCompany.ownerId || ''} onChange={(val) => handleChange('ownerId', val)} />
+                    <Select label="Prioridad" value={editedCompany.priority || ''} onChange={(val) => handleChange('priority', val)} options={['Alta', 'Media', 'Baja']} />
+                    <Select label="Etapa del Cliente" value={editedCompany.stage || ''} onChange={(val) => handleChange('stage', val)} options={Object.values(CompanyPipelineStage)} />
+                    <Input label="Sitio Web" value={editedCompany.website || ''} onChange={(val) => handleChange('website', val)} />
                 </div>
             </FormBlock>
             <FormBlock title="Contacto Principal">
                  <p className="text-sm text-slate-500 -mt-4 mb-4">Este contacto principal se llena cuando los campos crea también un contacto asociado inmediatamente</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Input label="Nombre" value={company.primaryContact?.name || ''} onChange={() => {}} />
-                    <Input label="Email" value={company.primaryContact?.email || ''} onChange={() => {}} type="email"/>
-                    <Input label="Teléfono" value={company.primaryContact?.phone || ''} onChange={() => {}} type="tel"/>
+                    <Input label="Nombre" value={editedCompany.primaryContact?.name || ''} onChange={(val) => handleChange('primaryContact.name', val)} />
+                    <Input label="Email" value={editedCompany.primaryContact?.email || ''} onChange={(val) => handleChange('primaryContact.email', val)} type="email"/>
+                    <Input label="Teléfono" value={editedCompany.primaryContact?.phone || ''} onChange={(val) => handleChange('primaryContact.phone', val)} type="tel"/>
                 </div>
             </FormBlock>
             <FormBlock title="Direcciones de Entrega">
-                {company.deliveryAddresses.map((addr, index) => (
+                {editedCompany.deliveryAddresses.map((addr, index) => (
                     <div key={addr.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg relative">
                         {index > 0 && <hr className="my-4"/>}
                         <div className="absolute top-4 right-4 flex items-center">
@@ -175,31 +210,31 @@ const EditClientPage: React.FC = () => {
          <div className="space-y-6">
             <FormBlock title="Preferencias de Comunicación">
                 <Section title="">
-                    <Select label="Canal Preferido" value={company.profile?.communication?.channel || ''} onChange={()=>{}} options={COMMUNICATION_CHANNELS} />
-                    <Input label="Horario Preferido" value={company.profile?.communication?.time || ''} onChange={()=>{}} />
+                    <Select label="Canal Preferido" value={editedCompany.profile?.communication?.channel || ''} onChange={()=>{}} options={COMMUNICATION_CHANNELS} />
+                    <Input label="Horario Preferido" value={editedCompany.profile?.communication?.time || ''} onChange={()=>{}} />
                     <div className="col-span-2">
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Días Preferidos</label>
                         <div className="flex flex-wrap gap-2 mt-2">
                             {PREFERRED_DAYS_OPTIONS.map(day => (
-                                <span key={day} className={`px-3 py-1 text-sm rounded-full cursor-pointer ${(company.profile?.communication?.days || []).includes(day) ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                                <span key={day} className={`px-3 py-1 text-sm rounded-full cursor-pointer ${(editedCompany.profile?.communication?.days || []).includes(day) ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700'}`}>
                                     {day}
                                 </span>
                             ))}
                         </div>
                     </div>
-                    <Toggle label="Disponibilidad de contacto" enabled={company.profile?.communication?.isAvailable ?? false} onToggle={()=>{}} />
+                    <Toggle label="Disponibilidad de contacto" enabled={editedCompany.profile?.communication?.isAvailable ?? false} onToggle={()=>{}} />
                 </Section>
                  <Section title="Tono y Formalidad">
-                    <Select label="Idioma/Tono" value={company.profile?.communication?.tone || ''} onChange={()=>{}} options={TONE_OPTIONS} />
-                    <Select label="Formalidad" value={company.profile?.communication?.formality || ''} onChange={()=>{}} options={FORMALITY_OPTIONS} />
-                    <Select label="Tiempo de Respuesta Esperado (SLA)" value={company.profile?.communication?.sla || ''} onChange={()=>{}} options={SLA_OPTIONS} />
-                    <Select label="Formato Cotización Preferido" value={company.profile?.communication?.quoteFormat || ''} onChange={()=>{}} options={QUOTE_FORMAT_OPTIONS} />
+                    <Select label="Idioma/Tono" value={editedCompany.profile?.communication?.tone || ''} onChange={()=>{}} options={TONE_OPTIONS} />
+                    <Select label="Formalidad" value={editedCompany.profile?.communication?.formality || ''} onChange={()=>{}} options={FORMALITY_OPTIONS} />
+                    <Select label="Tiempo de Respuesta Esperado (SLA)" value={editedCompany.profile?.communication?.sla || ''} onChange={()=>{}} options={SLA_OPTIONS} />
+                    <Select label="Formato Cotización Preferido" value={editedCompany.profile?.communication?.quoteFormat || ''} onChange={()=>{}} options={QUOTE_FORMAT_OPTIONS} />
                 </Section>
             </FormBlock>
 
             <FormBlock title="Mapa de Decisión">
                 <div className="col-span-2 space-y-2">
-                    {company.profile?.decisionMap?.map(s => (
+                    {editedCompany.profile?.decisionMap?.map(s => (
                         <div key={s.id} className="grid grid-cols-4 gap-4 items-center p-2 bg-slate-50 dark:bg-slate-700/50 rounded">
                            <p className="text-sm font-semibold">{s.name}</p>
                            <p className="text-sm">{s.role}</p>
@@ -216,16 +251,16 @@ const EditClientPage: React.FC = () => {
             
             <FormBlock title="Proceso de Compra">
                 <Section title="">
-                    <Toggle label="Requiere OC" enabled={company.profile?.purchaseProcess?.requiresOC ?? false} onToggle={()=>{}} />
-                    <Toggle label="Registro Proveedor" enabled={company.profile?.purchaseProcess?.requiresSupplierRegistry ?? false} onToggle={()=>{}} />
-                    <Toggle label="Licitación" enabled={company.profile?.purchaseProcess?.isTender ?? false} onToggle={()=>{}} />
+                    <Toggle label="Requiere OC" enabled={editedCompany.profile?.purchaseProcess?.requiresOC ?? false} onToggle={()=>{}} />
+                    <Toggle label="Registro Proveedor" enabled={editedCompany.profile?.purchaseProcess?.requiresSupplierRegistry ?? false} onToggle={()=>{}} />
+                    <Toggle label="Licitación" enabled={editedCompany.profile?.purchaseProcess?.isTender ?? false} onToggle={()=>{}} />
                 </Section>
                  <Section title="Detalles del Proceso">
                     <Select label="Documentos Requeridos" value={''} onChange={()=>{}} options={REQUIRED_DOCS_OPTIONS} />
                     <Select label="Criterios de Aprobación" value={''} onChange={()=>{}} options={APPROVAL_CRITERIA_OPTIONS} />
-                    <Select label="Término de Pago" value={company.profile?.purchaseProcess?.paymentTerm || ''} onChange={()=>{}} options={PAYMENT_TERM_OPTIONS} />
-                    <Input label="Presupuesto" value={company.profile?.purchaseProcess?.budget || 0} onChange={()=>{}} type="number" />
-                    <Select label="Tipo de Compra" value={company.profile?.purchaseProcess?.purchaseType || ''} onChange={()=>{}} options={PURCHASE_TYPE_OPTIONS} />
+                    <Select label="Término de Pago" value={editedCompany.profile?.purchaseProcess?.paymentTerm || ''} onChange={()=>{}} options={PAYMENT_TERM_OPTIONS} />
+                    <Input label="Presupuesto" value={editedCompany.profile?.purchaseProcess?.budget || 0} onChange={()=>{}} type="number" />
+                    <Select label="Tipo de Compra" value={editedCompany.profile?.purchaseProcess?.purchaseType || ''} onChange={()=>{}} options={PURCHASE_TYPE_OPTIONS} />
                 </Section>
             </FormBlock>
 
@@ -233,12 +268,12 @@ const EditClientPage: React.FC = () => {
                  <Section title="">
                     <div className="col-span-2">
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Aplicación</label>
-                        <textarea value={company.profile?.useCase?.application || ''} onChange={() => {}} rows={3} />
+                        <textarea value={editedCompany.profile?.useCase?.application || ''} onChange={() => {}} rows={3} />
                     </div>
                     <Select label="Productos de Interés" value={''} onChange={()=>{}} options={[]} />
-                    <Select label="Presentación" value={company.profile?.useCase?.presentation || ''} onChange={()=>{}} options={PRESENTATION_OPTIONS} />
-                    <Select label="Frecuencia de Compra" value={company.profile?.useCase?.frequency || ''} onChange={()=>{}} options={PURCHASE_FREQUENCY_OPTIONS} />
-                    <Input label="Consumo Mensual Estimado" value={company.profile?.useCase?.monthlyConsumption || 0} onChange={()=>{}} type="number" />
+                    <Select label="Presentación" value={editedCompany.profile?.useCase?.presentation || ''} onChange={()=>{}} options={PRESENTATION_OPTIONS} />
+                    <Select label="Frecuencia de Compra" value={editedCompany.profile?.useCase?.frequency || ''} onChange={()=>{}} options={PURCHASE_FREQUENCY_OPTIONS} />
+                    <Input label="Consumo Mensual Estimado" value={editedCompany.profile?.useCase?.monthlyConsumption || 0} onChange={()=>{}} type="number" />
                 </Section>
             </FormBlock>
             
@@ -246,19 +281,19 @@ const EditClientPage: React.FC = () => {
                  <Section title="">
                     <div className="col-span-2">
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Punto(s) de Entrega</label>
-                        <textarea value={company.profile?.logistics?.deliveryPoints || ''} onChange={() => {}} rows={2} />
+                        <textarea value={editedCompany.profile?.logistics?.deliveryPoints || ''} onChange={() => {}} rows={2} />
                     </div>
-                    <Input label="Ventana de Descarga" value={company.profile?.logistics?.downloadWindow || ''} onChange={()=>{}} />
+                    <Input label="Ventana de Descarga" value={editedCompany.profile?.logistics?.downloadWindow || ''} onChange={()=>{}} />
                     <Select label="Equipo en Sitio" value={''} onChange={()=>{}} options={EQUIPMENT_OPTIONS} />
                     <Select label="Restricciones de Acceso" value={''} onChange={()=>{}} options={ACCESS_RESTRICTIONS_OPTIONS} />
-                    <Select label="Incoterm" value={company.profile?.logistics?.incoterm || ''} onChange={()=>{}} options={INCOTERM_OPTIONS} />
-                    <Select label="Responsable del Flete" value={company.profile?.logistics?.freightResponsible || ''} onChange={()=>{}} options={['Nosotros', 'Cliente']} />
+                    <Select label="Incoterm" value={editedCompany.profile?.logistics?.incoterm || ''} onChange={()=>{}} options={INCOTERM_OPTIONS} />
+                    <Select label="Responsable del Flete" value={editedCompany.profile?.logistics?.freightResponsible || ''} onChange={()=>{}} options={['Nosotros', 'Cliente']} />
                 </Section>
             </FormBlock>
              <FormBlock title="Disparadores y Timing">
                 <Section title="">
-                    <Input label="Punto de Reposición" value={company.profile?.triggers?.restockPoint || ''} onChange={()=>{}} />
-                    <Input label="Tiempo de Entrega Máximo (días)" value={company.profile?.triggers?.maxDeliveryTime || 0} onChange={()=>{}} type="number" />
+                    <Input label="Punto de Reposición" value={editedCompany.profile?.triggers?.restockPoint || ''} onChange={()=>{}} />
+                    <Input label="Tiempo de Entrega Máximo (días)" value={editedCompany.profile?.triggers?.maxDeliveryTime || 0} onChange={()=>{}} type="number" />
                 </Section>
             </FormBlock>
         </div>
@@ -268,9 +303,9 @@ const EditClientPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-200">Cliente: {company.shortName || company.name}</h2>
+                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-200">Cliente: {editedCompany.shortName || editedCompany.name}</h2>
                 </div>
-                 <button className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700 transition-colors">
+                 <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700 transition-colors">
                     <span className="material-symbols-outlined mr-2 text-base">save</span>
                     Guardar Cambios
                 </button>
@@ -299,7 +334,7 @@ const EditClientPage: React.FC = () => {
                 {activeTab === 'Actividad' && <ActivityFeed activities={activities} usersMap={usersMap} />}
                 {activeTab === 'Notas' && (
                     <NotesSection 
-                        entityId={company.id}
+                        entityId={editedCompany.id}
                         entityType="company"
                         notes={notes}
                         onNoteAdded={handleNoteAdded}

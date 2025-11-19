@@ -10,6 +10,8 @@ import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
 import { COMPANIES_PIPELINE_COLUMNS } from '../constants';
 import { api } from '../api/firebaseApi';
+import { useToast } from '../hooks/useToast';
+import { useAuth } from '../hooks/useAuth';
 
 // --- Reusable UI Components ---
 
@@ -141,6 +143,8 @@ const ClientDetailPage: React.FC = () => {
     const { data: allQuotes } = useCollection<Quote>('quotes');
     const { data: allSamples } = useCollection<Sample>('samples');
     const { data: users, loading: usersLoading } = useCollection<User>('users');
+    const { showToast } = useToast();
+    const { user: currentUser } = useAuth();
 
 
     const [company, setCompany] = useState<Company | null>(null);
@@ -153,15 +157,27 @@ const ClientDetailPage: React.FC = () => {
         }
     }, [initialCompany]);
     
+    const addActivityLog = async (description: string) => {
+        if (!currentUser || !id) return;
+        const log: Omit<ActivityLog, 'id'> = { companyId: id, type: 'Cambio de Estado', description, userId: currentUser.id, createdAt: new Date().toISOString() };
+        try {
+            await api.addDoc('activities', log);
+        } catch (error) {
+            console.error("Error adding activity log:", error);
+        }
+    };
+    
     const handleSaveStatus = async () => {
-        if (currentStage && company) {
+        if (currentStage && company && currentStage !== company.stage) {
+            const oldStage = company.stage;
             try {
                 await api.updateDoc('companies', company.id, { stage: currentStage });
                 setCompany(prev => prev ? { ...prev, stage: currentStage } : null);
-                alert('Estado de la empresa actualizado correctamente.');
+                addActivityLog(`Etapa de la empresa actualizada de "${oldStage}" a "${currentStage}"`);
+                showToast('success', 'Estado de la empresa actualizado correctamente.');
             } catch (error) {
                 console.error("Error updating company status:", error);
-                alert("Error al actualizar el estado.");
+                showToast('error', "Error al actualizar el estado.");
             }
         }
     };
@@ -195,7 +211,7 @@ const ClientDetailPage: React.FC = () => {
     }, [id, allActivities, allContacts, allSalesOrders, allNotes, allQuotes, allSamples]);
 
     const handleNoteAdded = (note: Note) => {
-        if (allNotes) {
+         if (allNotes) {
             (allNotes as Note[]).unshift(note);
             setCompany(prev => prev ? { ...prev } : null);
         }
@@ -210,13 +226,10 @@ const ClientDetailPage: React.FC = () => {
         if (collectionName) {
              try {
                 await api.updateDoc(collectionName, itemId, { status: newStatus });
-                alert('Estado actualizado correctamente.');
-                // In a real scenario, you'd ideally refresh the data or update local state optimistically.
-                // Since useCollection fetches on mount, a refresh might be needed or manual state update.
-                // For now, the alert confirms the action.
+                showToast('success', 'Estado actualizado correctamente.');
             } catch (error) {
                 console.error(`Error updating ${type} status:`, error);
-                alert("Error al actualizar el estado.");
+                showToast('error', "Error al actualizar el estado.");
             }
         }
     };

@@ -1,5 +1,3 @@
-
-
 // Base User type
 
 export interface Role {
@@ -9,7 +7,7 @@ export interface Role {
   permissions: {
     dataScope: 'own' | 'team' | 'all';
     pages: Record<string, Record<string, string[]>>;
-    aiAccess?: Record<string, Record<User['role'], boolean>>;
+    aiAccess?: Record<User['role'], boolean>;
     actionPermissions?: Record<User['role'], Record<string, boolean>>;
   };
 }
@@ -92,8 +90,6 @@ export enum CandidateStatus {
   ListaNegra = 'Lista Negra',
 }
 
-export type CandidateTag = 'Alto Potencial' | 'Potencial Distribuidor' | 'Consumidor Directo' | 'Para seguimiento' | 'No Relevante' | 'Lista Negra';
-
 export enum RejectionReason {
     NoInteresado = 'No interesado',
     NoCalifica = 'No califica (fuera de perfil)',
@@ -135,13 +131,54 @@ export interface CandidateAiAnalysis {
   additionalPhones?: string[];
 }
 
+// FIX: Added missing type definitions that were previously defined inline.
+export interface WebResult {
+  title: string;
+  url: string;
+  description: string;
+}
+
+export interface ReviewsTag {
+  title: string;
+  count: number;
+}
+
+export interface PeopleAlsoSearch {
+  title: string;
+  reviewsCount: number;
+  totalScore: number;
+}
+
+export interface ReviewsDistribution {
+  oneStar: number;
+  twoStar: number;
+  threeStar: number;
+  fourStar: number;
+  fiveStar: number;
+}
+
+export interface Brand {
+  id: string;
+  name: string;
+  logoUrl?: string;
+  website?: string;
+}
+
 export interface Candidate {
   id: string;
   name: string;
   address?: string;
   phone?: string;
+  phones?: string[];
   email?: string;
+  emails?: string[];
   website?: string;
+  description?: string;
+  price?: string;
+  linkedIns?: string[];
+  facebooks?: string[];
+  instagrams?: string[];
+  twitters?: string[];
   imageUrl?: string;
   images?: { url: string }[];
   googleMapsUrl?: string;
@@ -151,7 +188,8 @@ export interface Candidate {
   status: CandidateStatus;
   assignedCompanyId?: 'Puredef' | 'Trade Aitirik' | 'Santzer';
   manuallyAssignedProductId?: string;
-  tags: CandidateTag[];
+  brandId?: string;
+  tags: string[];
   notes: Note[];
   activityLog: ActivityLog[];
   aiAnalysis?: CandidateAiAnalysis;
@@ -161,7 +199,48 @@ export interface Candidate {
   openingHours?: { day: string, hours: string }[];
   importedAt: string; // ISO Date string
   importedBy: string; // userId
+  importHistoryId?: string; // Link to the import history record
+  city?: string;
+  state?: string;
+  // FIX: Updated to use the new exported types.
+  webResults?: WebResult[];
+  reviewsTags?: ReviewsTag[];
+  placesTags?: { title: string; count: number }[];
+  peopleAlsoSearch?: PeopleAlsoSearch[];
+  questionsAndAnswers?: any[];
+  reviewsDistribution?: ReviewsDistribution;
 }
+
+export interface ImportHistory {
+    id: string;
+    searchCriteria: {
+        searchTerms: string[];
+        profiledCompany?: 'Puredef' | 'Trade Aitirik' | 'Santzer';
+        profiledProductId?: string;
+        location: string;
+        resultsCount: number;
+        language: 'es' | 'en';
+        includeWebResults: boolean;
+        enrichContacts: boolean;
+        associatedBrandId?: string;
+    };
+    importedAt: string; // ISO Date string
+    importedById: string; // userId
+    totalProcessed: number;
+    newCandidates: number;
+    duplicatesSkipped: number;
+    status: 'Completed' | 'Failed' | 'In Progress' | 'Cancelled';
+}
+
+export interface ImportSource {
+    id: string;
+    name: string;
+    description: string;
+    tags: string[];
+    createdById: string;
+    createdAt: string;
+}
+
 
 // Enums
 export enum ProspectStage {
@@ -188,6 +267,7 @@ export enum SupplierRating {
   Excelente = 'Excelente',
   Bueno = 'Bueno',
   Regular = 'Regular',
+  ListaNegra = 'Lista Negra',
 }
 
 export enum QuoteStatus {
@@ -201,7 +281,6 @@ export enum QuoteStatus {
   Rechazada = 'Rechazada',
 }
 
-// FIX: Export QuoteStatus as QuotePipelineStage for compatibility with other files.
 export { QuoteStatus as QuotePipelineStage };
 
 
@@ -395,6 +474,7 @@ export interface Product {
 
 export interface ProductLot {
   id: string;
+  productId: string;
   code: string;
   unitCost: number;
   supplierId?: string;
@@ -415,6 +495,12 @@ export interface Prospect {
   createdById: string;
   estValue: number;
   notes?: string;
+  // Transferred from Candidate
+  candidateId?: string;
+  website?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
   // New detailed fields
   origin?: string;
   createdAt: string; // ISO Date string
@@ -614,7 +700,8 @@ export interface SalesOrder {
 }
 
 export interface PurchaseOrderItem {
-  productId: string;
+  productId?: string; // Optional for custom items
+  productName?: string; // Name of the product (from catalog or custom)
   qty: number;
   unit: Unit;
   unitCost: number;
@@ -906,4 +993,15 @@ export interface MotivationalQuote {
   text: string;
   timeOfDay: ('morning' | 'afternoon' | 'evening')[];
   roles: ('Admin' | 'Ventas' | 'Logística' | 'General')[];
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'task' | 'message' | 'system' | 'email';
+  link: string;
+  isRead: boolean;
+  createdAt: string; // ISO Date string
 }

@@ -1,12 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
+
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
-import { Supplier, Product, User, Unit, PurchaseOrder, PurchaseOrderItem } from '../../types';
+import { Supplier, Product, User, Unit, PurchaseOrder, PurchaseOrderItem, Currency } from '../../types';
 import { api } from '../../api/firebaseApi';
 import Spinner from '../../components/ui/Spinner';
 import CustomSelect from '../../components/ui/CustomSelect';
 import { TAX_RATE, UNITS } from '../../constants';
+import Drawer from '../../components/ui/Drawer';
 
+// Moved outside
 const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
         <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
@@ -16,6 +19,7 @@ const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ tit
 
 interface POItemForm extends PurchaseOrderItem {
     id: number; // Internal ID for React keys
+    isCustom?: boolean;
 }
 
 const NewPurchaseOrderPage: React.FC = () => {
@@ -27,13 +31,29 @@ const NewPurchaseOrderPage: React.FC = () => {
     const [items, setItems] = useState<POItemForm[]>([]);
     
     const { data: suppliers, loading: sLoading } = useCollection<Supplier>('suppliers');
-    const { data: products, loading: pLoading } = useCollection<Product>('products');
+    const { data: initialProducts, loading: pLoading } = useCollection<Product>('products');
+    const [products, setProducts] = useState<Product[] | null>(null);
     const { data: users, loading: uLoading } = useCollection<User>('users');
 
-    const loading = sLoading || pLoading || uLoading;
+    // Drawer state
+    const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
+    const [newProduct, setNewProduct] = useState({ name: '', sku: '', unitDefault: 'kg' as Unit });
+    const [creatingProductForRow, setCreatingProductForRow] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (initialProducts) {
+            setProducts(initialProducts);
+        }
+    }, [initialProducts]);
+
+    const loading = sLoading || !products || uLoading;
     
     const supplierOptions = useMemo(() => (suppliers || []).map(s => ({ value: s.id, name: s.name })), [suppliers]);
-    const productOptions = useMemo(() => (products || []).map(p => ({ value: p.id, name: `${p.name} (${p.sku})` })), [products]);
+    const productOptions = useMemo(() => [
+        { value: 'CUSTOM_ITEM', name: 'Otro (Insumo/Gasto...)' },
+        { value: 'CREATE_NEW', name: 'Crear Nuevo Producto (Catálogo)...' },
+        ...(products || []).map(p => ({ value: p.id, name: `${p.name} (${p.sku})` }))
+    ], [products]);
     const userOptions = useMemo(() => (users || []).map(u => ({ value: u.id, name: u.name })), [users]);
     const unitOptions = useMemo(() => UNITS.map(u => ({ value: u, name: u })), []);
 
@@ -45,28 +65,80 @@ const NewPurchaseOrderPage: React.FC = () => {
     }, [items]);
 
     const handleAddItem = () => {
-        setItems([...items, { id: Date.now(), productId: '', qty: 1, unit: 'kg', unitCost: 0, subtotal: 0 }]);
+        setItems([...items, { id: Date.now(), productId: '', qty: 1, unit: 'kg', unitCost: 0, subtotal: 0, isCustom: false }]);
     };
     
     const handleRemoveItem = (id: number) => {
         setItems(items.filter(item => item.id !== id));
     };
 
-    const handleItemChange = (id: number, field: keyof POItemForm, value: any) => {
+    const handleItemChange = useCallback((id: number, field: keyof POItemForm, value: any) => {
         setItems(prevItems => prevItems.map(item => {
             if (item.id === id) {
                 const updatedItem = { ...item, [field]: value };
                 if (field === 'qty' || field === 'unitCost') {
                     updatedItem.subtotal = (Number(updatedItem.qty) || 0) * (Number(updatedItem.unitCost) || 0);
                 }
-                if (field === 'productId') {
+                if (field === 'productId' && !updatedItem.isCustom) {
                     const product = products?.find(p => p.id === value);
                     updatedItem.unit = product?.unitDefault || 'kg';
+                    updatedItem.productName = product?.name;
                 }
                 return updatedItem;
             }
             return item;
         }));
+    }, [products]);
+
+    const handleProductSelectionChange = (itemId: number, value: string) => {
+        if (value === 'CREATE_NEW') {
+            setCreatingProductForRow(items.findIndex(item => item.id === itemId));
+            setIsProductDrawerOpen(true);
+        } else if (value === 'CUSTOM_ITEM') {
+            setItems(prev => prev.map(item => 
+                item.id === itemId ? { ...item, isCustom: true, productId: '', productName: '' } : item
+            ));
+        } else {
+            handleItemChange(itemId, 'productId', value);
+            // Reset custom state if selecting a real product
+            setItems(prev => prev.map(item => 
+                item.id === itemId ? { ...item, isCustom: false } : item
+            ));
+        }
+    };
+
+    const handleSaveNewProduct = async () => {
+        if (!newProduct.name || !newProduct.sku) {
+            alert('Nombre y SKU son requeridos.');
+            return;
+        }
+
+        const newProductData: Omit<Product, 'id'> = {
+            name: newProduct.name,
+            sku: newProduct.sku,
+            unitDefault: newProduct.unitDefault,
+            isActive: true,
+            categoryId: 'cat-root-ind', // Default category for quick add
+            pricing: { min: 0 },
+            currency: 'USD',
+        };
+        
+        try {
+            const addedProduct = await api.addDoc('products', newProductData);
+            setProducts(prev => (prev ? [...prev, addedProduct] : [addedProduct]));
+
+            if (creatingProductForRow !== null) {
+                const itemToUpdate = items[creatingProductForRow];
+                handleItemChange(itemToUpdate.id, 'productId', addedProduct.id);
+            }
+
+            setIsProductDrawerOpen(false);
+            setNewProduct({ name: '', sku: '', unitDefault: 'kg' as Unit });
+            setCreatingProductForRow(null);
+        } catch (error) {
+            console.error("Error creating product:", error);
+            alert('Error al crear el producto.');
+        }
     };
 
     const handleSubmit = async () => {
@@ -75,12 +147,24 @@ const NewPurchaseOrderPage: React.FC = () => {
             return;
         }
 
+        // Validate items
+        for (const item of items) {
+            if (item.isCustom && !item.productName) {
+                alert('Por favor, escribe el nombre para los productos "Otros".');
+                return;
+            }
+            if (!item.isCustom && !item.productId) {
+                alert('Por favor, selecciona un producto para todas las filas.');
+                return;
+            }
+        }
+
         const newPO: Omit<PurchaseOrder, 'id'> = {
             supplierId,
             responsibleId,
             expectedDeliveryDate,
             notes,
-            items: items.map(({ id, ...rest }) => rest),
+            items: items.map(({ id, isCustom, ...rest }) => rest),
             status: 'Borrador',
             createdAt: new Date().toISOString(),
             subtotal,
@@ -103,7 +187,7 @@ const NewPurchaseOrderPage: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Nueva Orden de Compra</h1>
                 <div className="flex gap-2">
-                    <button onClick={() => navigate('/purchase/orders')} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
+                    <button onClick={() => navigate('/purchase/orders')} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">Cancelar</button>
                     <button onClick={handleSubmit} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar OC</button>
                 </div>
             </div>
@@ -130,7 +214,28 @@ const NewPurchaseOrderPage: React.FC = () => {
                             <div className="space-y-3">
                                 {items.map((item, index) => (
                                     <div key={item.id} className="grid grid-cols-12 gap-3 items-end p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                                        <div className="col-span-4"><CustomSelect label="Producto" options={productOptions} value={item.productId} onChange={val => handleItemChange(item.id, 'productId', val)} placeholder="Seleccionar..."/></div>
+                                        <div className="col-span-4">
+                                            {item.isCustom ? (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Insumo</label>
+                                                    <div className="flex gap-1">
+                                                        <input 
+                                                            type="text" 
+                                                            value={item.productName || ''} 
+                                                            onChange={e => handleItemChange(item.id, 'productName', e.target.value)}
+                                                            placeholder="Ej: Costales, Papelería..."
+                                                            className="w-full"
+                                                            autoFocus
+                                                        />
+                                                        <button onClick={() => setItems(prev => prev.map(i => i.id === item.id ? { ...i, isCustom: false, productName: '' } : i))} className="p-2 text-slate-500 hover:text-slate-700" title="Volver a lista">
+                                                            <span className="material-symbols-outlined !text-base">close</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <CustomSelect label="Producto" options={productOptions} value={item.productId || ''} onChange={val => handleProductSelectionChange(item.id, val)} placeholder="Seleccionar..."/>
+                                            )}
+                                        </div>
                                         <div className="col-span-2"><label className="text-xs">Cantidad</label><input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', parseFloat(e.target.value) || 0)} /></div>
                                         <div className="col-span-2"><CustomSelect label="Unidad" options={unitOptions} value={item.unit} onChange={val => handleItemChange(item.id, 'unit', val as Unit)} /></div>
                                         <div className="col-span-2"><label className="text-xs">Costo Unit.</label><input type="number" step="0.01" value={item.unitCost} onChange={e => handleItemChange(item.id, 'unitCost', parseFloat(e.target.value) || 0)} /></div>
@@ -160,6 +265,24 @@ const NewPurchaseOrderPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            <Drawer isOpen={isProductDrawerOpen} onClose={() => setIsProductDrawerOpen(false)} title="Crear Nuevo Producto">
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre del Producto *</label>
+                        <input type="text" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">SKU *</label>
+                        <input type="text" value={newProduct.sku} onChange={e => setNewProduct(p => ({ ...p, sku: e.target.value }))} />
+                    </div>
+                    <CustomSelect label="Unidad *" options={unitOptions} value={newProduct.unitDefault} onChange={val => setNewProduct(p => ({ ...p, unitDefault: val as Unit }))} />
+                    <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <button onClick={() => setIsProductDrawerOpen(false)} className="bg-slate-200 dark:bg-slate-700 py-2 px-4 rounded-lg">Cancelar</button>
+                        <button onClick={handleSaveNewProduct} className="bg-indigo-600 text-white py-2 px-4 rounded-lg">Guardar Producto</button>
+                    </div>
+                </div>
+            </Drawer>
         </div>
     );
 };

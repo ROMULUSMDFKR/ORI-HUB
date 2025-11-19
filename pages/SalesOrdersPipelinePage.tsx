@@ -8,6 +8,9 @@ import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
 import Spinner from '../components/ui/Spinner';
+import { useAuth } from '../hooks/useAuth';
+import { api } from '../api/firebaseApi';
+import { useToast } from '../hooks/useToast';
 
 const PipelineColumn: React.FC<{
   stage: SalesOrderStatus;
@@ -40,10 +43,13 @@ const PipelineColumn: React.FC<{
 const SalesOrdersPipelinePage: React.FC = () => {
   const { data: soData, loading: soLoading } = useCollection<SalesOrder>('salesOrders');
   const { data: deliveries, loading: delLoading } = useCollection<Delivery>('deliveries');
-  const { data: activities, loading: actLoading } = useCollection<ActivityLog>('activities');
+  const { data: activitiesData, loading: actLoading } = useCollection<ActivityLog>('activities');
   const { data: users, loading: uLoading } = useCollection<User>('users');
+  const { user: currentUser } = useAuth();
+  const { showToast } = useToast();
 
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
 
   useEffect(() => {
@@ -51,6 +57,12 @@ const SalesOrdersPipelinePage: React.FC = () => {
       setSalesOrders(soData);
     }
   }, [soData]);
+
+  useEffect(() => {
+    if (activitiesData) {
+      setActivities(activitiesData);
+    }
+  }, [activitiesData]);
   
   const loading = soLoading || delLoading || actLoading || uLoading;
   const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
@@ -95,21 +107,40 @@ const SalesOrdersPipelinePage: React.FC = () => {
      e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStage: SalesOrderStatus) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetStage: SalesOrderStatus) => {
     e.preventDefault();
     const itemId = e.dataTransfer.getData('text/plain');
-    if (itemId) {
-        if (targetStage === SalesOrderStatus.Entregada) {
-            const orderDeliveries = deliveriesBySalesOrderId.get(itemId) || [];
-            if (orderDeliveries.length > 0) {
-                const allDelivered = orderDeliveries.every(d => d.status === DeliveryStatus.Entregada);
-                if (!allDelivered) {
-                    alert('No se puede mover a "Entregada" hasta que todas las entregas estén completas.');
-                    return;
-                }
+    if (!itemId || !currentUser) return;
+    
+    const originalOrder = salesOrders.find(o => o.id === itemId);
+    if (!originalOrder || originalOrder.status === targetStage) return;
+
+    if (targetStage === SalesOrderStatus.Entregada) {
+        const orderDeliveries = deliveriesBySalesOrderId.get(itemId) || [];
+        if (orderDeliveries.length > 0) {
+            const allDelivered = orderDeliveries.every(d => d.status === DeliveryStatus.Entregada);
+            if (!allDelivered) {
+                showToast('warning', 'No se puede mover a "Entregada" hasta que todas las entregas estén completas.');
+                return;
             }
         }
-        setSalesOrders(prevItems => prevItems.map(p => p.id === itemId ? { ...p, status: targetStage } : p));
+    }
+    setSalesOrders(prevItems => prevItems.map(p => p.id === itemId ? { ...p, status: targetStage } : p));
+    
+    try {
+        await api.updateDoc('salesOrders', itemId, { status: targetStage });
+        const activity: Omit<ActivityLog, 'id'> = {
+            salesOrderId: itemId,
+            type: 'Cambio de Estado',
+            description: `Orden de Venta movida de "${originalOrder.status}" a "${targetStage}"`,
+            userId: currentUser.id,
+            createdAt: new Date().toISOString()
+        };
+        const newActivity = await api.addDoc('activities', activity);
+        setActivities(prev => [newActivity, ...prev]);
+    } catch (error) {
+        showToast('error', 'No se pudo actualizar la etapa.');
+        setSalesOrders(prev => prev.map(p => p.id === itemId ? originalOrder : p));
     }
   };
   

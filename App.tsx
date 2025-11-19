@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -13,6 +12,9 @@ import { NAV_LINKS } from './constants';
 import SecondarySidebar from './components/layout/SecondarySidebar';
 import { User, Task } from './types';
 import { api } from './api/firebaseApi';
+import { ToastProvider } from './contexts/ToastContext';
+import ToastContainer from './components/ui/ToastContainer';
+import { useToast } from './hooks/useToast';
 
 const PageLoader: React.FC = () => (
   <div className="w-full h-screen flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-900">
@@ -35,9 +37,13 @@ const PageLoader: React.FC = () => (
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 
 // Prospecting
+const ProspectingDashboardPage = lazy(() => import('./pages/prospecting/ProspectingDashboardPage'));
 const CandidatesPage = lazy(() => import('./pages/CandidatesPage'));
 const CandidateDetailPage = lazy(() => import('./pages/CandidateDetailPage'));
 const UploadCandidatesPage = lazy(() => import('./pages/UploadCandidatesPage'));
+const ImportHistoryPage = lazy(() => import('./pages/prospecting/ImportHistoryPage'));
+const BrandsPage = lazy(() => import('./pages/prospecting/BrandsPage'));
+
 
 // Hubs
 const CrmPipelinePage = lazy(() => import('./pages/CrmPipelinePage'));
@@ -90,6 +96,7 @@ const InventoryAlertsPage = lazy(() => import('./pages/InventoryAlertsPage'));
 const InventoryLocationsPage = lazy(() => import('./pages/InventoryLocationsPage'));
 
 // Logistics
+const LogisticsDashboardPage = lazy(() => import('./pages/LogisticsDashboardPage'));
 const LogisticsDeliveriesPage = lazy(() => import('./pages/LogisticsDeliveriesPage'));
 const LogisticsProvidersPage = lazy(() => import('./pages/LogisticsProvidersPage'));
 const LogisticsPricingPage = lazy(() => import('./pages/LogisticsPricingPage'));
@@ -109,6 +116,7 @@ const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const InternalChatPage = lazy(() => import('./pages/InternalChatPage'));
 const EmailsPage = lazy(() => import('./pages/EmailsPage'));
 const AiAssistantPage = lazy(() => import('./pages/AiAssistantPage'));
+const AllNotificationsPage = lazy(() => import('./pages/AllNotificationsPage'));
 
 // Finance
 const BillingPage = lazy(() => import('./pages/BillingPage'));
@@ -152,6 +160,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
     const location = useLocation();
     const [isQuickTaskOpen, setIsQuickTaskOpen] = useState(false);
     const [headerTitle, setHeaderTitle] = useState('Hoy');
+    const { showToast } = useToast();
 
     const secondarySidebarContent = useMemo(() => {
         const currentTopLevelPath = `/${location.pathname.split('/')[1]}`;
@@ -208,10 +217,10 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                 assignees: [user.id], // Auto assign to self for quick tasks
                 watchers: []
             });
-            // alert("Tarea rápida creada"); // Optional: show a toast
+            showToast('success', 'Tarea rápida creada.');
         } catch (error) {
             console.error("Error creating quick task", error);
-            alert("Error al crear tarea rápida");
+            showToast('error', 'Error al crear tarea rápida.');
         }
     };
 
@@ -232,9 +241,14 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/" element={<Navigate to="/today" replace />} />
                             <Route path="/today" element={<DashboardPage user={user} />} />
                             {/* Prospecting */}
+                            <Route path="/prospecting" element={<Navigate to="/prospecting/dashboard" replace />} />
+                            <Route path="/prospecting/dashboard" element={<ProspectingDashboardPage />} />
                             <Route path="/prospecting/candidates" element={<CandidatesPage />} />
                             <Route path="/prospecting/candidates/:id" element={<CandidateDetailPage />} />
                             <Route path="/prospecting/upload" element={<UploadCandidatesPage />} />
+                            <Route path="/prospecting/history" element={<ImportHistoryPage />} />
+                            <Route path="/prospecting/brands" element={<BrandsPage />} />
+
                             {/* Hubs */}
                             <Route path="/hubs/prospects" element={<CrmPipelinePage />} />
                             <Route path="/hubs/prospects/new" element={<NewProspectPage />} />
@@ -279,6 +293,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/inventory/alerts" element={<InventoryAlertsPage />} />
                             <Route path="/inventory/locations" element={<InventoryLocationsPage />} />
                             {/* Logistics */}
+                            <Route path="/logistics/dashboard" element={<LogisticsDashboardPage />} />
                             <Route path="/logistics/deliveries" element={<LogisticsDeliveriesPage />} />
                             <Route path="/logistics/providers" element={<LogisticsProvidersPage />} />
                             <Route path="/logistics/pricing" element={<LogisticsPricingPage />} />
@@ -311,6 +326,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/archives" element={<ArchivesPage />} />
                             <Route path="/insights/audit" element={<AuditPage />} />
                             <Route path="/profile" element={<ProfilePage user={user} refreshUser={refreshUser} />} />
+                            <Route path="/notifications" element={<AllNotificationsPage />} />
                             {/* Settings Pages */}
                             <Route path="/settings" element={<Navigate to="/settings/users" replace />} />
                             <Route path="/settings/users" element={<UserManagementPage />} />
@@ -350,35 +366,38 @@ const App: React.FC = () => {
     }
 
     return (
-        <HashRouter>
-            {user ? (
-                // Authenticated User Flow
-                user.hasCompletedOnboarding === false ? (
-                    // Onboarding required
+        <ToastProvider>
+            <HashRouter>
+                {user ? (
+                    // Authenticated User Flow
+                    user.hasCompletedOnboarding === false ? (
+                        // Onboarding required
+                        <Suspense fallback={<PageLoader />}>
+                            <Routes>
+                                <Route path="/onboarding" element={<OnboardingPage onComplete={refreshUser} />} />
+                                <Route path="*" element={<Navigate to="/onboarding" replace />} />
+                            </Routes>
+                        </Suspense>
+                    ) : (
+                        // Main application for onboarded user
+                        <AppContent user={user} onLogout={logout} refreshUser={refreshUser} />
+                    )
+                ) : (
+                    // Unauthenticated User Flow
                     <Suspense fallback={<PageLoader />}>
                         <Routes>
-                            <Route path="/onboarding" element={<OnboardingPage onComplete={refreshUser} />} />
-                            <Route path="*" element={<Navigate to="/onboarding" replace />} />
+                            <Route path="/login" element={<LoginPage onLogin={login} />} />
+                            <Route path="/signup" element={<SignupPage />} />
+                            <Route path="/activate" element={<ActivateAccountPage />} />
+                            <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+                            <Route path="/terms" element={<TermsAndConditionsPage />} />
+                            <Route path="*" element={<Navigate to="/login" replace />} />
                         </Routes>
                     </Suspense>
-                ) : (
-                    // Main application for onboarded user
-                    <AppContent user={user} onLogout={logout} refreshUser={refreshUser} />
-                )
-            ) : (
-                // Unauthenticated User Flow
-                <Suspense fallback={<PageLoader />}>
-                    <Routes>
-                        <Route path="/login" element={<LoginPage onLogin={login} />} />
-                        <Route path="/signup" element={<SignupPage />} />
-                        <Route path="/activate" element={<ActivateAccountPage />} />
-                        <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
-                        <Route path="/terms" element={<TermsAndConditionsPage />} />
-                        <Route path="*" element={<Navigate to="/login" replace />} />
-                    </Routes>
-                </Suspense>
-            )}
-        </HashRouter>
+                )}
+            </HashRouter>
+            <ToastContainer />
+        </ToastProvider>
     );
 };
 

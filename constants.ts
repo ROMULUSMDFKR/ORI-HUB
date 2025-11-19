@@ -10,8 +10,11 @@ export const NAV_LINKS = [
     name: 'Prospección IA', 
     icon: 'travel_explore', 
     sublinks: [
+      { name: 'Dashboard', path: '/prospecting/dashboard', icon: 'dashboard' },
       { name: 'Candidatos', path: '/prospecting/candidates', icon: 'person_search' },
       { name: 'Importar Datos', path: '/prospecting/upload', icon: 'upload_file' },
+      { name: 'Historial de Importación', path: '/prospecting/history', icon: 'history' },
+      { name: 'Marcas', path: '/prospecting/brands', icon: 'storefront' },
     ]
   },
   { 
@@ -65,6 +68,7 @@ export const NAV_LINKS = [
     name: 'Logística', 
     icon: 'local_shipping',
     sublinks: [
+        { name: 'Dashboard de Logística', path: '/logistics/dashboard', icon: 'dashboard' },
         { name: 'Entregas', path: '/logistics/deliveries', icon: 'local_shipping' },
         { name: 'Transportistas', path: '/logistics/providers', icon: 'group' },
         { name: 'Precios de Flete', path: '/logistics/pricing', icon: 'price_change' },
@@ -262,6 +266,17 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
     'Sistema': { 
         'Archivos': ['view', 'create', 'edit', 'delete'], 
         'Auditoría': ['view', 'create', 'edit', 'delete'] 
+    },
+    'Configuración': {
+        'Usuarios y Permisos': ['view', 'create', 'edit', 'delete'],
+        'Roles y Permisos': ['view', 'create', 'edit', 'delete'],
+        'Equipos': ['view', 'create', 'edit', 'delete'],
+        'Seguridad': ['view', 'create', 'edit', 'delete'],
+        'Cuentas de Correo': ['view', 'create', 'edit', 'delete'],
+        'Industrias': ['view', 'create', 'edit', 'delete'],
+        'Etapas de Venta': ['view', 'create', 'edit', 'delete'],
+        'Acceso de IA': ['view', 'create', 'edit', 'delete'],
+        'Apariencia de Email': ['view', 'create', 'edit', 'delete'],
     }
 };
 

@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Supplier, SupplierRating } from '../types';
 import { useDoc } from '../hooks/useDoc';
@@ -36,9 +37,9 @@ const EditSupplierPage: React.FC = () => {
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleChange = (field: keyof Supplier, value: any) => {
+    const handleChange = useCallback((field: keyof Supplier, value: any) => {
         setSupplier(prev => (prev ? { ...prev, [field]: value } : null));
-    };
+    }, []);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();

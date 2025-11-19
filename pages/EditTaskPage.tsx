@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Task, TaskStatus, Priority, Project, Subtask, User, Team } from '../types';
 import { useDoc } from '../hooks/useDoc';
@@ -10,6 +10,7 @@ import Badge from '../components/ui/Badge';
 import Checkbox from '../components/ui/Checkbox';
 import UserSelector from '../components/ui/UserSelector';
 import CustomSelect from '../components/ui/CustomSelect';
+import LinkEntityDrawer from '../components/tasks/LinkEntityDrawer';
 
 const FormCard: React.FC<{ title: string, children: React.ReactNode}> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
@@ -30,6 +31,7 @@ const EditTaskPage: React.FC = () => {
     const [task, setTask] = useState<Partial<Task> | null>(null);
     const [newTag, setNewTag] = useState('');
     const [newSubtask, setNewSubtask] = useState({ text: '', notes: '' });
+    const [isLinkDrawerOpen, setIsLinkDrawerOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     
     const DESCRIPTION_MAX_LENGTH = 2000;
@@ -40,9 +42,18 @@ const EditTaskPage: React.FC = () => {
         }
     }, [initialTask]);
 
-    const handleFieldChange = (field: keyof Task, value: any) => {
+    const handleFieldChange = useCallback((field: keyof Task, value: any) => {
         setTask(prev => prev ? { ...prev, [field]: value } : null);
+    }, []);
+
+    const handleLinkEntities = (links: any) => {
+        handleFieldChange('links', links);
     };
+
+    const linkedEntitiesCount = useMemo(() => {
+        if (!task?.links) return 0;
+        return Object.keys(task.links).length;
+    }, [task?.links]);
 
     const handleSave = async () => {
         if (!task || !task.title?.trim()) {
@@ -106,6 +117,8 @@ const EditTaskPage: React.FC = () => {
     const priorityOptions = Object.values(Priority).map(p => ({ value: p, name: p }));
     const teamOptions = [{ value: '', name: 'Ninguno' }, ...(teams || []).map(team => ({ value: team.id, name: team.name }))];
 
+    const baseInputClasses = "bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-500";
+
     return (
         <div className="max-w-4xl mx-auto">
              <div className="flex justify-between items-center mb-6">
@@ -122,11 +135,11 @@ const EditTaskPage: React.FC = () => {
                 <FormCard title="Información básica">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Título <span className="text-red-500">*</span></label>
-                        <input type="text" value={task.title} onChange={e => handleFieldChange('title', e.target.value)} className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm" />
+                        <input type="text" value={task.title} onChange={e => handleFieldChange('title', e.target.value)} className={`w-full ${baseInputClasses}`} />
                     </div>
                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                        <textarea value={task.description} onChange={e => handleFieldChange('description', e.target.value)} rows={4} maxLength={DESCRIPTION_MAX_LENGTH} className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm" />
+                        <textarea value={task.description} onChange={e => handleFieldChange('description', e.target.value)} rows={4} maxLength={DESCRIPTION_MAX_LENGTH} className={`w-full ${baseInputClasses}`} />
                         <p className="text-xs text-right text-gray-500 mt-1">{task.description?.length || 0} / {DESCRIPTION_MAX_LENGTH}</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
@@ -177,12 +190,12 @@ const EditTaskPage: React.FC = () => {
 
                 <FormCard title="Fechas y estimación">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label><input type="date" value={task.startDate?.split('T')[0] || ''} onChange={e => handleFieldChange('startDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)} className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm"/></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Fecha Límite</label><input type="date" value={task.dueAt?.split('T')[0] || ''} onChange={e => handleFieldChange('dueAt', e.target.value ? new Date(e.target.value).toISOString() : undefined)} className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm"/></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label><input type="date" value={task.startDate?.split('T')[0] || ''} onChange={e => handleFieldChange('startDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)} className={`w-full ${baseInputClasses}`}/></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Fecha Límite</label><input type="date" value={task.dueAt?.split('T')[0] || ''} onChange={e => handleFieldChange('dueAt', e.target.value ? new Date(e.target.value).toISOString() : undefined)} className={`w-full ${baseInputClasses}`}/></div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Estimación (horas)</label>
-                        <input type="number" value={task.estimationHours || ''} onChange={e => handleFieldChange('estimationHours', parseFloat(e.target.value) || 0)} className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm"/>
+                        <input type="number" value={task.estimationHours || ''} onChange={e => handleFieldChange('estimationHours', parseFloat(e.target.value) || 0)} className={`w-full ${baseInputClasses}`}/>
                     </div>
                 </FormCard>
                 
@@ -220,19 +233,33 @@ const EditTaskPage: React.FC = () => {
                 </FormCard>
 
                  <FormCard title="Vínculos a entidades">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-md">
-                        <p className="text-sm text-gray-500">Sin vínculos. Conecta esta tarea con clientes, cotizaciones, etc.</p>
-                        <button className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold py-1 px-3 rounded-md flex items-center gap-1"><span className="material-symbols-outlined text-base">link</span>Vincular</button>
-                    </div>
-                </FormCard>
-                
-                 <FormCard title="Adjuntos">
-                    <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg text-center">
-                        <p className="text-sm text-gray-500">Arrastra archivos aquí o haz clic para seleccionar.</p>
-                        <button className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold py-2 px-4 rounded-md flex items-center gap-2 mt-4"><span className="material-symbols-outlined text-base">upload</span>Cargar archivo</button>
+                    <div className="flex items-center justify-between p-4 bg-slate-100 dark:bg-slate-700/50 rounded-md">
+                        {linkedEntitiesCount > 0 ? (
+                            <p className="text-sm text-slate-700 dark:text-slate-300">
+                                {linkedEntitiesCount} entidad(es) vinculada(s).
+                            </p>
+                        ) : (
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                Sin vínculos. Conecta esta tarea con clientes, cotizaciones, etc.
+                            </p>
+                        )}
+                        <button 
+                            type="button"
+                            onClick={() => setIsLinkDrawerOpen(true)}
+                            className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold py-1 px-3 rounded-md flex items-center gap-1 hover:bg-slate-50 dark:hover:bg-slate-600"
+                        >
+                            <span className="material-symbols-outlined text-base">link</span>
+                            {linkedEntitiesCount > 0 ? 'Editar Vínculos' : 'Vincular'}
+                        </button>
                     </div>
                 </FormCard>
             </div>
+            <LinkEntityDrawer 
+                isOpen={isLinkDrawerOpen}
+                onClose={() => setIsLinkDrawerOpen(false)}
+                onLink={handleLinkEntities}
+                linkedEntities={task.links || {}}
+            />
         </div>
     );
 };

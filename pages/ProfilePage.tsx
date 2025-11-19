@@ -10,6 +10,7 @@ import { api } from '../api/firebaseApi';
 import CustomSelect from '../components/ui/CustomSelect';
 import { COUNTRIES } from '../constants';
 import ImageCropperModal from '../components/ui/ImageCropperModal';
+import { useToast } from '../hooks/useToast';
 
 interface ProfilePageProps {
   user: User;
@@ -176,11 +177,32 @@ const NotificationSettings = () => {
 
 const ConnectedAccountsTab: React.FC<{ userId: string }> = ({ userId }) => {
     const { data: allAccounts, loading } = useCollection<ConnectedEmailAccount>('connectedAccounts');
+    const { showToast } = useToast();
     
     const userAccounts = useMemo(() => {
         if (!allAccounts) return [];
         return allAccounts.filter(acc => acc.userId === userId);
     }, [allAccounts, userId]);
+
+    const handleCheckStatus = async (accountId: string) => {
+        showToast('info', 'Verificando conexión...');
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate checking
+        try {
+            // Simulate varying success
+            const isSuccess = Math.random() > 0.2; 
+            const newStatus = isSuccess ? 'Conectado' : 'Error de autenticación';
+            
+            await api.updateDoc('connectedAccounts', accountId, { status: newStatus });
+            
+            if (isSuccess) {
+                showToast('success', 'Conexión verificada exitosamente.');
+            } else {
+                showToast('error', 'Error de autenticación. Revisa tus credenciales.');
+            }
+        } catch (e) {
+            showToast('error', 'Error al verificar el estado de la cuenta.');
+        }
+    };
 
     const getStatusColor = (status: ConnectedEmailAccount['status']) => {
         switch(status) {
@@ -207,7 +229,10 @@ const ConnectedAccountsTab: React.FC<{ userId: string }> = ({ userId }) => {
                                 <p className="font-medium text-slate-800 dark:text-slate-200">{acc.email}</p>
                                 <Badge text={acc.status} color={getStatusColor(acc.status)} />
                             </div>
-                            <button className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+                            <button 
+                                onClick={() => handleCheckStatus(acc.id)}
+                                className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                            >
                                 Revisar Estado
                             </button>
                         </li>

@@ -1,11 +1,12 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { Email, Attachment, User, ConnectedEmailAccount } from '../types';
 import Spinner from '../components/ui/Spinner';
-// FIX: Se eliminó la importación de datos falsos.
 import { emailFooterHtml } from '../components/emails/EmailFooter';
 import CustomSelect from '../components/ui/CustomSelect';
 import { useAuth } from '../hooks/useAuth';
+import { api } from '../api/firebaseApi';
 
 type EmailFolder = 'inbox' | 'sent' | 'drafts' | 'trash';
 type ComposeMode = 'new' | 'reply' | 'forward';
@@ -195,8 +196,8 @@ const EmailsPage: React.FC = () => {
     const [composeInitialData, setComposeInitialData] = useState<Partial<Email>>({});
     
     const [selectedAccountEmail, setSelectedAccountEmail] = useState<string | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
 
-    // FIX: Se obtiene el usuario actual desde el hook de autenticación.
     const { user: currentUser } = useAuth();
     const userSignature = (currentUser as any)?.signature || '';
 
@@ -217,10 +218,26 @@ const EmailsPage: React.FC = () => {
         }
     }, [userAccounts, selectedAccountEmail]);
 
+    // Robust filtering logic
     const filteredEmails = useMemo(() => {
         if (!allEmailsState || !selectedAccountEmail) return [];
+        const selectedEmailLower = selectedAccountEmail.toLowerCase();
+
         return allEmailsState
-            .filter(email => (email as any).recipientEmail === selectedAccountEmail && email.folder === selectedFolder)
+            .filter(email => {
+                if (email.folder !== selectedFolder) return false;
+
+                if (selectedFolder === 'inbox') {
+                    // Check TO, CC, BCC safely
+                    const isInTo = Array.isArray(email.to) && email.to.some(r => r?.email?.toLowerCase() === selectedEmailLower);
+                    const isInCc = Array.isArray(email.cc) && email.cc.some(r => r?.email?.toLowerCase() === selectedEmailLower);
+                    const isInBcc = Array.isArray(email.bcc) && email.bcc.some(r => r?.email?.toLowerCase() === selectedEmailLower);
+                    return isInTo || isInCc || isInBcc;
+                }
+                
+                // For sent, drafts, trash
+                return email.from?.email?.toLowerCase() === selectedEmailLower;
+            })
             .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     }, [allEmailsState, selectedFolder, selectedAccountEmail]);
 
@@ -266,17 +283,17 @@ const EmailsPage: React.FC = () => {
         setComposeInitialData({});
     };
 
-     const handleSendEmail = (emailData: { to: string; cc?: string; bcc?: string; subject: string; body: string; attachments: File[] }) => {
+     const handleSendEmail = async (emailData: { to: string; cc?: string; bcc?: string; subject: string; body: string; attachments: File[] }) => {
         if (!selectedAccountEmail || !currentUser) return;
+        
         const newAttachments: Attachment[] = emailData.attachments.map(file => ({
             id: `att-${Date.now()}-${file.name}`,
             name: file.name,
             size: file.size,
-            url: '#' // Dummy URL for simulation
+            url: '#'
         }));
 
-        const newEmail: any = {
-            id: `email-${Date.now()}`,
+        const newEmail: Omit<Email, 'id'> = {
             from: { name: currentUser.name, email: selectedAccountEmail },
             to: stringToRecipients(emailData.to),
             cc: stringToRecipients(emailData.cc || ''),
@@ -287,13 +304,70 @@ const EmailsPage: React.FC = () => {
             status: 'read',
             folder: 'sent',
             attachments: newAttachments,
-            recipientEmail: selectedAccountEmail,
         };
 
-        setAllEmailsState(prev => (prev ? [...prev, newEmail] : [newEmail]));
-        handleCloseCompose();
-        setSelectedFolder('sent');
-        setTimeout(() => setSelectedEmailId(newEmail.id), 0);
+        try {
+            const addedEmail = await api.addDoc('emails', newEmail);
+            setAllEmailsState(prev => (prev ? [...prev, addedEmail] : [addedEmail]));
+            handleCloseCompose();
+            setSelectedFolder('sent');
+            setTimeout(() => setSelectedEmailId(addedEmail.id), 0);
+        } catch (error) {
+            console.error("Error sending email:", error);
+            alert("Error al enviar el correo.");
+        }
+    };
+
+    const handleSimulateSync = async () => {
+        if (!selectedAccountEmail || !currentUser) {
+            alert("Por favor selecciona una cuenta primero.");
+            return;
+        }
+        setIsSyncing(true);
+
+        // Generate Mock Data specifically for the SELECTED account
+        const mocks: Omit<Email, 'id'>[] = [
+            {
+                from: { name: "Soporte Google", email: "support@google.com" },
+                to: [{ name: currentUser.name, email: selectedAccountEmail }],
+                subject: "Alerta de seguridad crítica (Simulacro)",
+                body: `Este es un correo simulado para la cuenta ${selectedAccountEmail}. Se ha detectado un nuevo inicio de sesión.`,
+                timestamp: new Date().toISOString(),
+                status: 'unread',
+                folder: 'inbox',
+                cc: [],
+                bcc: []
+            },
+            {
+                from: { name: "Cliente Importante", email: "ceo@bigcorp.com" },
+                to: [{ name: currentUser.name, email: selectedAccountEmail }],
+                subject: "Propuesta Revisada",
+                body: "Hola, he revisado la propuesta y tengo algunos comentarios. ¿Podemos agendar una llamada?",
+                timestamp: new Date(Date.now() - 3600000).toISOString(),
+                status: 'read',
+                folder: 'inbox',
+                cc: [],
+                bcc: []
+            }
+        ];
+
+        try {
+            const addedEmails: Email[] = [];
+            for (const mock of mocks) {
+                const res = await api.addDoc('emails', mock);
+                addedEmails.push(res);
+            }
+            
+            // IMPORTANT: Force update local state to see changes immediately without relying on useCollection re-fetch
+            setAllEmailsState(prev => prev ? [...prev, ...addedEmails] : addedEmails);
+            
+            alert(`Sincronización simulada completada para ${selectedAccountEmail}.`);
+        } catch (error) {
+            console.error("Sync error:", error);
+            alert("Error al sincronizar correos.");
+        } finally {
+            setIsSyncing(false);
+        }
     };
 
     const loading = emailsLoading || accountsLoading;
@@ -311,7 +385,7 @@ const EmailsPage: React.FC = () => {
                             <EmailListItem key={email.id} email={email} isSelected={selectedEmailId === email.id} onSelect={() => setSelectedEmailId(email.id)} />
                         ))}
                          {filteredEmails.length === 0 && (
-                            <li className="text-center text-sm text-slate-500 dark:text-slate-400 p-8">No hay correos en esta carpeta.</li>
+                            <li className="text-center text-sm text-slate-500 dark:text-slate-400 p-8">No hay correos en esta carpeta. Haz clic en el botón de sincronizar.</li>
                         )}
                     </ul>
                 </div>
@@ -362,14 +436,24 @@ const EmailsPage: React.FC = () => {
             <div className="w-64 border-r border-slate-200 dark:border-slate-700 flex flex-col bg-slate-50 dark:bg-slate-900/50">
                 <div className="p-4"><button onClick={() => handleOpenCompose('new')} className="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center shadow-sm hover:opacity-90 transition-colors"><span className="material-symbols-outlined mr-2">edit</span>Redactar</button></div>
                 
-                <div className="px-4 py-2 border-y border-slate-200 dark:border-slate-700">
-                    <CustomSelect
-                        label="Cuenta"
-                        options={userAccounts.map(acc => ({ value: acc.email, name: acc.email }))}
-                        value={selectedAccountEmail || ''}
-                        onChange={(val) => setSelectedAccountEmail(val)}
-                        placeholder="Seleccionar cuenta..."
-                    />
+                <div className="px-4 py-2 border-y border-slate-200 dark:border-slate-700 flex items-end gap-2">
+                    <div className="flex-1">
+                        <CustomSelect
+                            label="Cuenta"
+                            options={userAccounts.map(acc => ({ value: acc.email, name: acc.email }))}
+                            value={selectedAccountEmail || ''}
+                            onChange={(val) => setSelectedAccountEmail(val)}
+                            placeholder="Seleccionar..."
+                        />
+                    </div>
+                    <button 
+                        onClick={handleSimulateSync}
+                        disabled={isSyncing} 
+                        className="p-2 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 mb-[2px]"
+                        title="Sincronizar ahora"
+                    >
+                        <span className={`material-symbols-outlined text-base ${isSyncing ? 'animate-spin' : ''}`}>sync</span>
+                    </button>
                 </div>
 
                 <nav className="flex-1 px-2 py-2">

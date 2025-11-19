@@ -19,19 +19,25 @@ const AlertCard: React.FC<{ title: string; children: React.ReactNode; icon: stri
 
 const InventoryAlertsPage: React.FC = () => {
     const { data: products, loading: pLoading } = useCollection<Product>('products');
-    const { data: lotsData, loading: lLoading } = useCollection<{[key: string]: ProductLot[]}>('lots');
+    // FIX: Changed generic type to ProductLot instead of nested object
+    const { data: lotsData, loading: lLoading } = useCollection<ProductLot>('lots');
 
     const lowStockAlerts = useMemo(() => {
         if (!products || !lotsData) return [];
-        // FIX: The useCollection hook returns an array containing the object, so we extract the first element.
-        const lotsObject = (lotsData && lotsData.length > 0) ? lotsData[0] : {};
+        
+        // FIX: Treat lotsData as a flat array
+        const allLots = lotsData;
         
         return products
             .map(product => {
                 if (!product.reorderPoint) return null;
-                const productLots = lotsObject[product.id] || [];
-                // FIX: Correctly reduce stock from all lots associated with the product.
+                
+                // Filter lots for this product
+                const productLots = allLots.filter(l => l.productId === product.id);
+                
+                // Calculate total stock
                 const totalStock = productLots.reduce((sum, lot) => sum + lot.stock.reduce((lotSum, s) => lotSum + s.qty, 0), 0);
+                
                 if (totalStock < product.reorderPoint) {
                     return { product, totalStock };
                 }
@@ -42,21 +48,18 @@ const InventoryAlertsPage: React.FC = () => {
 
     const quarantineAlerts = useMemo(() => {
         if (!products || !lotsData) return [];
-        // FIX: The useCollection hook returns an array containing the object, so we extract the first element.
-        const lotsObject = (lotsData && lotsData.length > 0) ? lotsData[0] : {};
-        const allLots = Object.values(lotsObject).flat();
+        
+        const allLots = lotsData;
         const now = new Date();
         const quarantineThresholdDays = 7;
 
         return allLots
             .filter(lot => {
-                // FIX: Ensure types are correct for date calculation and status comparison.
                 const daysInQuarantine = (now.getTime() - new Date(lot.receptionDate).getTime()) / (1000 * 3600 * 24);
                 return lot.status === LotStatus.EnCuarentena && daysInQuarantine > quarantineThresholdDays;
             })
             .map(lot => {
-                // FIX: Correctly find the product associated with the lot.
-                const product = products.find(p => (lotsObject[p.id] || []).some(l => l.id === lot.id));
+                const product = products.find(p => p.id === lot.productId);
                 return { lot, product };
             })
             .filter(item => item.product);
@@ -83,7 +86,6 @@ const InventoryAlertsPage: React.FC = () => {
                     )) : <p className="text-sm text-gray-500 dark:text-slate-400">No hay productos con bajo stock.</p>}
                 </AlertCard>
                 <AlertCard title="Lotes Requieren Atención" icon="science" iconClass="text-blue-500">
-                    {/* FIX: Completed the truncated JSX to correctly render quarantine alerts. */}
                     {quarantineAlerts.length > 0 ? quarantineAlerts.map(item => (
                         <div key={item!.lot.id} className="p-3 bg-blue-50 dark:bg-blue-500/10 rounded-md flex justify-between items-center">
                             <div>

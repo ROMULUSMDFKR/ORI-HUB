@@ -94,13 +94,13 @@ const EditHistoryDrawer: React.FC<EditHistoryDrawerProps> = ({ isOpen, onClose, 
                     <CustomSelect 
                         label="Perfilado para (Empresa)"
                         options={companyOptions}
-                        value={criteria.profiledCompany}
+                        value={criteria.profiledCompany || ''}
                         onChange={(val) => handleCriteriaChange('profiledCompany', val as any)}
                     />
                      <CustomSelect 
                         label="Producto perfilado"
                         options={productOptions}
-                        value={criteria.profiledProductId}
+                        value={criteria.profiledProductId || ''}
                         onChange={(val) => handleCriteriaChange('profiledProductId', val)}
                         placeholder={productsLoading ? 'Cargando...' : 'Seleccionar...'}
                     />

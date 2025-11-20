@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -39,6 +40,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 // Prospecting
 const ProspectingDashboardPage = lazy(() => import('./pages/prospecting/ProspectingDashboardPage'));
 const CandidatesPage = lazy(() => import('./pages/CandidatesPage'));
+const MapPage = lazy(() => import('./pages/prospecting/MapPage')); // New Page
 const CandidateDetailPage = lazy(() => import('./pages/CandidateDetailPage'));
 const UploadCandidatesPage = lazy(() => import('./pages/UploadCandidatesPage'));
 const ImportHistoryPage = lazy(() => import('./pages/prospecting/ImportHistoryPage'));
@@ -256,6 +258,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/prospecting/dashboard" element={<ProspectingDashboardPage />} />
                             <Route path="/prospecting/candidates" element={<CandidatesPage />} />
                             <Route path="/prospecting/candidates/:id" element={<CandidateDetailPage />} />
+                            <Route path="/prospecting/map" element={<MapPage />} />
                             <Route path="/prospecting/upload" element={<UploadCandidatesPage />} />
                             <Route path="/prospecting/history" element={<ImportHistoryPage />} />
                             <Route path="/prospecting/brands" element={<BrandsPage />} />

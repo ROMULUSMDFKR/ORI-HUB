@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -44,9 +43,6 @@ const UploadCandidatesPage: React.FC = () => {
         associatedBrandId: '',
     });
     const [termsInput, setTermsInput] = useState('');
-    
-    // Import URL (not used in scraping logic directly in this mock, but kept for UI)
-    const [importUrl, setImportUrl] = useState('');
     
     // States for review flows
     const [duplicatesToReview, setDuplicatesToReview] = useState<DuplicatePair[]>([]);
@@ -226,16 +222,7 @@ const UploadCandidatesPage: React.FC = () => {
                     activityLog: [],
                     importedAt: new Date().toISOString(),
                     importedBy: user?.id || 'unknown',
-                    importHistoryId: historyDocId || undefined,
-                    // Initialize new fields with null to avoid Firestore errors
-                    aiAnalysis: null,
-                    openingHours: null,
-                    webResults: null,
-                    reviewsTags: null,
-                    placesTags: null,
-                    peopleAlsoSearch: null,
-                    questionsAndAnswers: null,
-                    reviewsDistribution: null,
+                    importHistoryId: historyDocId || undefined
                 };
                 
                 await api.addDoc('candidates', newCandidate);
@@ -357,26 +344,6 @@ const UploadCandidatesPage: React.FC = () => {
                         {isProcessing ? status : 'Iniciar Búsqueda e Importación'}
                     </button>
                 </div>
-            </div>
-            
-             {/* Paso 2: Importar desde URL (Opcional/Legacy) */}
-             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                 <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4">Paso 2: Importar desde URL (Apify)</h3>
-                 <div className="flex gap-2">
-                     <input 
-                        type="text" 
-                        value={importUrl} 
-                        onChange={e => setImportUrl(e.target.value)}
-                        placeholder="https://api.apify.com/v2/datasets/..." 
-                        className="flex-1 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                     <button 
-                        className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700"
-                        onClick={() => alert("Funcionalidad de URL directa pendiente de reconexión con el nuevo flujo.")}
-                    >
-                         Iniciar Importación
-                     </button>
-                 </div>
             </div>
 
             {/* Modals */}

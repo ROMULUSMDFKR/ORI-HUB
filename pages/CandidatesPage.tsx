@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { Candidate, CandidateStatus, Brand } from '../types';
@@ -8,38 +8,6 @@ import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
 import FilterButton from '../components/ui/FilterButton';
-import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
-
-// Declare Leaflet types locally since we are using CDN
-declare const L: any;
-
-// Add type definition for the global function
-declare global {
-    interface Window {
-        navigateToCandidate: (id: string) => void;
-    }
-}
-
-const categoryTranslations: Record<string, string> = {
-    "Wholesaler": "Mayorista",
-    "Tire shop": "Llantera",
-    "Auto repair shop": "Taller mecánico",
-    "Gas station": "Gasolinera",
-    "Fuel supplier": "Proveedor de combustible",
-    "Grocery store": "Tienda de abarrotes",
-    "Convenience store": "Tienda de conveniencia",
-    "Restaurant": "Restaurante",
-    "Corporate office": "Oficina corporativa",
-    "Manufacturer": "Fabricante",
-    "Logistics service": "Servicio logístico",
-    "Trucking company": "Empresa de transporte",
-    "Farm": "Granja",
-    "Agriculture": "Agricultura",
-    "Chemical manufacturer": "Fabricante de productos químicos",
-    "Industrial equipment supplier": "Proveedor de equipos industriales",
-    "Produce market": "Mercado de productos agrícolas",
-    "Supermarket": "Supermercado"
-};
 
 const calculateProfileScore = (c: Candidate) => {
     let score = 0;
@@ -67,33 +35,37 @@ const CandidatesPage: React.FC = () => {
     const { data: brands, loading: bLoading } = useCollection<Brand>('brands');
     const navigate = useNavigate();
 
-    const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-    const mapRef = useRef<any>(null);
-    const markersRef = useRef<any>(null);
-    const boundaryLayerRef = useRef<any>(null);
-    const mapContainerRef = useRef<HTMLDivElement>(null);
-
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [tagFilter, setTagFilter] = useState<string>('all');
     const [companyFilter, setCompanyFilter] = useState<string>('all');
     const [stateFilter, setStateFilter] = useState<string>('all');
     const [cityFilter, setCityFilter] = useState<string>('all');
     const [scoreFilter, setScoreFilter] = useState<string>('all');
-    const [showBoundary, setShowBoundary] = useState(true);
+    
+    // Tag-based search state
+    const [searchTags, setSearchTags] = useState<string[]>([]);
+    const [tagInput, setTagInput] = useState('');
 
     const loading = cLoading || bLoading;
-
-    // Expose navigate function to window for Leaflet popup access
-    useEffect(() => {
-        window.navigateToCandidate = (id: string) => {
-            navigate(`/prospecting/candidates/${id}`);
-        };
-        return () => {
-            // Optional cleanup
-             // delete window.navigateToCandidate;
-        };
-    }, [navigate]);
     
+    // Handle Tag Input
+    const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && tagInput.trim()) {
+            e.preventDefault();
+            if (!searchTags.includes(tagInput.trim())) {
+                setSearchTags([...searchTags, tagInput.trim()]);
+            }
+            setTagInput('');
+        } else if (e.key === 'Backspace' && !tagInput && searchTags.length > 0) {
+            // Remove last tag if input is empty and backspace is pressed
+            setSearchTags(searchTags.slice(0, -1));
+        }
+    };
+
+    const removeSearchTag = (tag: string) => {
+        setSearchTags(searchTags.filter(t => t !== tag));
+    };
+
     const filteredData = useMemo(() => {
         if (!candidates) return [];
         return candidates.filter(c => {
@@ -102,6 +74,21 @@ const CandidatesPage: React.FC = () => {
             const companyMatch = companyFilter === 'all' || c.assignedCompanyId === companyFilter;
             const stateMatch = stateFilter === 'all' || c.state === stateFilter;
             const cityMatch = cityFilter === 'all' || c.city === cityFilter;
+            
+            // Logic: Search Terms (Additive / OR logic)
+            // If no tags, show all. If tags exist, candidate must match AT LEAST ONE tag in their rawCategories.
+            let searchMatch = true;
+            if (searchTags.length > 0) {
+                if (!c.rawCategories || c.rawCategories.length === 0) {
+                    searchMatch = false;
+                } else {
+                    // Check if any of the search tags are included in any of the candidate's raw categories
+                    // Case insensitive matching
+                    searchMatch = searchTags.some(tag => 
+                        c.rawCategories?.some(cat => cat.toLowerCase().includes(tag.toLowerCase()))
+                    );
+                }
+            }
 
             const score = calculateProfileScore(c);
             let scoreMatch = true;
@@ -121,158 +108,9 @@ const CandidatesPage: React.FC = () => {
                 }
             }
 
-            return statusMatch && tagMatch && companyMatch && stateMatch && cityMatch && scoreMatch;
+            return statusMatch && tagMatch && companyMatch && stateMatch && cityMatch && scoreMatch && searchMatch;
         });
-    }, [candidates, statusFilter, tagFilter, companyFilter, stateFilter, cityFilter, scoreFilter]);
-
-    // --- MAP INITIALIZATION & MARKERS ---
-    useEffect(() => {
-        if (viewMode === 'map' && mapContainerRef.current && !loading) {
-            // Initialize Map if not already done
-            if (!mapRef.current) {
-                // Default center (Mexico center roughly)
-                mapRef.current = L.map(mapContainerRef.current).setView([23.6345, -102.5528], 5);
-                
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                }).addTo(mapRef.current);
-
-                markersRef.current = L.markerClusterGroup({
-                    showCoverageOnHover: false,
-                    maxClusterRadius: 50, // Adjust for density
-                });
-                mapRef.current.addLayer(markersRef.current);
-            }
-
-            // Clear existing markers
-            if (markersRef.current) {
-                markersRef.current.clearLayers();
-            }
-
-            // Add new markers based on filteredData
-            const markers: any[] = [];
-            if (filteredData.length > 0) {
-                filteredData.forEach(c => {
-                    if (c.location && c.location.lat && c.location.lng) {
-                        const colorClass = getStatusColorClass(c.status);
-                        const customIcon = L.divIcon({
-                            className: 'custom-pin',
-                            html: `<div class="pin-inner ${colorClass}"></div>`,
-                            iconSize: [16, 16],
-                            iconAnchor: [8, 8]
-                        });
-
-                        const marker = L.marker([c.location.lat, c.location.lng], { icon: customIcon });
-                        
-                        // Popup Content - Redesigned for better UX and reliable click handling
-                        const popupContent = `
-                            <div class="p-1 min-w-[220px] font-sans text-left">
-                                <div class="flex justify-between items-start mb-2">
-                                    <h3 class="font-bold text-base text-slate-800 leading-tight pr-2 m-0">${c.name}</h3>
-                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${colorClass.replace('bg-', 'bg-')} flex-shrink-0">${c.status}</span>
-                                </div>
-                                <p class="text-xs text-slate-500 mb-3 leading-snug">${c.address || 'Ubicación aproximada'}</p>
-                                <button 
-                                    onclick="window.navigateToCandidate('${c.id}')" 
-                                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-2 px-4 rounded shadow-sm transition-colors flex items-center justify-center cursor-pointer"
-                                >
-                                    Abrir Ficha
-                                </button>
-                            </div>
-                        `;
-                        
-                        marker.bindPopup(popupContent);
-                        markers.push(marker);
-                    }
-                });
-
-                markersRef.current.addLayers(markers);
-                
-                // Only fit bounds if no state filter is active (otherwise state boundary takes precedence)
-                if (stateFilter === 'all') {
-                    try {
-                        mapRef.current.fitBounds(markersRef.current.getBounds(), { padding: [50, 50] });
-                    } catch (e) {
-                        console.warn("Could not fit bounds (maybe single point or invalid bounds)");
-                    }
-                }
-            }
-        }
-        
-        // Cleanup on unmount is handled by ref persistence for this SPA logic
-    }, [viewMode, filteredData, loading, stateFilter]);
-
-
-    // --- STATE BOUNDARY GEOJSON EFFECT ---
-    useEffect(() => {
-        // Only run if map exists and we have a specific state filter
-        if (viewMode === 'map' && mapRef.current) {
-            
-            // Remove existing boundary if any
-            if (boundaryLayerRef.current) {
-                mapRef.current.removeLayer(boundaryLayerRef.current);
-                boundaryLayerRef.current = null;
-            }
-
-            if (stateFilter !== 'all' && showBoundary) {
-                const fetchGeoJSON = async () => {
-                    try {
-                        // Using a reliable public source for Mexico States GeoJSON (CodeForAmerica)
-                        const response = await fetch('https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/mexico.geojson');
-                        
-                        if (!response.ok) {
-                             throw new Error(`Failed to fetch state boundaries: ${response.statusText}`);
-                        }
-
-                        const data = await response.json();
-                        
-                        // Normalize strings to match (remove accents, lowercase)
-                        const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-                        const targetState = normalize(stateFilter);
-
-                        // Find the feature that matches the state name
-                        // Note: The GeoJSON property keys might vary, usually 'state_name' or 'name'
-                        const stateFeature = data.features.find((f: any) => {
-                            const name = f.properties.state_name || f.properties.name;
-                            if (!name) return false;
-                            const normalizedName = normalize(name);
-                            
-                            // Handle CDMX special case
-                            if ((targetState === 'cdmx' || targetState === 'ciudad de mexico') && (normalizedName === 'distrito federal' || normalizedName === 'ciudad de mexico')) {
-                                return true;
-                            }
-                             // Handle State of Mexico special case
-                            if ((targetState === 'estado de mexico' || targetState === 'mexico') && (normalizedName === 'mexico' || normalizedName === 'estado de mexico')) {
-                                return true;
-                            }
-
-                            return normalizedName === targetState;
-                        });
-
-                        if (stateFeature) {
-                            boundaryLayerRef.current = L.geoJSON(stateFeature, {
-                                style: {
-                                    color: '#6366f1', // Indigo-500
-                                    weight: 3,
-                                    opacity: 0.8,
-                                    fillColor: '#6366f1',
-                                    fillOpacity: 0.1
-                                }
-                            }).addTo(mapRef.current);
-
-                            // Zoom to the state boundary
-                            mapRef.current.fitBounds(boundaryLayerRef.current.getBounds());
-                        }
-                    } catch (error) {
-                        console.error("Error loading state boundary:", error);
-                    }
-                };
-                
-                fetchGeoJSON();
-            }
-        }
-    }, [stateFilter, viewMode, showBoundary]);
-
+    }, [candidates, statusFilter, tagFilter, companyFilter, stateFilter, cityFilter, scoreFilter, searchTags]);
 
     // Dynamic filter options
     const { stateOptions, cityOptions } = useMemo(() => {
@@ -318,11 +156,11 @@ const CandidatesPage: React.FC = () => {
             )
         },
         { 
-            header: 'Categorías (Fuente)', 
+            header: 'Término de Búsqueda', 
             accessor: (c: Candidate) => (
-                <div className="flex flex-wrap gap-1">
-                    {c.rawCategories?.slice(0, 2).map(cat => <Badge key={cat} text={categoryTranslations[cat] || cat} />)}
-                </div>
+                <span className="text-sm text-slate-700 dark:text-slate-300">
+                    {c.rawCategories?.[0] ? <Badge text={c.rawCategories[0]} color="gray" /> : '-'}
+                </span>
             )
         },
         { 
@@ -364,11 +202,6 @@ const CandidatesPage: React.FC = () => {
         { value: 'low', label: 'Bajo (<50)' },
     ];
     
-    const viewOptions: ViewOption[] = [
-        { id: 'list', name: 'Lista', icon: 'list' },
-        { id: 'map', name: 'Mapa', icon: 'map' },
-    ];
-
     return (
         <div className="space-y-6 h-full flex flex-col">
             <div className="flex justify-between items-center flex-shrink-0">
@@ -377,7 +210,6 @@ const CandidatesPage: React.FC = () => {
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona, califica y convierte datos crudos en prospectos de valor.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <ViewSwitcher views={viewOptions} activeView={viewMode} onViewChange={(v) => setViewMode(v as 'list' | 'map')} />
                     <Link to="/prospecting/upload" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                         <span className="material-symbols-outlined mr-2">upload</span>
                         Importar Candidatos
@@ -392,18 +224,30 @@ const CandidatesPage: React.FC = () => {
                 <FilterButton label="Ciudad" options={cityOptions} selectedValue={cityFilter} onSelect={setCityFilter} disabled={stateFilter === 'all'} />
                 <FilterButton label="Puntuación" options={scoreOptions} selectedValue={scoreFilter} onSelect={setScoreFilter} />
                 
-                {viewMode === 'map' && stateFilter !== 'all' && (
-                    <div className="flex items-center gap-2 ml-auto border-l border-slate-200 dark:border-slate-700 pl-4">
-                        <input 
-                            type="checkbox" 
-                            id="showBoundary" 
-                            checked={showBoundary} 
-                            onChange={(e) => setShowBoundary(e.target.checked)}
-                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <label htmlFor="showBoundary" className="text-sm text-slate-700 dark:text-slate-300">Ver contorno del estado</label>
+                {/* Search Term Filter with Tags */}
+                <div className="flex-grow ml-auto flex justify-end">
+                    <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 w-full max-w-md focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition-all">
+                        <span className="material-symbols-outlined text-slate-400 text-xl">search</span>
+                        <div className="flex flex-wrap gap-2 items-center flex-1">
+                            {searchTags.map((tag, index) => (
+                                <span key={index} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-medium">
+                                    {tag}
+                                    <button onClick={() => removeSearchTag(tag)} className="hover:text-indigo-900 dark:hover:text-indigo-100 focus:outline-none">
+                                        &times;
+                                    </button>
+                                </span>
+                            ))}
+                            <input
+                                type="text"
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                onKeyDown={handleTagInputKeyDown}
+                                placeholder={searchTags.length === 0 ? "Filtrar por término..." : ""}
+                                className="bg-transparent outline-none text-sm text-slate-800 dark:text-slate-200 min-w-[120px] flex-1 py-1"
+                            />
+                        </div>
                     </div>
-                )}
+                </div>
             </div>
             
             <div className="flex-1 min-h-0 relative bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -415,16 +259,14 @@ const CandidatesPage: React.FC = () => {
                     <EmptyState
                         icon="group_add"
                         title="No hay candidatos"
-                        message="Importa una nueva lista de candidatos para empezar a calificar."
+                        message="Importa una nueva lista de candidatos para empezar a calificar o ajusta tus filtros."
                         actionText="Importar Datos"
                         onAction={() => navigate('/prospecting/upload')}
                     />
-                ) : viewMode === 'list' ? (
+                ) : (
                     <div className="h-full overflow-y-auto">
                         <Table columns={columns} data={filteredData} onRowClick={handleRowClick} />
                     </div>
-                ) : (
-                    <div ref={mapContainerRef} className="w-full h-full z-0" />
                 )}
             </div>
         </div>

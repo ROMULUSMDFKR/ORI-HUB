@@ -12,6 +12,7 @@ export const NAV_LINKS = [
     sublinks: [
       { name: 'Dashboard', path: '/prospecting/dashboard', icon: 'dashboard' },
       { name: 'Candidatos', path: '/prospecting/candidates', icon: 'person_search' },
+      { name: 'Mapa', path: '/prospecting/map', icon: 'map' },
       { name: 'Importar Datos', path: '/prospecting/upload', icon: 'upload_file' },
       { name: 'Historial de Importación', path: '/prospecting/history', icon: 'history' },
       { name: 'Marcas', path: '/prospecting/brands', icon: 'storefront' },
@@ -349,7 +350,8 @@ export const ACCESS_RESTRICTIONS_OPTIONS = ['Cita Previa', 'Horario Restringido'
 export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'create' | 'edit' | 'delete')[]>> = {
     'Prospección IA': { 
         'Dashboard': ['view'],
-        'Candidatos': ['view', 'create', 'edit', 'delete'], 
+        'Candidatos': ['view', 'create', 'edit', 'delete'],
+        'Mapa': ['view'],
         'Importar Datos': ['view', 'create', 'edit', 'delete'],
         'Historial de Importación': ['view', 'create', 'edit', 'delete'],
         'Marcas': ['view', 'create', 'edit', 'delete'],

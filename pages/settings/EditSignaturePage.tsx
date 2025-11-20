@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDoc } from '../../hooks/useDoc';
@@ -27,7 +28,6 @@ interface StyleProps {
     height?: string;
     border?: string;
     verticalAlign?: 'top' | 'middle' | 'bottom';
-    // FIX: Added 'display' property to allow for its use in component styles.
     display?: string;
 }
 
@@ -61,6 +61,7 @@ const COMPONENT_CONFIG: Record<ElementType, Omit<Element, 'id'>> = {
 
 const DraggableComponent: React.FC<{ type: ElementType, name: string, icon: string }> = ({ type, name, icon }) => {
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+        // Sending simple string data, safe from circular refs
         e.dataTransfer.setData('application/json', JSON.stringify({ type }));
     };
     return (
@@ -244,9 +245,18 @@ const SignatureTemplateBuilderPage: React.FC = () => {
         e.stopPropagation();
         const data = JSON.parse(e.dataTransfer.getData('application/json'));
         const type = data.type as ElementType;
+        
+        // Safely clone the config object using structuredClone or fallback to simple spread if needed
+        const config = COMPONENT_CONFIG[type];
+        const safeProps = typeof structuredClone === 'function' ? structuredClone(config.props) : JSON.parse(JSON.stringify(config.props));
+
         const newElement: Element = {
             id: `el-${Date.now()}`,
-            ...JSON.parse(JSON.stringify(COMPONENT_CONFIG[type])) // Deep copy
+            type: config.type,
+            content: config.content,
+            props: safeProps,
+            columnCount: config.columnCount,
+            columns: config.columns ? (typeof structuredClone === 'function' ? structuredClone(config.columns) : [[], []]) : undefined
         };
         
         if (parentId) { // Dropped inside a column

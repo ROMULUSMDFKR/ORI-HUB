@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -20,20 +21,40 @@ const PipelineColumn: React.FC<{
   const totalValue = items.reduce((sum, q) => sum + q.totals.grandTotal, 0);
 
   return (
-    <div className="flex-shrink-0 w-80 bg-slate-200/60 dark:bg-black/10 rounded-xl p-3">
-      <div className="flex justify-between items-center mb-1 px-1">
-        <h3 className="font-semibold text-md text-slate-800 dark:text-slate-200">{stage}</h3>
-        <span className="text-sm font-medium text-slate-500 dark:text-slate-400 bg-gray-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">{items.length}</span>
+    <div className="flex-shrink-0 w-80 bg-slate-200/60 dark:bg-black/10 rounded-xl p-3 h-full flex flex-col">
+      <div className="flex justify-between items-center mb-2 px-1 group relative">
+        <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-md text-slate-800 dark:text-slate-200">{stage}</h3>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-700 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-600 shadow-sm">
+                {items.length}
+            </span>
+        </div>
+
+        {/* Info Icon with Tooltip */}
+        <div className="relative">
+            <span className="material-symbols-outlined text-slate-400 hover:text-indigo-500 cursor-help text-lg">info</span>
+            <div className="absolute top-full right-0 mt-2 w-72 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Objetivo de la Etapa</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{objective}</p>
+                <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                    <span className="text-xs text-slate-500">Valor Total</span>
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">${totalValue.toLocaleString('en-US')}</span>
+                </div>
+            </div>
+        </div>
       </div>
-      <div className="text-xs text-gray-500 dark:text-slate-400 mb-4 px-1 truncate" title={objective}>
-        ${totalValue.toLocaleString('en-US')} &bull; {objective}
-      </div>
-      <div className="h-full overflow-y-auto pr-1" style={{maxHeight: 'calc(100vh - 290px)'}}>
+
+      <div className="h-full overflow-y-auto pr-1 custom-scrollbar flex-1" style={{maxHeight: 'calc(100vh - 220px)'}}>
         {items.map(item => (
             <div key={item.id} data-id={item.id}>
                 <QuoteCard item={item} onDragStart={() => {}} />
             </div>
         ))}
+        {items.length === 0 && (
+            <div className="h-32 flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg m-1">
+                <p className="text-xs text-slate-400 dark:text-slate-600 font-medium">Sin cotizaciones</p>
+            </div>
+        )}
       </div>
     </div>
   );
@@ -142,13 +163,16 @@ const QuotesPipelinePage: React.FC = () => {
              return (
                  <div className="flex-1 flex gap-8 overflow-x-auto pb-4" onDragStart={handleDragStart}>
                     {Object.keys(groupedColumns).map((groupName) => (
-                      <div key={groupName} className="flex flex-col">
-                        <div className="px-3 pb-2"><h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{groupName}</h3></div>
-                        <div className="flex gap-4">
+                      <div key={groupName} className="flex flex-col h-full">
+                        <div className="px-3 pb-3 flex items-center gap-2">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{groupName}</h3>
+                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
+                        </div>
+                        <div className="flex gap-4 h-full">
                             {groupedColumns[groupName].map(col => {
                               const stageItems = quotes.filter(p => p.status === col.stage);
                               return (
-                                <div key={col.stage} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, col.stage)}>
+                                <div key={col.stage} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, col.stage)} className="h-full">
                                   <PipelineColumn stage={col.stage} objective={col.objective} items={stageItems} />
                                 </div>
                               );

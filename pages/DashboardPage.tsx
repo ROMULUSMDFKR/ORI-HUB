@@ -191,7 +191,7 @@ const PipelineSummary: React.FC<{prospects: Prospect[]}> = ({prospects}) => {
     const totalProspects = prospects.length;
 
     const summaryStages = [
-        ProspectStage.Prospecto,
+        ProspectStage.Nueva,
         ProspectStage.Contactado,
         ProspectStage.Calificado,
         ProspectStage.Propuesta,

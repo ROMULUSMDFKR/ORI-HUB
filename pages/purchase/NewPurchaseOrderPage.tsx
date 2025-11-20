@@ -17,6 +17,12 @@ const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ tit
     </div>
 );
 
+const FormRow: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className }) => (
+    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 items-start ${className}`}>
+        {children}
+    </div>
+);
+
 interface POItemForm extends PurchaseOrderItem {
     id: number; // Internal ID for React keys
     isCustom?: boolean;
@@ -196,9 +202,11 @@ const NewPurchaseOrderPage: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-6">
                         <FormBlock title="Información General">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormRow>
                                 <CustomSelect label="Proveedor *" options={supplierOptions} value={supplierId} onChange={setSupplierId} placeholder="Seleccionar..."/>
                                 <CustomSelect label="Responsable" options={userOptions} value={responsibleId} onChange={setResponsibleId} placeholder="Seleccionar..."/>
+                            </FormRow>
+                            <FormRow>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fecha de Emisión</label>
                                     <input type="date" value={new Date().toISOString().split('T')[0]} readOnly disabled className="mt-1 w-full bg-slate-100 dark:bg-slate-700/50 cursor-not-allowed"/>
@@ -207,7 +215,7 @@ const NewPurchaseOrderPage: React.FC = () => {
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fecha de Entrega Esperada</label>
                                     <input type="date" value={expectedDeliveryDate} onChange={e => setExpectedDeliveryDate(e.target.value)} className="mt-1 w-full"/>
                                 </div>
-                            </div>
+                            </FormRow>
                         </FormBlock>
 
                         <FormBlock title="Productos">

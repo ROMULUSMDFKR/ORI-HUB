@@ -1,3 +1,8 @@
+
+
+
+
+
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ImportHistory, Candidate, CandidateStatus, Product, Brand, Notification } from '../types';
@@ -7,6 +12,7 @@ import { useAuth } from '../hooks/useAuth';
 import CustomSelect from '../components/ui/CustomSelect';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import DuplicateReviewModal, { DuplicatePair } from '../components/prospecting/DuplicateReviewModal';
+import BrandAssociationModal from '../components/prospecting/BrandAssociationModal';
 import { useToast } from '../hooks/useToast';
 
 const MEXICAN_STATES = [
@@ -42,11 +48,13 @@ const UploadCandidatesPage: React.FC = () => {
     
     const [importUrl, setImportUrl] = useState('https://api.apify.com/v2/datasets/VxgZIyWoqWt3ZKnsZ/items?format=json&clean=false');
     
-    // States for duplicate review flow
+    // States for review flows
     const [duplicatesToReview, setDuplicatesToReview] = useState<DuplicatePair[]>([]);
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+    const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
     const [candidatesToImport, setCandidatesToImport] = useState<any[]>([]);
     const [historyDocId, setHistoryDocId] = useState<string | null>(null);
+    const [brandAssociations, setBrandAssociations] = useState<{ [placeId: string]: string }>({});
 
 
     const handleCriteriaChange = useCallback((field: keyof typeof criteria, value: any) => {
@@ -71,7 +79,8 @@ const UploadCandidatesPage: React.FC = () => {
     const processAndSaveCandidates = async (
         candidatesToProcess: any[],
         skipPlaceIds: Set<string>,
-        historyId: string
+        historyId: string,
+        finalBrandAssociations: { [placeId: string]: string } = {}
     ) => {
         setStatus('4/5 - Guardando registros...');
         let newCandidatesCount = 0;
@@ -83,6 +92,7 @@ const UploadCandidatesPage: React.FC = () => {
     
         for (const rawCandidate of candidatesToProcess) {
             const placeId = rawCandidate.placeId || rawCandidate.googlePlaceId;
+            const key = placeId || `idx-${candidatesToProcess.indexOf(rawCandidate)}`;
 
             if (placeId && skipPlaceIds.has(placeId)) {
                 continue;
@@ -118,6 +128,26 @@ const UploadCandidatesPage: React.FC = () => {
                 }
             }
             
+            // Determine Brand ID
+            let finalBrandId = criteria.associatedBrandId || null;
+            
+            // Override if specific association found
+            if (finalBrandAssociations[key]) {
+                const assoc = finalBrandAssociations[key];
+                if (!assoc.startsWith('NEW:')) {
+                    finalBrandId = assoc;
+                }
+                // Note: Newly created brands are handled before this loop in handleConfirmBrands, 
+                // but if we needed to map names to IDs here we would need a refreshed Brands list.
+                // For simplicity, we assume handleConfirmBrands created them and passed a map of Name->ID or handled it.
+                // Wait, actually `handleConfirmBrands` runs before this. We need to resolve the 'NEW:' IDs there.
+                // See updated logic below in `handleConfirmBrands`.
+                 if (assoc.startsWith('NEW_ID:')) {
+                     finalBrandId = assoc.replace('NEW_ID:', '');
+                 }
+            }
+
+            // Extract rich data
             const newCandidate: Partial<Candidate> = {
                 name: rawCandidate.title || 'Sin Nombre',
                 description: rawCandidate.description || null,
@@ -144,15 +174,16 @@ const UploadCandidatesPage: React.FC = () => {
                 averageRating: rawCandidate.totalScore || 0,
                 reviewCount: rawCandidate.reviewsCount || 0,
                 openingHours: rawCandidate.openingHours || null,
-                imageUrl: rawCandidate.imageUrls?.[0] || null,
+                imageUrl: rawCandidate.imageUrl || rawCandidate.imageUrls?.[0] || null,
+                images: rawCandidate.imageUrls ? rawCandidate.imageUrls.map((url: string) => ({ url })) : [],
                 importedAt: new Date().toISOString(),
                 importedBy: user!.id,
                 importHistoryId: historyId,
                 city: city || null,
                 state: state || null,
-                brandId: criteria.associatedBrandId || null,
-                assignedCompanyId: criteria.profiledCompany || undefined,
-                manuallyAssignedProductId: criteria.profiledProductId || undefined,
+                brandId: finalBrandId,
+                assignedCompanyId: criteria.profiledCompany || null,
+                manuallyAssignedProductId: criteria.profiledProductId || null,
                 webResults: rawCandidate.webResults || [],
                 reviewsTags: rawCandidate.reviewsTags || [],
                 placesTags: rawCandidate.placesTags || [],
@@ -256,8 +287,8 @@ const UploadCandidatesPage: React.FC = () => {
                 setDuplicatesToReview(foundDuplicates);
                 setIsReviewModalOpen(true);
             } else {
-                await processAndSaveCandidates(candidatesData, new Set(), tempHistoryDocId);
-                setIsProcessing(false);
+                // No duplicates, check brands immediately
+                checkBrandsAndProceed(candidatesData, new Set());
             }
     
         } catch (error: any) {
@@ -271,6 +302,22 @@ const UploadCandidatesPage: React.FC = () => {
         }
     };
     
+    const checkBrandsAndProceed = (candidates: any[], skipIds: Set<string>) => {
+        // Filter candidates that are not skipped
+        const validCandidates = candidates.filter(c => {
+             const placeId = c.placeId || c.googlePlaceId;
+             return !placeId || !skipIds.has(placeId);
+        });
+
+        if (validCandidates.length > 0) {
+             setStatus('Analizando marcas...');
+             setIsBrandModalOpen(true);
+        } else {
+            // Nothing to import
+            processAndSaveCandidates(candidates, skipIds, historyDocId!);
+        }
+    };
+
     const handleConfirmReview = async (decisions: { [key: string]: 'skip' | 'import' }) => {
         setIsReviewModalOpen(false);
         if (!historyDocId) return;
@@ -283,9 +330,82 @@ const UploadCandidatesPage: React.FC = () => {
             }
         }
         
-        await processAndSaveCandidates(candidatesToImport, skipPlaceIds, historyDocId);
+        // Instead of saving directly, go to Brand check
+        checkBrandsAndProceed(candidatesToImport, skipPlaceIds);
+    };
+
+    const handleConfirmBrands = async (associations: { [placeId: string]: string }, newBrands: string[]) => {
+        setIsBrandModalOpen(false);
+        setStatus('Creando nuevas marcas...');
+        
+        const resolvedAssociations = { ...associations };
+
+        // Create new brands
+        for (const brandName of newBrands) {
+            try {
+                const newBrand = await api.addDoc('brands', { name: brandName, logoUrl: '', website: '' });
+                // Update associations to point to the new Brand ID
+                Object.keys(resolvedAssociations).forEach(key => {
+                    if (resolvedAssociations[key] === `NEW:${brandName}`) {
+                        resolvedAssociations[key] = `NEW_ID:${newBrand.id}`;
+                    }
+                });
+            } catch (e) {
+                console.error(`Failed to create brand ${brandName}`, e);
+            }
+        }
+        
+        // Now proceed to save candidates
+        // We need to reconstruct the skip list logic or just pass the original candidates and the previously calculated skip list
+        // Ideally, we should have stored the skip list in state. 
+        // For now, we assume 'duplicatesToReview' contains the info we need to rebuild skip list if needed, 
+        // OR better, we pass the filtered list from 'checkBrandsAndProceed' but 'processAndSaveCandidates' expects the full list + skip Set.
+        
+        // Hack: Re-derive skip list from duplicatesToReview decisions is hard here without state. 
+        // Let's optimize: 'processAndSaveCandidates' handles skipping internally based on the Set.
+        // We need that Set.
+        
+        // NOTE: For this implementation to be perfect, we should lift 'skipPlaceIds' to state.
+        // Let's simplify and assume if we reached here from 'checkBrandsAndProceed', we can pass an empty set 
+        // IF we pass only the filtered candidates. 
+        // HOWEVER, `processAndSaveCandidates` logic relies on `skipPlaceIds` to count skipped duplicates for stats.
+        
+        // SOLUTION: Recalculate skip set from the previous step if possible, or better yet, define it in state.
+        // Since I can't easily change the functional component state structure mid-flow without refactoring:
+        // I will execute `processAndSaveCandidates` passing `candidatesToImport` and reconstruct the skip set based on what is NOT in the associations keys? No.
+        
+        // Let's assume for this robust implementation that we save `tempSkipIds` in state.
+        // Since I didn't add `tempSkipIds` to state above, I will add a small logic fix:
+        // When `handleConfirmReview` runs, I will save the skip list to a ref or state.
+        
+        // Actually, let's pass the skip list through the modal callbacks if possible, or simpler:
+        // We will just use `duplicatesToReview` to filter `candidatesToImport` again to find skipped ones.
+        // But `decisions` are local to that modal. 
+        
+        // OK, let's just implement `tempSkipIds` state.
+        await processAndSaveCandidates(candidatesToImport, tempSkipIdsRef.current, historyDocId!, resolvedAssociations);
         setIsProcessing(false);
     };
+    
+    const tempSkipIdsRef = useRef<Set<string>>(new Set());
+
+    // Override handleConfirmReview to verify logic
+    const handleConfirmReviewWithState = async (decisions: { [key: string]: 'skip' | 'import' }) => {
+        setIsReviewModalOpen(false);
+        if (!historyDocId) return;
+
+        const skipPlaceIds = new Set<string>();
+        for (const duplicate of duplicatesToReview) {
+            const placeId = duplicate.newCandidate.placeId || duplicate.newCandidate.googlePlaceId;
+            if (placeId && (decisions[placeId] === 'skip' || !decisions[placeId])) {
+                skipPlaceIds.add(placeId);
+            }
+        }
+        tempSkipIdsRef.current = skipPlaceIds;
+        
+        checkBrandsAndProceed(candidatesToImport, skipPlaceIds);
+    };
+
 
     const handleCancelReview = async () => {
         setIsReviewModalOpen(false);
@@ -295,6 +415,13 @@ const UploadCandidatesPage: React.FC = () => {
             await api.updateDoc('importHistory', historyDocId, { status: 'Cancelled' });
         }
     };
+    
+    const handleCancelBrands = async () => {
+        setIsBrandModalOpen(false);
+        // Proceed without branding
+        await processAndSaveCandidates(candidatesToImport, tempSkipIdsRef.current, historyDocId!);
+        setIsProcessing(false);
+    }
 
     const companyOptions = [
         { value: '', name: 'No aplica / Se definirá después' },
@@ -374,7 +501,7 @@ const UploadCandidatesPage: React.FC = () => {
                                 placeholder={productsLoading ? 'Cargando...' : 'Seleccionar...'}
                             />
                             <CustomSelect 
-                                label="Asociar a Marca"
+                                label="Asociar a Marca (Opcional - se detectará auto)"
                                 options={brandOptions}
                                 value={criteria.associatedBrandId}
                                 onChange={(val) => handleCriteriaChange('associatedBrandId', val)}
@@ -426,8 +553,18 @@ const UploadCandidatesPage: React.FC = () => {
             <DuplicateReviewModal
                 isOpen={isReviewModalOpen}
                 duplicates={duplicatesToReview}
-                onConfirm={handleConfirmReview}
+                onConfirm={handleConfirmReviewWithState}
                 onCancel={handleCancelReview}
+            />
+            <BrandAssociationModal 
+                isOpen={isBrandModalOpen}
+                candidates={candidatesToImport.filter(c => {
+                    const pid = c.placeId || c.googlePlaceId;
+                    return !tempSkipIdsRef.current.has(pid);
+                })}
+                existingBrands={brands || []}
+                onConfirm={handleConfirmBrands}
+                onCancel={handleCancelBrands}
             />
         </>
     );

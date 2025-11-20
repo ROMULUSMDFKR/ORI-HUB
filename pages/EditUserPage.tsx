@@ -1,14 +1,15 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useCollection } from '../../hooks/useCollection';
-import { useDoc } from '../../hooks/useDoc';
-import { User, Team, Company, Role } from '../../types';
-import Spinner from '../../components/ui/Spinner';
-import ToggleSwitch from '../../components/ui/ToggleSwitch';
-import { api } from '../../api/firebaseApi';
-import CustomSelect from '../../components/ui/CustomSelect';
-import PermissionsEditor from '../../components/settings/PermissionsEditor';
-import { getDefaultPermissions } from '../../constants';
+import { useCollection } from '../hooks/useCollection';
+import { useDoc } from '../hooks/useDoc';
+import { User, Team, Company, Role } from '../types';
+import Spinner from '../components/ui/Spinner';
+import ToggleSwitch from '../components/ui/ToggleSwitch';
+import { api } from '../api/firebaseApi';
+import CustomSelect from '../components/ui/CustomSelect';
+import PermissionsEditor from '../components/settings/PermissionsEditor';
+import { getDefaultPermissions } from '../constants';
 
 const EditUserPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();

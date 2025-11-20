@@ -1,3 +1,4 @@
+
 // Base User type
 
 export interface Role {
@@ -85,6 +86,7 @@ export type MainCategory = 'Puredef: Transporte y Logística' | 'Trade Aitirik: 
 
 export enum CandidateStatus {
   Pendiente = 'Pendiente',
+  EnRevision = 'En Revisión',
   Aprobado = 'Aprobado', // Becomes a Prospect
   Rechazado = 'Rechazado',
   ListaNegra = 'Lista Negra',
@@ -131,7 +133,6 @@ export interface CandidateAiAnalysis {
   additionalPhones?: string[];
 }
 
-// FIX: Added missing type definitions that were previously defined inline.
 export interface WebResult {
   title: string;
   url: string;
@@ -186,9 +187,9 @@ export interface Candidate {
   location?: { lat: number; lng: number };
   rawCategories?: string[]; // Categories from the data source
   status: CandidateStatus;
-  assignedCompanyId?: 'Puredef' | 'Trade Aitirik' | 'Santzer';
-  manuallyAssignedProductId?: string;
-  brandId?: string;
+  assignedCompanyId?: 'Puredef' | 'Trade Aitirik' | 'Santzer' | null;
+  manuallyAssignedProductId?: string | null;
+  brandId?: string | null;
   tags: string[];
   notes: Note[];
   activityLog: ActivityLog[];
@@ -202,7 +203,6 @@ export interface Candidate {
   importHistoryId?: string; // Link to the import history record
   city?: string;
   state?: string;
-  // FIX: Updated to use the new exported types.
   webResults?: WebResult[];
   reviewsTags?: ReviewsTag[];
   placesTags?: { title: string; count: number }[];
@@ -244,23 +244,19 @@ export interface ImportSource {
 
 // Enums
 export enum ProspectStage {
-  // Pre-flujo
-  Nueva = 'Nueva',
-  EnDesarrollo = 'En Desarrollo',
-  Activa = 'Activa',
-  RecurrenteVIP = 'Recurrente / VIP',
-  Pausada = 'Pausada',
-  Reactivacion = 'Reactivación',
-  Inactiva = 'Inactiva',
-  // Flujo Principal
-  Prospecto = 'Prospecto',
+  // CUALIFICACIÓN (LEADS)
+  Nueva = 'Nuevo Lead',
   Contactado = 'Contactado',
   Calificado = 'Calificado',
+  
+  // OPORTUNIDADES (DEALS)
   Propuesta = 'Propuesta',
   Negociacion = 'Negociación',
-  // Resultados
+  
+  // RESULTADOS
   Ganado = 'Ganado',
   Perdido = 'Perdido',
+  Pausado = 'Pausado'
 }
 
 export enum SupplierRating {

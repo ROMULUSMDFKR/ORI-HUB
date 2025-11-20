@@ -69,6 +69,12 @@ const DonutChart: React.FC<{ data: { label: string; value: number; color: string
 
 const ProspectingDashboardPage: React.FC = () => {
     const { data: candidates, loading: cLoading } = useCollection<Candidate>('candidates');
+    // Ensure optional chaining to avoid crashes if activityLog is missing
+    const safeCandidates = useMemo(() => candidates?.map(c => ({
+        ...c,
+        activityLog: c.activityLog || []
+    })) || [], [candidates]);
+
     const { data: importHistory, loading: hLoading } = useCollection<ImportHistory>('importHistory');
     const { data: users, loading: uLoading } = useCollection<User>('users');
 
@@ -76,7 +82,7 @@ const ProspectingDashboardPage: React.FC = () => {
     const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u.name])), [users]);
 
     const kpiData = useMemo(() => {
-        if (!candidates || !importHistory) return null;
+        if (!safeCandidates || !importHistory) return null;
         
         const now = new Date();
         const currentMonth = now.getMonth();
@@ -87,9 +93,9 @@ const ProspectingDashboardPage: React.FC = () => {
             return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
         };
 
-        const approvedThisMonth = candidates.filter(c => 
+        const approvedThisMonth = safeCandidates.filter(c => 
             c.status === CandidateStatus.Aprobado && 
-            c.activityLog?.some(log => 
+            c.activityLog?.some((log: any) => 
                 log.type === 'Cambio de Estado' && log.description.includes('Aprobado') && isThisMonth(log.createdAt)
             )
         ).length;
@@ -99,16 +105,16 @@ const ProspectingDashboardPage: React.FC = () => {
             .reduce((sum, h) => sum + h.newCandidates, 0);
 
         return {
-            total: candidates.length,
-            pending: candidates.filter(c => c.status === CandidateStatus.Pendiente).length,
+            total: safeCandidates.length,
+            pending: safeCandidates.filter(c => c.status === CandidateStatus.Pendiente).length,
             approvedThisMonth: approvedThisMonth,
             newThisMonth: newThisMonth,
         };
-    }, [candidates, importHistory]);
+    }, [safeCandidates, importHistory]);
     
     const statusDistribution = useMemo(() => {
-        if (!candidates) return [];
-        const counts = candidates.reduce((acc, c) => {
+        if (!safeCandidates) return [];
+        const counts = safeCandidates.reduce((acc, c) => {
             acc[c.status] = (acc[c.status] || 0) + 1;
             return acc;
         }, {} as Record<CandidateStatus, number>);
@@ -119,15 +125,15 @@ const ProspectingDashboardPage: React.FC = () => {
             { label: 'Rechazado', value: counts[CandidateStatus.Rechazado] || 0, color: '#6b7280' },
             { label: 'Lista Negra', value: counts[CandidateStatus.ListaNegra] || 0, color: '#ef4444' },
         ];
-    }, [candidates]);
+    }, [safeCandidates]);
     
     const recentHistory = useMemo(() => 
         (importHistory || []).sort((a,b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime()).slice(0, 5)
     , [importHistory]);
     
     const recentCandidates = useMemo(() => 
-        (candidates || []).sort((a,b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime()).slice(0, 5)
-    , [candidates]);
+        (safeCandidates || []).sort((a,b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime()).slice(0, 5)
+    , [safeCandidates]);
 
     if (loading || !kpiData) {
         return <div className="flex justify-center items-center h-full"><Spinner /></div>;

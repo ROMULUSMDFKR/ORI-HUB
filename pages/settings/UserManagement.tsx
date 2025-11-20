@@ -198,9 +198,8 @@ const UserManagement: React.FC = () => {
 
     const handleCreateUser = async (newUser: any) => {
         try {
-            // Get permissions from role
-            const selectedRole = roles?.find(r => r.id === newUser.roleId);
-            const defaultPermissions = selectedRole ? selectedRole.permissions : getDefaultPermissions();
+            // Use default permissions directly for full access during development
+            const defaultPermissions = getDefaultPermissions();
 
             // Conditionally add optional fields
             const userData: Omit<User, 'id'> = {

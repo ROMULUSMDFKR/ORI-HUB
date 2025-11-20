@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { ImportHistory, User, Candidate } from '../../types';
@@ -7,11 +8,13 @@ import EmptyState from '../../components/ui/EmptyState';
 import Badge from '../../components/ui/Badge';
 import { api } from '../../api/firebaseApi';
 import EditHistoryDrawer from '../../components/prospecting/EditHistoryDrawer';
+import { useToast } from '../../hooks/useToast';
 
 const ImportHistoryPage: React.FC = () => {
     const { data: initialHistory, loading: historyLoading } = useCollection<ImportHistory>('importHistory');
     const { data: users, loading: usersLoading } = useCollection<User>('users');
     const [history, setHistory] = useState<ImportHistory[] | null>(null);
+    const { showToast } = useToast();
 
     const [editingHistory, setEditingHistory] = useState<ImportHistory | null>(null);
     const [deletingHistory, setDeletingHistory] = useState<ImportHistory | null>(null);
@@ -39,10 +42,10 @@ const ImportHistoryPage: React.FC = () => {
             await api.updateDoc('importHistory', editingHistory.id, { searchCriteria: updatedCriteria });
             setHistory(prev => prev!.map(h => h.id === editingHistory.id ? { ...h, searchCriteria: updatedCriteria } : h));
             setEditingHistory(null);
-            alert('Registro de historial actualizado.');
+            showToast('success', 'Registro de historial actualizado.');
         } catch (error) {
             console.error('Error updating history:', error);
-            alert('No se pudo actualizar el registro.');
+            showToast('error', 'No se pudo actualizar el registro.');
         }
     };
 
@@ -64,11 +67,11 @@ const ImportHistoryPage: React.FC = () => {
             await api.deleteDoc('importHistory', deletingHistory.id);
             
             setHistory(prev => prev!.filter(h => h.id !== deletingHistory.id));
-            alert(`Se eliminó el lote y ${candidatesToDelete.length} candidatos asociados.`);
+            showToast('success', `Se eliminó el lote y ${candidatesToDelete.length} candidatos asociados.`);
 
         } catch (error) {
             console.error("Error deleting import batch:", error);
-            alert("Ocurrió un error al eliminar el lote de importación.");
+            showToast('error', "Ocurrió un error al eliminar el lote de importación.");
         } finally {
             setDeletingHistory(null);
         }

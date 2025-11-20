@@ -1,10 +1,14 @@
 
-
 import React from 'react';
 import { NavLink, useLocation, Link } from 'react-router-dom';
 import { NAV_LINKS } from '../../constants';
+import { User } from '../../types';
 
-const PrimarySidebar: React.FC = () => {
+interface PrimarySidebarProps {
+    user: User;
+}
+
+const PrimarySidebar: React.FC<PrimarySidebarProps> = ({ user }) => {
   const location = useLocation();
 
   const primaryNavLinks = NAV_LINKS.filter(link => !link.isSeparator);
@@ -35,6 +39,42 @@ const PrimarySidebar: React.FC = () => {
     return false;
   };
 
+  // Check if user has access to at least one sublink in a section
+  const hasAccessToSection = (link: (typeof NAV_LINKS)[number]) => {
+    // Always show 'Hoy' (Dashboard)
+    if (link.path === '/today') return true;
+
+    if (link.sublinks) {
+        // Check if user has permission for ANY of the sublinks
+        return link.sublinks.some(sublink => {
+            // Default to true if user has no permissions object (legacy support)
+            if (!user.permissions || !user.permissions.pages) return true;
+
+             // Special case for Configuración
+            if (link.name === 'Configuración') {
+                 if (user.permissions.pages['Configuración']) {
+                     const pagePerms = user.permissions.pages['Configuración'][sublink.name];
+                     // If permission is undefined (new page), allow it. If defined, check 'view'.
+                     return pagePerms === undefined ? true : pagePerms.includes('view');
+                 }
+                 // If Configuración block is missing entirely, allow (new module)
+                 return true; 
+            }
+
+            if (user.permissions.pages[link.name]) {
+                const pagePerms = user.permissions.pages[link.name][sublink.name];
+                // If permission is undefined (new page), allow it. If defined, check 'view'.
+                return pagePerms === undefined ? true : pagePerms.includes('view');
+            }
+            
+            // If the entire module is missing from user permissions, allow it (new module)
+            return true;
+        });
+    }
+    
+    return true;
+  };
+
   return (
     <div className="w-20 bg-indigo-950 flex-shrink-0 flex flex-col items-center py-4 relative z-50">
       <Link to="/" className="mb-6 flex-shrink-0">
@@ -43,6 +83,10 @@ const PrimarySidebar: React.FC = () => {
       <nav className="flex-1 flex flex-col items-center space-y-2 w-full px-2">
         {primaryNavLinks.map((link) => {
           if (link.isSeparator) return null;
+          
+          // Check permissions
+          if (!hasAccessToSection(link)) return null;
+
           const targetPath = getTargetPath(link);
           const isActive = isLinkActive(link);
           

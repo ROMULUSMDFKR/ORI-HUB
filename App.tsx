@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { User as FirebaseUser } from 'firebase/auth';
-import { useAuth } from './hooks/useAuth'; // Import the new hook
+import { useAuth } from './hooks/useAuth';
 
 import Header from './components/layout/Header';
 import QuickTaskModal from './components/layout/QuickTaskModal';
@@ -172,76 +172,87 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
         if (mainLink?.path === '/today') return null;
 
         if (mainLink && mainLink.sublinks) {
+            // Filter sublinks based on user permissions
+            const allowedSublinks = mainLink.sublinks.filter(sublink => {
+                // Special case: Profile and Archives might not be in the permissions config structure directly or are always allowed
+                if (mainLink.name === 'Configuración' && user.permissions?.pages?.['Configuración']) {
+                     const pagePerms = user.permissions.pages['Configuración'][sublink.name];
+                     // If permission is undefined (new page), allow it. If defined, check 'view'.
+                     return pagePerms === undefined ? true : pagePerms.includes('view');
+                }
+                
+                // Default permission check
+                if (user.permissions?.pages?.[mainLink.name]) {
+                     const pagePerms = user.permissions.pages[mainLink.name][sublink.name];
+                     // If permission is undefined (new page), allow it. If defined, check 'view'.
+                     return pagePerms === undefined ? true : pagePerms.includes('view');
+                }
+                
+                // Fallback if permission structure is missing (e.g. new module) or for 'open' modules
+                return true; 
+            });
+
+            if (allowedSublinks.length === 0) return null;
+
             return {
                 title: mainLink.name,
-                sublinks: mainLink.sublinks,
+                sublinks: allowedSublinks,
             };
         }
         return null;
-    }, [location.pathname]);
+    }, [location.pathname, user.permissions]);
 
     useLayoutEffect(() => {
         const currentTopLevelPath = `/${location.pathname.split('/')[1]}`;
-        const mainLink = NAV_LINKS.find(link => 
-            (link.sublinks && link.sublinks.some(sub => sub.path.startsWith(currentTopLevelPath))) ||
-            (link.path && link.path.startsWith(currentTopLevelPath))
-        );
+        const mainLink = NAV_LINKS.find(link => link.path === currentTopLevelPath || (link.sublinks && link.sublinks.some(sub => sub.path.startsWith(currentTopLevelPath))));
         
-        if (secondarySidebarContent) {
-            setHeaderTitle('');
-        } else if (mainLink) {
-            setHeaderTitle(mainLink.name);
+        if (mainLink) {
+             if (mainLink.sublinks) {
+                 const sublink = mainLink.sublinks.find(sub => location.pathname.startsWith(sub.path));
+                 if (sublink) setHeaderTitle(sublink.name);
+                 else setHeaderTitle(mainLink.name);
+             } else {
+                 setHeaderTitle(mainLink.name);
+             }
+        } else if (location.pathname === '/' || location.pathname === '/today') {
+             setHeaderTitle('Hoy');
         } else {
-            // Fallback for things like profile page which might not be in nav
-            setHeaderTitle('Hoy');
+             setHeaderTitle('');
         }
-    }, [location.pathname, secondarySidebarContent]);
-    
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
-                event.preventDefault();
-                setIsQuickTaskOpen(prev => !prev);
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
+    }, [location.pathname]);
 
-    const handleQuickTaskSave = async (task: Partial<Task>) => {
+    const handleQuickTaskSave = async (taskData: Partial<Task>) => {
+        if (!user) return;
         try {
             await api.addDoc('tasks', {
-                ...task,
-                createdById: user.id,
+                ...taskData,
                 createdAt: new Date().toISOString(),
-                assignees: [user.id], // Auto assign to self for quick tasks
-                watchers: []
+                createdById: user.id,
+                assignees: [user.id],
+                watchers: [],
             });
             showToast('success', 'Tarea rápida creada.');
         } catch (error) {
-            console.error("Error creating quick task", error);
-            showToast('error', 'Error al crear tarea rápida.');
+            console.error(error);
+            showToast('error', 'Error al crear tarea.');
         }
     };
 
     return (
-        <div className="flex h-screen bg-slate-100 dark:bg-slate-900">
-            <PrimarySidebar />
+        <div className="flex h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden">
+            <PrimarySidebar user={user} />
             {secondarySidebarContent && (
-                <SecondarySidebar
-                    title={secondarySidebarContent.title}
-                    sublinks={secondarySidebarContent.sublinks}
-                />
+                <SecondarySidebar title={secondarySidebarContent.title} sublinks={secondarySidebarContent.sublinks} />
             )}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 <Header user={user} onLogout={onLogout} pageTitle={headerTitle} />
                 <ContentLayout>
                     <Suspense fallback={<PageLoader />}>
                         <Routes>
                             <Route path="/" element={<Navigate to="/today" replace />} />
                             <Route path="/today" element={<DashboardPage user={user} />} />
+                            
                             {/* Prospecting */}
-                            <Route path="/prospecting" element={<Navigate to="/prospecting/dashboard" replace />} />
                             <Route path="/prospecting/dashboard" element={<ProspectingDashboardPage />} />
                             <Route path="/prospecting/candidates" element={<CandidatesPage />} />
                             <Route path="/prospecting/candidates/:id" element={<CandidateDetailPage />} />
@@ -254,16 +265,21 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/hubs/prospects/new" element={<NewProspectPage />} />
                             <Route path="/hubs/prospects/:id" element={<ProspectDetailPage />} />
                             <Route path="/hubs/prospects/:id/edit" element={<EditProspectPage />} />
+                            
                             <Route path="/hubs/samples" element={<SamplesPipelinePage />} />
                             <Route path="/hubs/samples/new" element={<NewSamplePage />} />
                             <Route path="/hubs/samples/:id" element={<SampleDetailPage />} />
+                            
                             <Route path="/hubs/quotes" element={<QuotesPipelinePage />} />
                             <Route path="/hubs/quotes/new" element={<NewQuotePage />} />
                             <Route path="/hubs/quotes/:id" element={<QuoteDetailPage />} />
+
                             <Route path="/hubs/sales-orders" element={<SalesOrdersPipelinePage />} />
                             <Route path="/hubs/sales-orders/new" element={<NewSalesOrderPage />} />
                             <Route path="/hubs/sales-orders/:id" element={<SalesOrderDetailPage />} />
+                            
                             <Route path="/hubs/companies" element={<CompaniesPipelinePage />} />
+
                             {/* CRM Lists */}
                             <Route path="/crm/clients/list" element={<CrmClientsListPage />} />
                             <Route path="/crm/clients/new" element={<NewClientPage />} />
@@ -271,6 +287,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/crm/clients/:id/edit" element={<EditClientPage />} />
                             <Route path="/crm/contacts/list" element={<CrmContactsListPage />} />
                             <Route path="/crm/contacts/:id" element={<ContactDetailPage />} />
+                            
                             {/* Products */}
                             <Route path="/products/dashboard" element={<ProductDashboardPage />} />
                             <Route path="/products/list" element={<ProductsListPage />} />
@@ -278,6 +295,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/products/:id" element={<ProductDetailPage />} />
                             <Route path="/products/:id/edit" element={<EditProductPage />} />
                             <Route path="/products/categories" element={<ProductCategoriesPage />} />
+
                             {/* Purchases */}
                             <Route path="/purchase/dashboard" element={<PurchasesDashboardPage />} />
                             <Route path="/purchase/orders" element={<PurchaseOrdersPage />} />
@@ -287,16 +305,19 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/purchase/suppliers/new" element={<NewSupplierPage />} />
                             <Route path="/purchase/suppliers/:id" element={<SupplierDetailPage />} />
                             <Route path="/purchase/suppliers/:id/edit" element={<EditSupplierPage />} />
+
                             {/* Inventory */}
                             <Route path="/inventory/stock" element={<InventoryStockPage />} />
                             <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
                             <Route path="/inventory/alerts" element={<InventoryAlertsPage />} />
                             <Route path="/inventory/locations" element={<InventoryLocationsPage />} />
+                            
                             {/* Logistics */}
                             <Route path="/logistics/dashboard" element={<LogisticsDashboardPage />} />
                             <Route path="/logistics/deliveries" element={<LogisticsDeliveriesPage />} />
                             <Route path="/logistics/providers" element={<LogisticsProvidersPage />} />
                             <Route path="/logistics/pricing" element={<LogisticsPricingPage />} />
+
                             {/* Productivity */}
                             <Route path="/tasks" element={<TasksPage />} />
                             <Route path="/tasks/new" element={<NewTaskPage />} />
@@ -307,12 +328,15 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/tasks/projects/:id" element={<ProjectDetailPage />} />
                             <Route path="/tasks/projects/:id/edit" element={<EditProjectPage />} />
                             <Route path="/calendar" element={<CalendarPage />} />
+
                             {/* Communication */}
                             <Route path="/communication/chat" element={<InternalChatPage />} />
                             <Route path="/communication/chat/:type/:id" element={<InternalChatPage />} />
                             <Route path="/communication/emails" element={<EmailsPage />} />
                             <Route path="/communication/ai-assistant" element={<AiAssistantPage />} />
-                             {/* Finance */}
+                            <Route path="/notifications" element={<AllNotificationsPage />} />
+
+                            {/* Finance */}
                             <Route path="/billing" element={<BillingPage />} />
                             <Route path="/billing/new" element={<NewInvoicePage />} />
                             <Route path="/billing/:id" element={<InvoiceDetailPage />} />
@@ -322,15 +346,17 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/finance/expenses" element={<ExpensesPage />} />
                             <Route path="/finance/cash-flow" element={<CashFlowPage />} />
                             <Route path="/finance/commissions" element={<CommissionsPage />} />
+
                             {/* System & Settings */}
                             <Route path="/archives" element={<ArchivesPage />} />
                             <Route path="/insights/audit" element={<AuditPage />} />
                             <Route path="/profile" element={<ProfilePage user={user} refreshUser={refreshUser} />} />
-                            <Route path="/notifications" element={<AllNotificationsPage />} />
-                            {/* Settings Pages */}
-                            <Route path="/settings" element={<Navigate to="/settings/users" replace />} />
+                            
+                            <Route path="/settings" element={<SettingsPage />} />
                             <Route path="/settings/users" element={<UserManagementPage />} />
                             <Route path="/settings/users/:id/edit" element={<EditUserPage />} />
+                            <Route path="/settings/roles" element={<RoleManagementPage />} />
+                            <Route path="/settings/roles/:id/edit" element={<EditRolePage />} />
                             <Route path="/settings/teams" element={<TeamManagementPage />} />
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />
                             <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />
@@ -338,67 +364,63 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/settings/pipelines" element={<PipelineManagementPage />} />
                             <Route path="/settings/ai-access" element={<AiAccessSettingsPage />} />
                             <Route path="/settings/appearance/email" element={<EmailAppearancePage />} />
-                            <Route path="/settings/roles" element={<RoleManagementPage />} />
-                            <Route path="/settings/roles/:id/edit" element={<EditRolePage />} />
 
-                            {/* Fallback */}
-                            <Route path="*" element={<Navigate to="/today" replace />} />
+                            <Route path="*" element={<div className="p-10 text-center">Página no encontrada</div>} />
                         </Routes>
                     </Suspense>
                 </ContentLayout>
-                 {isQuickTaskOpen && (
-                    <QuickTaskModal 
-                        isOpen={isQuickTaskOpen} 
-                        onClose={() => setIsQuickTaskOpen(false)}
-                        onSave={handleQuickTaskSave}
-                    />
-                )}
+
+                {/* Floating Action Button for Quick Task */}
+                <button
+                    onClick={() => setIsQuickTaskOpen(true)}
+                    className="absolute bottom-8 right-8 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 transition-all z-40 hover:scale-105 active:scale-95"
+                    title="Tarea Rápida"
+                >
+                    <span className="material-symbols-outlined text-2xl">add_task</span>
+                </button>
+
+                <QuickTaskModal
+                    isOpen={isQuickTaskOpen}
+                    onClose={() => setIsQuickTaskOpen(false)}
+                    onSave={handleQuickTaskSave}
+                />
             </div>
         </div>
     );
 };
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
     const { user, loading, login, logout, refreshUser } = useAuth();
 
-    if (loading) {
-        return <PageLoader />;
-    }
+    if (loading) return <PageLoader />;
 
     return (
         <ToastProvider>
             <HashRouter>
-                {user ? (
-                    // Authenticated User Flow
-                    user.hasCompletedOnboarding === false ? (
-                        // Onboarding required
-                        <Suspense fallback={<PageLoader />}>
-                            <Routes>
-                                <Route path="/onboarding" element={<OnboardingPage onComplete={refreshUser} />} />
-                                <Route path="*" element={<Navigate to="/onboarding" replace />} />
-                            </Routes>
-                        </Suspense>
-                    ) : (
-                        // Main application for onboarded user
-                        <AppContent user={user} onLogout={logout} refreshUser={refreshUser} />
-                    )
-                ) : (
-                    // Unauthenticated User Flow
-                    <Suspense fallback={<PageLoader />}>
-                        <Routes>
-                            <Route path="/login" element={<LoginPage onLogin={login} />} />
-                            <Route path="/signup" element={<SignupPage />} />
-                            <Route path="/activate" element={<ActivateAccountPage />} />
-                            <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
-                            <Route path="/terms" element={<TermsAndConditionsPage />} />
-                            <Route path="*" element={<Navigate to="/login" replace />} />
-                        </Routes>
-                    </Suspense>
-                )}
+                <Routes>
+                    <Route path="/login" element={!user ? <LoginPage onLogin={login} /> : <Navigate to="/" />} />
+                    <Route path="/signup" element={<SignupPage />} />
+                    <Route path="/activate" element={<ActivateAccountPage />} />
+                    <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+                    <Route path="/terms" element={<TermsAndConditionsPage />} />
+                    <Route path="/onboarding" element={user ? <OnboardingPage onComplete={refreshUser} /> : <Navigate to="/login" />} />
+                    
+                    <Route path="/*" element={
+                        user ? (
+                            user.hasCompletedOnboarding === false ? (
+                                <Navigate to="/onboarding" />
+                            ) : (
+                                <React.Fragment>
+                                    <AppContent user={user} onLogout={logout} refreshUser={refreshUser} />
+                                    <ToastContainer />
+                                </React.Fragment>
+                            )
+                        ) : (
+                            <Navigate to="/login" />
+                        )
+                    } />
+                </Routes>
             </HashRouter>
-            <ToastContainer />
         </ToastProvider>
     );
 };
-
-export default App;

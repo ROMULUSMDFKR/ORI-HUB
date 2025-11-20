@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Role } from '../../types';
 import Radio from '../ui/Radio';
@@ -17,16 +18,37 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ permissions, setP
 
     const handlePermissionToggle = (moduleName: string, pageName: string, action: string) => {
         setPermissions(prev => {
-            const newPerms = JSON.parse(JSON.stringify(prev));
-            const currentActions = newPerms.pages[moduleName]?.[pageName] || [];
+            // FIX: Replace JSON.parse(JSON.stringify) with manual immutable update
+            // to avoid "Converting circular structure to JSON" errors if the object
+            // contains Firestore internal references.
+
+            const newPermissions = { ...prev };
+            const newPages = { ...newPermissions.pages };
+
+            // Ensure the module object exists (shallow copy if exists)
+            if (!newPages[moduleName]) {
+                newPages[moduleName] = {};
+            } else {
+                newPages[moduleName] = { ...newPages[moduleName] };
+            }
+            
+            // Ensure the page array exists
+            const currentActions = newPages[moduleName][pageName] || [];
             const hasAction = currentActions.includes(action);
 
+            let newActions;
             if (hasAction) {
-                newPerms.pages[moduleName][pageName] = currentActions.filter((a: string) => a !== action);
+                newActions = currentActions.filter((a: string) => a !== action);
             } else {
-                newPerms.pages[moduleName][pageName] = [...currentActions, action];
+                newActions = [...currentActions, action];
             }
-            return newPerms;
+
+            // Assign the new actions array to the page
+            newPages[moduleName][pageName] = newActions;
+            
+            newPermissions.pages = newPages;
+
+            return newPermissions;
         });
     };
 
@@ -64,6 +86,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ permissions, setP
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-slate-100">{pageName}</td>
                                         {ALL_ACTIONS.map(action => {
                                             const isActionPossible = availableActions.includes(action);
+                                            // Safe check for permission existence
                                             const hasPermission = permissions.pages[moduleName]?.[pageName]?.includes(action) ?? false;
                                             return (
                                                 <td key={action} className="px-6 py-4 whitespace-nowrap text-center">

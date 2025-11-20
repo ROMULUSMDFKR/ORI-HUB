@@ -135,62 +135,188 @@ export const NAV_LINKS = [
 ];
 
 export const PIPELINE_COLUMNS = [
-    // Pre-Flujo
-    { stage: ProspectStage.Nueva, group: 'PRE-FLUJO', objective: 'Primer toque en <24 h.' },
-    { stage: ProspectStage.EnDesarrollo, group: 'PRE-FLUJO', objective: 'Investigar y preparar acercamiento.' },
-    { stage: ProspectStage.Activa, group: 'PRE-FLUJO', objective: 'Seguimiento intensivo en ciclo actual.' },
-    { stage: ProspectStage.RecurrenteVIP, group: 'PRE-FLUJO', objective: 'Cuentas de recompra o alto valor.' },
-    { stage: ProspectStage.Pausada, group: 'PRE-FLUJO', objective: 'Detener temporalmente sin perder contexto.' },
-    { stage: ProspectStage.Reactivacion, group: 'PRE-FLUJO', objective: 'Relanzar conversaciones dormidas.' },
-    { stage: ProspectStage.Inactiva, group: 'PRE-FLUJO', objective: 'Archivo "vivo" sin acciones pendientes.' },
-    // Flujo Principal
-    { stage: ProspectStage.Prospecto, group: 'FLUJO PRINCIPAL', objective: 'Bandeja para leads pre-clasificados.' },
-    { stage: ProspectStage.Contactado, group: 'FLUJO PRINCIPAL', objective: 'Confirmar interés y posibilidad real.' },
-    { stage: ProspectStage.Calificado, group: 'FLUJO PRINCIPAL', objective: 'Preparar solución y términos.' },
-    { stage: ProspectStage.Propuesta, group: 'FLUJO PRINCIPAL', objective: 'Conseguir feedback claro.' },
-    { stage: ProspectStage.Negociacion, group: 'FLUJO PRINCIPAL', objective: 'Cerrar términos finales.' },
-    // Resultados
-    { stage: ProspectStage.Ganado, group: 'RESULTADOS', objective: 'Operación post-cierre.' },
-    { stage: ProspectStage.Perdido, group: 'RESULTADOS', objective: 'Aprendizaje y futuras reactivaciones.' },
+    // CUALIFICACIÓN (LEADS)
+    { 
+        stage: ProspectStage.Nueva, 
+        group: 'CUALIFICACIÓN', 
+        objective: 'Investigación preliminar del lead. Verificar datos de contacto, industria y tamaño. Objetivo: Realizar el primer intento de contacto en menos de 24 horas.' 
+    },
+    { 
+        stage: ProspectStage.Contactado, 
+        group: 'CUALIFICACIÓN', 
+        objective: 'Establecer comunicación bidireccional. Identificar al tomador de decisiones clave y despertar interés inicial. Objetivo: Agendar una reunión de descubrimiento.' 
+    },
+    { 
+        stage: ProspectStage.Calificado, 
+        group: 'CUALIFICACIÓN', 
+        objective: 'Validación BANT (Budget, Authority, Need, Timeline). Confirmar que el prospecto tiene presupuesto, la autoridad para comprar, una necesidad real y un tiempo de implementación definido.' 
+    },
+    
+    // OPORTUNIDADES (DEALS)
+    { 
+        stage: ProspectStage.Propuesta, 
+        group: 'OPORTUNIDADES', 
+        objective: 'Presentación formal de la solución y precios. La cotización ha sido enviada y explicada al cliente. Objetivo: Obtener feedback sobre la propuesta.' 
+    },
+    { 
+        stage: ProspectStage.Negociacion, 
+        group: 'OPORTUNIDADES', 
+        objective: 'Manejo de objeciones, ajustes finales de precios, términos y condiciones legales. Objetivo: Llegar a un acuerdo verbal y preparar el contrato.' 
+    },
+    
+    // RESULTADOS
+    { 
+        stage: ProspectStage.Ganado, 
+        group: 'RESULTADOS', 
+        objective: 'Cierre exitoso. Contrato firmado y orden de compra recibida. Iniciar proceso de onboarding y entrega.' 
+    },
 ];
 
 export const SAMPLES_PIPELINE_COLUMNS = [
-    { stage: SampleStatus.Solicitada, group: 'FLUJO DE MUESTRAS', objective: 'Preparar y enviar muestra.' },
-    { stage: SampleStatus.EnPreparacion, group: 'FLUJO DE MUESTRAS', objective: 'Muestra siendo preparada.' },
-    { stage: SampleStatus.Enviada, group: 'FLUJO DE MUESTRAS', objective: 'Seguimiento de entrega.' },
-    { stage: SampleStatus.Recibida, group: 'FLUJO DE MUESTRAS', objective: 'Confirmar recepción y pruebas.' },
-    { stage: SampleStatus.ConFeedback, group: 'FLUJO DE MUESTRAS', objective: 'Obtener retroalimentación.' },
-    { stage: SampleStatus.Cerrada, group: 'FLUJO DE MUESTRAS', objective: 'Muestra finalizada.' },
-    { stage: SampleStatus.Archivada, group: 'FINALIZADO', objective: 'Muestras archivadas y fuera del flujo activo.' },
+    { 
+        stage: SampleStatus.Solicitada, 
+        group: 'PREPARACIÓN', 
+        objective: 'El cliente ha pedido una muestra. Verificar la viabilidad técnica, disponibilidad de stock y aprobar el costo del envío.' 
+    },
+    { 
+        stage: SampleStatus.EnPreparacion, 
+        group: 'PREPARACIÓN', 
+        objective: 'La muestra está siendo envasada, etiquetada y empaquetada en el almacén. Generar guías de paquetería.' 
+    },
+    { 
+        stage: SampleStatus.Enviada, 
+        group: 'LOGÍSTICA', 
+        objective: 'La muestra ha salido del almacén. Monitorear el número de rastreo y notificar al cliente la fecha estimada de llegada.' 
+    },
+    { 
+        stage: SampleStatus.Recibida, 
+        group: 'LOGÍSTICA', 
+        objective: 'Confirmación de entrega en las instalaciones del cliente. Asegurar que el producto llegó en buenas condiciones.' 
+    },
+    { 
+        stage: SampleStatus.ConFeedback, 
+        group: 'EVALUACIÓN', 
+        objective: 'Contactar al cliente para obtener resultados de sus pruebas de laboratorio o campo. ¿Cumplió con las especificaciones técnicas?' 
+    },
+    { 
+        stage: SampleStatus.Cerrada, 
+        group: 'FINALIZADO', 
+        objective: 'Proceso de muestra concluido exitosamente. Proceder a cotización comercial si el feedback fue positivo.' 
+    },
+    { 
+        stage: SampleStatus.Archivada, 
+        group: 'FINALIZADO', 
+        objective: 'Muestras antiguas o canceladas que se guardan para historial. No requieren seguimiento activo.' 
+    },
 ];
 
 export const QUOTES_PIPELINE_COLUMNS = [
-    { stage: QuotePipelineStage.Borrador, group: 'PREPARACIÓN', objective: 'Vendedor crea o ajusta la cotización.' },
-    { stage: QuotePipelineStage.EnAprobacionInterna, group: 'PREPARACIÓN', objective: 'Esperando validación de precios y términos.' },
-    { stage: QuotePipelineStage.AjustesRequeridos, group: 'PREPARACIÓN', objective: 'Regresada al vendedor para correcciones.' },
-    { stage: QuotePipelineStage.ListaParaEnviar, group: 'FLUJO CON CLIENTE', objective: 'Aprobada internamente, lista para el cliente.' },
-    { stage: QuotePipelineStage.EnviadaAlCliente, group: 'FLUJO CON CLIENTE', objective: 'Confirmar recepción y esperar respuesta.' },
-    { stage: QuotePipelineStage.EnNegociacion, group: 'FLUJO CON CLIENTE', objective: 'Cliente solicitó cambios o está negociando.' },
-    { stage: QuotePipelineStage.AprobadaPorCliente, group: 'RESULTADOS', objective: '¡Éxito! Generar orden de venta.' },
-    { stage: QuotePipelineStage.Rechazada, group: 'RESULTADOS', objective: 'Archivar y registrar motivo de pérdida.' },
+    { 
+        stage: QuotePipelineStage.Borrador, 
+        group: 'INTERNO', 
+        objective: 'El vendedor está construyendo la cotización. Selección de productos, cálculo de fletes y márgenes preliminares.' 
+    },
+    { 
+        stage: QuotePipelineStage.EnAprobacionInterna, 
+        group: 'INTERNO', 
+        objective: 'Revisión por gerencia comercial o finanzas. Validar márgenes mínimos, condiciones de crédito y disponibilidad.' 
+    },
+    { 
+        stage: QuotePipelineStage.AjustesRequeridos, 
+        group: 'INTERNO', 
+        objective: 'La cotización fue rechazada internamente y requiere correcciones por parte del vendedor antes de enviarse.' 
+    },
+    { 
+        stage: QuotePipelineStage.ListaParaEnviar, 
+        group: 'CLIENTE', 
+        objective: 'Aprobada internamente. Lista para ser generada en PDF y enviada al cliente por el canal preferido.' 
+    },
+    { 
+        stage: QuotePipelineStage.EnviadaAlCliente, 
+        group: 'CLIENTE', 
+        objective: 'Cotización en manos del cliente. Realizar seguimiento activo para confirmar recepción y aclarar dudas iniciales.' 
+    },
+    { 
+        stage: QuotePipelineStage.EnNegociacion, 
+        group: 'CLIENTE', 
+        objective: 'El cliente ha solicitado cambios en precios, volúmenes o términos. Versiones iterativas de la propuesta.' 
+    },
+    { 
+        stage: QuotePipelineStage.AprobadaPorCliente, 
+        group: 'CIERRE', 
+        objective: '¡Éxito! El cliente aceptó la propuesta formalmente. Proceder a convertir en Orden de Venta.' 
+    },
+    { 
+        stage: QuotePipelineStage.Rechazada, 
+        group: 'CIERRE', 
+        objective: 'El cliente declinó la oferta. Registrar el motivo (Precio, Tiempo de entrega, Competencia) para análisis.' 
+    },
 ];
 
 export const SALES_ORDERS_PIPELINE_COLUMNS = [
-    { stage: SalesOrderStatus.Pendiente, group: 'FLUJO DE VENTAS', objective: 'Confirmar pago/crédito.' },
-    { stage: SalesOrderStatus.EnPreparacion, group: 'FLUJO DE VENTAS', objective: 'Surtir producto en almacén.' },
-    { stage: SalesOrderStatus.EnTransito, group: 'FLUJO DE VENTAS', objective: 'Monitorear entrega.' },
-    { stage: SalesOrderStatus.Entregada, group: 'FLUJO DE VENTAS', objective: 'Confirmar recepción y satisfacción.' },
-    { stage: SalesOrderStatus.Facturada, group: 'FLUJO DE VENTAS', objective: 'Seguimiento de pago.' },
-    { stage: SalesOrderStatus.Cancelada, group: 'FLUJO DE VENTAS', objective: 'Proceso de cancelación.' },
+    { 
+        stage: SalesOrderStatus.Pendiente, 
+        group: 'PROCESAMIENTO', 
+        objective: 'Orden recibida. Verificar pago (si es contado) o línea de crédito disponible. Validar documentación final.' 
+    },
+    { 
+        stage: SalesOrderStatus.EnPreparacion, 
+        group: 'ALMACÉN', 
+        objective: 'Orden liberada a almacén. Picking, packing y paletizado de la mercancía. Generación de documentos de embarque.' 
+    },
+    { 
+        stage: SalesOrderStatus.EnTransito, 
+        group: 'LOGÍSTICA', 
+        objective: 'Mercancía cargada y en ruta. Monitoreo activo del transporte hasta el destino del cliente.' 
+    },
+    { 
+        stage: SalesOrderStatus.Entregada, 
+        group: 'LOGÍSTICA', 
+        objective: 'Mercancía entregada. Recopilar POD (Proof of Delivery) o evidencias de entrega firmadas.' 
+    },
+    { 
+        stage: SalesOrderStatus.Facturada, 
+        group: 'ADMINISTRACIÓN', 
+        objective: 'Factura generada y enviada. La orden se considera cerrada operativamente y pasa a cuentas por cobrar.' 
+    },
+    { 
+        stage: SalesOrderStatus.Cancelada, 
+        group: 'FINALIZADO', 
+        objective: 'Orden cancelada antes de la entrega. Inventario retornado al stock disponible.' 
+    },
 ];
 
 export const COMPANIES_PIPELINE_COLUMNS = [
-    { stage: CompanyPipelineStage.Investigacion, group: 'CAPTACIÓN', objective: 'Identificar potencial y contacto clave.' },
-    { stage: CompanyPipelineStage.PrimerContacto, group: 'CAPTACIÓN', objective: 'Establecer comunicación inicial.' },
-    { stage: CompanyPipelineStage.Calificada, group: 'CAPTACIÓN', objective: 'Validar BANT (Budget, Authority, Need, Timeline).' },
-    { stage: CompanyPipelineStage.ClienteActivo, group: 'RELACIÓN', objective: 'Gestionar y crecer la cuenta.' },
-    { stage: CompanyPipelineStage.ClienteInactivo, group: 'RELACIÓN', objective: 'Reactivar o archivar.' },
-    { stage: CompanyPipelineStage.AlianzaEstrategica, group: 'RELACIÓN', objective: 'Colaboración y partnership.' },
+    { 
+        stage: CompanyPipelineStage.Investigacion, 
+        group: 'CAPTACIÓN', 
+        objective: 'Cuenta objetivo identificada. Investigar estructura corporativa, sucursales y consumo potencial.' 
+    },
+    { 
+        stage: CompanyPipelineStage.PrimerContacto, 
+        group: 'CAPTACIÓN', 
+        objective: 'Intentos activos de penetrar la cuenta. Lograr hablar con compras, calidad o gerencia.' 
+    },
+    { 
+        stage: CompanyPipelineStage.Calificada, 
+        group: 'CAPTACIÓN', 
+        objective: 'Cuenta validada con potencial real. Se ha identificado una oportunidad clara de negocio.' 
+    },
+    { 
+        stage: CompanyPipelineStage.ClienteActivo, 
+        group: 'GESTIÓN', 
+        objective: 'Cliente comprando regularmente. Objetivo: Retención, satisfacción y Cross-selling/Up-selling.' 
+    },
+    { 
+        stage: CompanyPipelineStage.AlianzaEstrategica, 
+        group: 'GESTIÓN', 
+        objective: 'Partners clave o cuentas VIP con contratos a largo plazo y condiciones especiales.' 
+    },
+    { 
+        stage: CompanyPipelineStage.ClienteInactivo, 
+        group: 'RECUPERACIÓN', 
+        objective: 'Clientes que dejaron de comprar hace más de 90 días. Implementar campañas de reactivación.' 
+    },
 ];
 
 
@@ -222,8 +348,11 @@ export const ACCESS_RESTRICTIONS_OPTIONS = ['Cita Previa', 'Horario Restringido'
 // Updated: Enabled ALL actions for ALL pages to give full control to the admin.
 export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'create' | 'edit' | 'delete')[]>> = {
     'Prospección IA': { 
+        'Dashboard': ['view'],
         'Candidatos': ['view', 'create', 'edit', 'delete'], 
-        'Importar Datos': ['view', 'create', 'edit', 'delete'] 
+        'Importar Datos': ['view', 'create', 'edit', 'delete'],
+        'Historial de Importación': ['view', 'create', 'edit', 'delete'],
+        'Marcas': ['view', 'create', 'edit', 'delete'],
     },
     'Hubs': { 
         'Prospectos': ['view', 'create', 'edit', 'delete'], 
@@ -233,10 +362,12 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Empresas': ['view', 'create', 'edit', 'delete'] 
     },
     'Productos': { 
+        'Panel de Productos': ['view'],
         'Lista de Productos': ['view', 'create', 'edit', 'delete'], 
         'Categorías': ['view', 'create', 'edit', 'delete'] 
     },
     'Compras': { 
+        'Dashboard de Compras': ['view'],
         'Órdenes de Compra': ['view', 'create', 'edit', 'delete'], 
         'Proveedores': ['view', 'create', 'edit', 'delete'] 
     },
@@ -247,6 +378,7 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Ubicaciones': ['view', 'create', 'edit', 'delete'] 
     },
     'Logística': { 
+        'Dashboard de Logística': ['view'],
         'Entregas': ['view', 'create', 'edit', 'delete'], 
         'Transportistas': ['view', 'create', 'edit', 'delete'], 
         'Precios de Flete': ['view', 'create', 'edit', 'delete'] 
@@ -258,10 +390,12 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
     },
     'Finanzas': { 
         'Facturación': ['view', 'create', 'edit', 'delete'], 
+        'Panel de Ventas': ['view'],
         'Pagos Pendientes': ['view', 'create', 'edit', 'delete'], 
         'Pagos Recibidos': ['view', 'create', 'edit', 'delete'], 
         'Gastos': ['view', 'create', 'edit', 'delete'], 
-        'Comisiones': ['view', 'create', 'edit', 'delete'] 
+        'Comisiones': ['view', 'create', 'edit', 'delete'],
+        'Flujo de Caja': ['view'],
     },
     'Sistema': { 
         'Archivos': ['view', 'create', 'edit', 'delete'], 
@@ -291,8 +425,9 @@ export const getDefaultPermissions = (): Role['permissions'] => {
   
     Object.entries(PAGE_PERMISSIONS_CONFIG).forEach(([moduleName, pages]) => {
       permissions.pages[moduleName] = {};
-      Object.entries(pages).forEach(([pageName, actions]) => {
-        permissions.pages[moduleName][pageName] = [...actions];
+      Object.entries(pages).forEach(([pageName, _]) => {
+        // Assign ALL_ACTIONS to everything
+        permissions.pages[moduleName][pageName] = [...ALL_ACTIONS];
       });
     });
   

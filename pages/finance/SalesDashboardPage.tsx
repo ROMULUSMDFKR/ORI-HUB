@@ -31,7 +31,7 @@ const Card: React.FC<{ title: string; children: React.ReactNode; link?: { to: st
 
 const SalesFunnel: React.FC<{ prospects: Prospect[] }> = ({ prospects }) => {
     const funnelStages = [
-        ProspectStage.Prospecto,
+        ProspectStage.Nueva,
         ProspectStage.Contactado,
         ProspectStage.Calificado,
         ProspectStage.Propuesta,

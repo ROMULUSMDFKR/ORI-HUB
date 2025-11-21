@@ -8,6 +8,7 @@ import ChatSidebar from '../components/layout/ChatSidebar';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/firebaseApi';
 import { useToast } from '../hooks/useToast';
+import { useChatNotifications } from '../contexts/ChatContext';
 
 const ChatWindow: React.FC<{
     chatId: string;
@@ -21,6 +22,14 @@ const ChatWindow: React.FC<{
     const { data: usersData } = useCollection<User>('users');
     const { data: groupsData } = useCollection<Group>('groups');
     const { user: currentUser } = useAuth();
+    const { markAsRead } = useChatNotifications();
+
+    // Mark as read when opening the chat
+    useEffect(() => {
+        if (chatId) {
+            markAsRead(chatId);
+        }
+    }, [chatId, markAsRead]);
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -105,6 +114,8 @@ const InternalChatPage: React.FC = () => {
     const { showToast } = useToast();
     
     // Replace useCollection with manual polling logic to ensure real-time-like updates
+    // In a real app with ChatContext this polling might be redundant for notifications, 
+    // but still useful to sync full history.
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [messagesLoading, setMessagesLoading] = useState(true);
 
@@ -145,6 +156,8 @@ const InternalChatPage: React.FC = () => {
         try {
             await api.addDoc('messages', newChatMessage);
             
+            // Notification logic is now handled globally by ChatContext for recipients.
+            // We still add a system notification record if needed for history.
             if (type === 'user' && id !== currentUser.id) {
                 const notification = {
                     userId: id, // receiverId

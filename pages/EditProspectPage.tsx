@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Prospect, ProspectStage, Priority, User } from '../types';
@@ -7,6 +8,16 @@ import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
 import { useToast } from '../hooks/useToast';
 import { api } from '../api/firebaseApi';
+
+// --- Reusable Component Outside ---
+const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
+      <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
+      <div className="space-y-4">
+        {children}
+      </div>
+    </div>
+);
 
 const EditProspectPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -66,15 +77,6 @@ const EditProspectPage: React.FC = () => {
     if (!prospect) {
         return <div className="text-center p-12">Prospecto no encontrado</div>;
     }
-
-    const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
-          <div className="space-y-4">
-            {children}
-          </div>
-        </div>
-    );
     
     const creator = users?.find(u => u.id === prospect.createdById);
     const userOptions = (users || []).map(u => ({ value: u.id, name: u.name }));

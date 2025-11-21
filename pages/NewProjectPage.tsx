@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Project } from '../types';
@@ -5,6 +6,7 @@ import UserSelector from '../components/ui/UserSelector';
 import CustomSelect from '../components/ui/CustomSelect';
 import { api } from '../api/firebaseApi';
 
+// --- Reusable Component Outside ---
 const FormCard: React.FC<{ title: string, children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
         <h3 className="text-xl font-bold mb-6 text-slate-800 dark:text-slate-200">{title}</h3>

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { NavLink, useParams } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
@@ -5,6 +6,7 @@ import { User, Group } from '../../types';
 import ViewSwitcher, { ViewOption } from '../ui/ViewSwitcher';
 import Spinner from '../ui/Spinner';
 import { useAuth } from '../../hooks/useAuth';
+import { useChatNotifications } from '../../contexts/ChatContext';
 
 const ChatSidebar: React.FC = () => {
     const { type, id } = useParams();
@@ -13,6 +15,7 @@ const ChatSidebar: React.FC = () => {
     const [view, setView] = useState<'dms' | 'groups'>('dms');
     
     const { user: currentUser } = useAuth();
+    const { unreadChats } = useChatNotifications();
 
     const users = useMemo(() => {
         if (!usersData || !currentUser) return [];
@@ -52,9 +55,14 @@ const ChatSidebar: React.FC = () => {
                     <ul>
                         {users.map(user => (
                             <li key={user.id}>
-                                <NavLink to={`/communication/chat/user/${user.id}`} className={({ isActive }) => `flex items-center px-4 py-2 gap-3 transition-colors ${isActive ? 'bg-indigo-100 dark:bg-indigo-900/50' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
-                                    <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full" />
-                                    <span className="font-medium text-sm text-slate-800 dark:text-slate-200">{user.name}</span>
+                                <NavLink to={`/communication/chat/user/${user.id}`} className={({ isActive }) => `flex items-center justify-between px-4 py-2 gap-3 transition-colors ${isActive ? 'bg-indigo-100 dark:bg-indigo-900/50' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full" />
+                                        <span className="font-medium text-sm text-slate-800 dark:text-slate-200">{user.name}</span>
+                                    </div>
+                                    {unreadChats.has(user.id) && (
+                                        <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+                                    )}
                                 </NavLink>
                             </li>
                         ))}
@@ -63,11 +71,16 @@ const ChatSidebar: React.FC = () => {
                     <ul>
                         {groups.map(group => (
                             <li key={group.id}>
-                                <NavLink to={`/communication/chat/group/${group.id}`} className={({ isActive }) => `flex items-center px-4 py-2 gap-3 transition-colors ${isActive ? 'bg-indigo-100 dark:bg-indigo-900/50' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
-                               <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-slate-500">groups</span>
+                                <NavLink to={`/communication/chat/group/${group.id}`} className={({ isActive }) => `flex items-center justify-between px-4 py-2 gap-3 transition-colors ${isActive ? 'bg-indigo-100 dark:bg-indigo-900/50' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-slate-500">groups</span>
+                                        </div>
+                                        <span className="font-medium text-sm text-slate-800 dark:text-slate-200">{group.name}</span>
                                     </div>
-                                    <span className="font-medium text-sm text-slate-800 dark:text-slate-200">{group.name}</span>
+                                    {unreadChats.has(group.id) && (
+                                        <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+                                    )}
                                 </NavLink>
                             </li>
                         ))}

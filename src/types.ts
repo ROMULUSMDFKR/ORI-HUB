@@ -20,7 +20,6 @@ export interface User {
     country?: string;
     theme?: 'light' | 'dark';
     signature?: string;
-    lastSeen?: string;
 }
 
 export interface Role {
@@ -283,7 +282,6 @@ export interface SalesOrder {
     companyId: string;
     salespersonId?: string;
     status: SalesOrderStatus;
-    currency?: Currency;
     deliveries: any[];
     deliveryIds?: string[];
     items: QuoteItem[];
@@ -464,9 +462,7 @@ export interface Delivery {
     trackingUrl?: string;
     deliveryNumber: string;
     isSample?: boolean;
-    qty?: number;
     notes: Note[];
-    proofOfDelivery?: Attachment;
 }
 
 export enum DeliveryStatus {

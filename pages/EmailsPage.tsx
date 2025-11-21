@@ -336,7 +336,8 @@ const EmailsPage: React.FC = () => {
                 status: 'unread',
                 folder: 'inbox',
                 cc: [],
-                bcc: []
+                bcc: [],
+                attachments: []
             },
             {
                 from: { name: "Cliente Importante", email: "ceo@bigcorp.com" },
@@ -347,7 +348,8 @@ const EmailsPage: React.FC = () => {
                 status: 'read',
                 folder: 'inbox',
                 cc: [],
-                bcc: []
+                bcc: [],
+                attachments: []
             }
         ];
 

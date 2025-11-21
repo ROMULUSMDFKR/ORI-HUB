@@ -12,6 +12,7 @@ import CustomSelect from '../components/ui/CustomSelect';
 import LinkEntityDrawer from '../components/tasks/LinkEntityDrawer';
 import { useToast } from '../hooks/useToast';
 
+// --- Reusable Component Outside ---
 const FormCard: React.FC<{ title: string, children: React.ReactNode}> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
         <h3 className="text-xl font-bold mb-6 text-slate-800 dark:text-slate-200">{title}</h3>
@@ -20,7 +21,6 @@ const FormCard: React.FC<{ title: string, children: React.ReactNode}> = ({ title
         </div>
     </div>
 );
-
 
 const NewTaskPage: React.FC = () => {
     const navigate = useNavigate();

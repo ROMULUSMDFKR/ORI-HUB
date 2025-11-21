@@ -8,7 +8,7 @@ import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
 import { useToast } from '../hooks/useToast';
 
-// Moved outside
+// --- Reusable Components Outside ---
 const SectionCard: React.FC<{ title: string; children: React.ReactNode; }> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
         <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 pb-3 mb-4">{title}</h3>
@@ -37,6 +37,7 @@ const NewSalesOrderPage: React.FC = () => {
         items: [],
         total: 0,
         deliveries: [],
+        currency: 'MXN' as 'MXN' | 'USD',
     };
 
     const [salesOrder, setSalesOrder] = useState<Partial<SalesOrder>>(initialState);
@@ -68,7 +69,8 @@ const NewSalesOrderPage: React.FC = () => {
                 ...prev,
                 quoteId: selectedQuote.id,
                 items: selectedQuote.items,
-                total: total
+                total: total,
+                currency: selectedQuote.currency // Inherit currency from quote
             }));
         } else {
              setSalesOrder(prev => ({...prev, quoteId: '', items: [], total: 0}));
@@ -82,14 +84,32 @@ const NewSalesOrderPage: React.FC = () => {
         }
 
         setIsSaving(true);
+
+        // --- Generate Smart Folio (OV) ---
+        let companyName = 'CLI';
+        if (companies) {
+            const company = companies.find(c => c.id === salesOrder.companyId);
+            companyName = company?.shortName || company?.name || 'CLI';
+        }
+        
+        // Clean name: remove spaces, take first 4 chars, uppercase
+        const codeName = companyName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase();
+        const date = new Date();
+        const dateStr = date.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+        const randomSuffix = Math.floor(100 + Math.random() * 900); // 3 digit random
+        
+        // Prefix OV to distinguish from Quotes
+        const folio = `OV-${codeName}-${dateStr}-${randomSuffix}`;
+
         const newSalesOrder: Omit<SalesOrder, 'id'> = {
             ...salesOrder,
+            folio: folio,
             createdAt: new Date().toISOString(),
         } as Omit<SalesOrder, 'id'>;
 
         try {
             await api.addDoc('salesOrders', newSalesOrder);
-            showToast('success', 'Orden de Venta guardada exitosamente.');
+            showToast('success', `Orden de Venta ${folio} guardada exitosamente.`);
             navigate('/hubs/sales-orders');
         } catch (error) {
             console.error("Error saving sales order:", error);
@@ -102,7 +122,7 @@ const NewSalesOrderPage: React.FC = () => {
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     
     const companyOptions = (companies || []).map(c => ({value: c.id, name: c.shortName || c.name}));
-    const quoteOptions = companyQuotes.map(q => ({value: q.id, name: `${q.folio} - Total: $${q.totals.grandTotal.toLocaleString()}`}));
+    const quoteOptions = companyQuotes.map(q => ({value: q.id, name: `${q.folio} - Total: $${q.totals.grandTotal.toLocaleString()} ${q.currency}`}));
 
     return (
         <div className="space-y-6">
@@ -133,7 +153,10 @@ const NewSalesOrderPage: React.FC = () => {
                 <div className="lg:col-span-1">
                     <SectionCard title="Resumen">
                          <div className="space-y-2 text-sm text-slate-500 dark:text-slate-400">
-                            <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-2 mt-2 text-slate-800 dark:text-slate-200"><span>Total:</span><span>${salesOrder.total?.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                            <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-2 mt-2 text-slate-800 dark:text-slate-200">
+                                <span>Total:</span>
+                                <span>${salesOrder.total?.toLocaleString('en-US', { minimumFractionDigits: 2 })} {salesOrder.currency}</span>
+                            </div>
                         </div>
                     </SectionCard>
                 </div>

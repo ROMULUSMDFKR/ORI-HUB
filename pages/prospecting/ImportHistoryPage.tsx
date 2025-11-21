@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { ImportHistory, User, Candidate } from '../../types';
@@ -9,12 +8,14 @@ import Badge from '../../components/ui/Badge';
 import { api } from '../../api/firebaseApi';
 import EditHistoryDrawer from '../../components/prospecting/EditHistoryDrawer';
 import { useToast } from '../../hooks/useToast';
+import { useNavigate } from 'react-router-dom';
 
 const ImportHistoryPage: React.FC = () => {
     const { data: initialHistory, loading: historyLoading } = useCollection<ImportHistory>('importHistory');
     const { data: users, loading: usersLoading } = useCollection<User>('users');
     const [history, setHistory] = useState<ImportHistory[] | null>(null);
     const { showToast } = useToast();
+    const navigate = useNavigate();
 
     const [editingHistory, setEditingHistory] = useState<ImportHistory | null>(null);
     const [deletingHistory, setDeletingHistory] = useState<ImportHistory | null>(null);
@@ -34,6 +35,14 @@ const ImportHistoryPage: React.FC = () => {
 
     const handleEdit = (record: ImportHistory) => {
         setEditingHistory(record);
+    };
+
+    const handleRetry = (record: ImportHistory) => {
+        navigate('/prospecting/upload', { state: { retryCriteria: record.searchCriteria } });
+    };
+    
+    const handleViewResults = (record: ImportHistory) => {
+        navigate('/prospecting/candidates', { state: { importHistoryId: record.id } });
     };
     
     const handleUpdateHistory = async (updatedCriteria: ImportHistory['searchCriteria']) => {
@@ -117,6 +126,12 @@ const ImportHistoryPage: React.FC = () => {
             header: 'Acciones',
             accessor: (h: ImportHistory) => (
                 <div className="flex items-center justify-end gap-2">
+                    <button onClick={() => handleViewResults(h)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700" title="Ver resultados">
+                        <span className="material-symbols-outlined text-base text-indigo-600">visibility</span>
+                    </button>
+                    <button onClick={() => handleRetry(h)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700" title="Reintentar con estos criterios">
+                        <span className="material-symbols-outlined text-base text-blue-600">refresh</span>
+                    </button>
                     <button onClick={() => handleEdit(h)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700" title="Editar criterios">
                         <span className="material-symbols-outlined text-base">edit</span>
                     </button>

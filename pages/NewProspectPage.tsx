@@ -8,20 +8,19 @@ import DuplicateChecker from '../components/ui/DuplicateChecker';
 import { useToast } from '../hooks/useToast';
 import { api } from '../api/firebaseApi';
 
-
 const initialProspectState: Partial<Prospect> = {
     name: '',
     estValue: 0,
     ownerId: 'user-1', // Default value, can be updated from fetched users
     createdById: 'user-1', // Default value
     stage: ProspectStage.Nueva,
-    priority: 'Media',
+    priority: Priority.Media,
     origin: '',
     industry: '',
     notes: '',
 };
 
-// Moved outside to prevent re-rendering and focus loss
+// --- Reusable Component Outside ---
 const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
       <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>

@@ -204,19 +204,32 @@ const SamplesPipelinePage: React.FC = () => {
             ];
             return <Table columns={columns} data={samples} />;
         case 'history':
+             if (pipelineActivities.length === 0) {
+                 return (
+                     <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
+                         <span className="material-symbols-outlined text-4xl mb-2">history</span>
+                         <p>No hay actividad registrada para las muestras.</p>
+                     </div>
+                 );
+             }
              return (
                 <ul className="space-y-4">
                     {pipelineActivities.map(activity => {
                         const user = usersMap.get(activity.userId);
                         const sample = samples.find(s => s.id === activity.sampleId);
-                        if (!user || !sample) return null;
+                        
+                        const userName = user?.name || 'Usuario Desconocido';
+                        const userAvatar = user?.avatarUrl || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+                        const sampleLink = sample ? `/hubs/samples/${sample.id}` : '#';
+                        const sampleRef = sample ? sample.name : 'Muestra Desconocida';
+
                         return (
                             <li key={activity.id} className="flex items-start gap-3 text-sm p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                                <div><img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full" /></div>
+                                <div><img src={userAvatar} alt={userName} className="w-8 h-8 rounded-full" /></div>
                                 <div className="flex-1">
                                     <p className="text-slate-800 dark:text-slate-200">{activity.description}</p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                        {user.name} en <Link to={`/hubs/samples/${sample?.id}`} className="font-semibold hover:underline">{sample?.name}</Link> &bull; {new Date(activity.createdAt).toLocaleString()}
+                                        {userName} en <Link to={sampleLink} className="font-semibold hover:underline">{sampleRef}</Link> &bull; {new Date(activity.createdAt).toLocaleString()}
                                     </p>
                                 </div>
                             </li>

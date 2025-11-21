@@ -1,4 +1,3 @@
-
 import { ProspectStage, SampleStatus, QuotePipelineStage, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role } from './types';
 
 export const NAV_LINKS = [
@@ -125,6 +124,7 @@ export const NAV_LINKS = [
       { name: 'Usuarios y Permisos', path: '/settings/users', icon: 'manage_accounts' },
       { name: 'Roles y Permisos', path: '/settings/roles', icon: 'admin_panel_settings' },
       { name: 'Equipos', path: '/settings/teams', icon: 'groups' },
+      { name: 'Mis Empresas', path: '/settings/internal-companies', icon: 'domain' },
       { name: 'Seguridad', path: '/settings/security', icon: 'security' },
       { name: 'Cuentas de Correo', path: '/settings/email-accounts', icon: 'alternate_email' },
       { name: 'Industrias', path: '/settings/industries', icon: 'factory' },
@@ -289,34 +289,29 @@ export const SALES_ORDERS_PIPELINE_COLUMNS = [
 
 export const COMPANIES_PIPELINE_COLUMNS = [
     { 
-        stage: CompanyPipelineStage.Investigacion, 
-        group: 'CAPTACIÓN', 
-        objective: 'Cuenta objetivo identificada. Investigar estructura corporativa, sucursales y consumo potencial.' 
-    },
-    { 
-        stage: CompanyPipelineStage.PrimerContacto, 
-        group: 'CAPTACIÓN', 
-        objective: 'Intentos activos de penetrar la cuenta. Lograr hablar con compras, calidad o gerencia.' 
-    },
-    { 
-        stage: CompanyPipelineStage.Calificada, 
-        group: 'CAPTACIÓN', 
-        objective: 'Cuenta validada con potencial real. Se ha identificado una oportunidad clara de negocio.' 
+        stage: CompanyPipelineStage.Onboarding, 
+        group: 'INICIO', 
+        objective: 'Nuevo cliente ganado. Configuración de crédito, alta de proveedores y seguimiento de la primera orden.' 
     },
     { 
         stage: CompanyPipelineStage.ClienteActivo, 
-        group: 'GESTIÓN', 
-        objective: 'Cliente comprando regularmente. Objetivo: Retención, satisfacción y Cross-selling/Up-selling.' 
+        group: 'DESARROLLO', 
+        objective: 'Cliente regular. Foco en el cumplimiento de pedidos, satisfacción y venta cruzada (Cross-selling).' 
     },
     { 
         stage: CompanyPipelineStage.AlianzaEstrategica, 
-        group: 'GESTIÓN', 
-        objective: 'Partners clave o cuentas VIP con contratos a largo plazo y condiciones especiales.' 
+        group: 'DESARROLLO', 
+        objective: 'Cuentas VIP con contratos a largo plazo. Planificación conjunta de demanda y condiciones preferenciales.' 
+    },
+    { 
+        stage: CompanyPipelineStage.EnRiesgo, 
+        group: 'RETENCIÓN', 
+        objective: 'Disminución de frecuencia de compra detectada. Contactar para prevenir la pérdida del cliente.' 
     },
     { 
         stage: CompanyPipelineStage.ClienteInactivo, 
-        group: 'RECUPERACIÓN', 
-        objective: 'Clientes que dejaron de comprar hace más de 90 días. Implementar campañas de reactivación.' 
+        group: 'RETENCIÓN', 
+        objective: 'Sin actividad comercial reciente (>90 días). Ejecutar campañas de reactivación o recuperación.' 
     },
 ];
 
@@ -334,8 +329,8 @@ export const FORMALITY_OPTIONS: Formality[] = ['Casual', 'Profesional', 'Estrict
 export const SLA_OPTIONS: SLA[] = ['Mismo día hábil', '24 horas', '48 horas', 'Sin compromiso'];
 export const QUOTE_FORMAT_OPTIONS: QuoteFormat[] = ['PDF', 'Link', 'Email', 'WhatsApp'];
 export const PAYMENT_TERM_OPTIONS: PaymentTerm[] = ['Contado', '7 días', '15 días', '30 días', '60 días'];
-export const PURCHASE_TYPE_OPTIONS: PurchaseType[] = ['Puntual', 'Recurrente', 'Proyecto'];
-export const PRESENTATION_OPTIONS: Presentation[] = ['Granel', 'Sacos', 'Totes', 'Porrones'];
+export const PURCHASE_TYPE_OPTIONS: PurchaseType[] = ['Puntual', 'Recurrente' , 'Proyecto'];
+export const PRESENTATION_OPTIONS: Presentation[] = ['Granel', 'Sacos', 'Totes', 'Porrones', 'Big Bag'];
 export const PURCHASE_FREQUENCY_OPTIONS: PurchaseFrequency[] = ['Semanal', 'Mensual', 'Bimestral', 'Trimestral', 'Anual'];
 export const INCOTERM_OPTIONS: Incoterm[] = ['EXW', 'FCA', 'CPT', 'CIP', 'DAP', 'DPU', 'DDP'];
 
@@ -407,6 +402,7 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Usuarios y Permisos': ['view', 'create', 'edit', 'delete'],
         'Roles y Permisos': ['view', 'create', 'edit', 'delete'],
         'Equipos': ['view', 'create', 'edit', 'delete'],
+        'Mis Empresas': ['view', 'create', 'edit', 'delete'],
         'Seguridad': ['view', 'create', 'edit', 'delete'],
         'Cuentas de Correo': ['view', 'create', 'edit', 'delete'],
         'Industrias': ['view', 'create', 'edit', 'delete'],
@@ -443,3 +439,218 @@ export const COUNTRIES = [
     { value: 'ES', name: 'España' },
     { value: 'AR', name: 'Argentina' },
 ];
+
+// --- STATE NORMALIZATION LOGIC ---
+
+const STATE_NORMALIZATION_MAP: Record<string, string> = {
+    // Aguascalientes
+    'ags': 'Aguascalientes',
+    'ags.': 'Aguascalientes',
+    'aguascalientes': 'Aguascalientes',
+    
+    // Baja California
+    'bc': 'Baja California',
+    'b.c.': 'Baja California',
+    'baja california': 'Baja California',
+    
+    // Baja California Sur
+    'bcs': 'Baja California Sur',
+    'b.c.s.': 'Baja California Sur',
+    'baja california sur': 'Baja California Sur',
+    
+    // Campeche
+    'camp': 'Campeche',
+    'camp.': 'Campeche',
+    'campeche': 'Campeche',
+    
+    // Coahuila
+    'coah': 'Coahuila',
+    'coah.': 'Coahuila',
+    'coahuila': 'Coahuila',
+    'coahuila de zaragoza': 'Coahuila',
+    
+    // Colima
+    'col': 'Colima',
+    'col.': 'Colima',
+    'colima': 'Colima',
+    
+    // Chiapas
+    'chis': 'Chiapas',
+    'chis.': 'Chiapas',
+    'chiapas': 'Chiapas',
+    
+    // Chihuahua
+    'chih': 'Chihuahua',
+    'chih.': 'Chihuahua',
+    'ch': 'Chihuahua',
+    'chihuahua': 'Chihuahua',
+    
+    // Ciudad de México
+    'cdmx': 'Ciudad de México',
+    'ciudad de mexico': 'Ciudad de México',
+    'distrito federal': 'Ciudad de México',
+    'df': 'Ciudad de México',
+    'd.f.': 'Ciudad de México',
+    
+    // Durango
+    'dgo': 'Durango',
+    'dgo.': 'Durango',
+    'durango': 'Durango',
+    
+    // Guanajuato
+    'gto': 'Guanajuato',
+    'gto.': 'Guanajuato',
+    'guanajuato': 'Guanajuato',
+    
+    // Guerrero
+    'gro': 'Guerrero',
+    'gro.': 'Guerrero',
+    'guerrero': 'Guerrero',
+    
+    // Hidalgo
+    'hgo': 'Hidalgo',
+    'hgo.': 'Hidalgo',
+    'hidalgo': 'Hidalgo',
+    
+    // Jalisco
+    'jal': 'Jalisco',
+    'jal.': 'Jalisco',
+    'jalisco': 'Jalisco',
+    
+    // Estado de México
+    'mex': 'Estado de México',
+    'mex.': 'Estado de México',
+    'méx': 'Estado de México',
+    'méx.': 'Estado de México',
+    'mexico': 'Estado de México',
+    'méxico': 'Estado de México',
+    'edo mex': 'Estado de México',
+    'edo. mex.': 'Estado de México',
+    'estado de mexico': 'Estado de México',
+    'estado de méxico': 'Estado de México',
+    
+    // Michoacán
+    'mich': 'Michoacán',
+    'mich.': 'Michoacán',
+    'michoacan': 'Michoacán',
+    'michoacán': 'Michoacán',
+    'michoacan de ocampo': 'Michoacán',
+    
+    // Morelos
+    'mor': 'Morelos',
+    'mor.': 'Morelos',
+    'morelos': 'Morelos',
+    
+    // Nayarit
+    'nay': 'Nayarit',
+    'nay.': 'Nayarit',
+    'nayarit': 'Nayarit',
+    
+    // Nuevo León
+    'nl': 'Nuevo León',
+    'n.l.': 'Nuevo León',
+    'nle': 'Nuevo León',
+    'nuevo leon': 'Nuevo León',
+    'nuevo león': 'Nuevo León',
+    
+    // Oaxaca
+    'oax': 'Oaxaca',
+    'oax.': 'Oaxaca',
+    'oaxaca': 'Oaxaca',
+    
+    // Puebla
+    'pue': 'Puebla',
+    'pue.': 'Puebla',
+    'puebla': 'Puebla',
+    
+    // Querétaro
+    'qro': 'Querétaro',
+    'qro.': 'Querétaro',
+    'queretaro': 'Querétaro',
+    'querétaro': 'Querétaro',
+    
+    // Quintana Roo
+    'q roo': 'Quintana Roo',
+    'q. roo': 'Quintana Roo',
+    'qroo': 'Quintana Roo',
+    'q.roo': 'Quintana Roo',
+    'quintana roo': 'Quintana Roo',
+    
+    // San Luis Potosí
+    'slp': 'San Luis Potosí',
+    's.l.p.': 'San Luis Potosí',
+    'san luis potosi': 'San Luis Potosí',
+    'san luis potosí': 'San Luis Potosí',
+    
+    // Sinaloa
+    'sin': 'Sinaloa',
+    'sin.': 'Sinaloa',
+    'sinaloa': 'Sinaloa',
+    
+    // Sonora
+    'son': 'Sonora',
+    'son.': 'Sonora',
+    'sonora': 'Sonora',
+    
+    // Tabasco
+    'tab': 'Tabasco',
+    'tab.': 'Tabasco',
+    'tabasco': 'Tabasco',
+    
+    // Tamaulipas
+    'tamps': 'Tamaulipas',
+    'tamps.': 'Tamaulipas',
+    'tamaulipas': 'Tamaulipas',
+    
+    // Tlaxcala
+    'tlax': 'Tlaxcala',
+    'tlax.': 'Tlaxcala',
+    'tlaxcala': 'Tlaxcala',
+    
+    // Veracruz
+    'ver': 'Veracruz',
+    'ver.': 'Veracruz',
+    'veracruz': 'Veracruz',
+    'veracruz de ignacio de la llave': 'Veracruz',
+    
+    // Yucatán
+    'yuc': 'Yucatán',
+    'yuc.': 'Yucatán',
+    'yucatan': 'Yucatán',
+    'yucatán': 'Yucatán',
+    
+    // Zacatecas
+    'zac': 'Zacatecas',
+    'zac.': 'Zacatecas',
+    'zacatecas': 'Zacatecas'
+};
+
+/**
+ * Normalizes a state name to its canonical full form.
+ * Handles abbreviations (DGO -> Durango), variations (CDMX -> Ciudad de México),
+ * and common misspellings or formatting differences.
+ */
+export const getCanonicalState = (rawState: string | undefined | null): string | null => {
+    if (!rawState) return null;
+    // Normalize: Lowercase, trim
+    // We perform normalize('NFD') to separate accents, but we DON'T remove them blindly yet
+    // because some logic might depend on them, though our map handles many variations.
+    // For the map lookup, we use a specific key format.
+    
+    const cleanKey = rawState.toLowerCase().trim();
+    
+    // 1. Direct lookup (fastest)
+    if (STATE_NORMALIZATION_MAP[cleanKey]) return STATE_NORMALIZATION_MAP[cleanKey];
+    
+    // 2. Remove dots and extra spaces
+    const noDots = cleanKey.replace(/\./g, '').replace(/\s+/g, ' ');
+    if (STATE_NORMALIZATION_MAP[noDots]) return STATE_NORMALIZATION_MAP[noDots];
+
+    // 3. Remove accents (last resort normalization)
+    const noAccents = noDots.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (STATE_NORMALIZATION_MAP[noAccents]) return STATE_NORMALIZATION_MAP[noAccents];
+
+    // Return original if no match found (likely a valid state name not in map or international)
+    // Title case it for better display
+    return rawState.charAt(0).toUpperCase() + rawState.slice(1);
+};

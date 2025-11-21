@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
@@ -9,6 +10,7 @@ import { UNITS } from '../constants';
 import CustomSelect from '../components/ui/CustomSelect';
 import AddLotDrawer from '../components/products/AddLotDrawer';
 
+// --- Reusable Component Outside ---
 const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
       <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>

@@ -14,6 +14,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, onClose, 
   const imageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(1);
+  const [minZoom, setMinZoom] = useState(0.1); // Dynamic minimum zoom
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -21,10 +22,22 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, onClose, 
   useEffect(() => {
     // Reset state when a new image is loaded
     if (isOpen) {
-      setZoom(1);
       setPosition({ x: 0, y: 0 });
+      // Zoom will be set by onImageLoad
     }
   }, [isOpen, imageSrc]);
+
+  const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { naturalWidth, naturalHeight } = e.currentTarget;
+    // Calculate the scale required to cover the crop area (CROP_DIMENSION)
+    // We want the smallest dimension of the image to fit the CROP_DIMENSION exactly at min zoom.
+    const scaleWidth = CROP_DIMENSION / naturalWidth;
+    const scaleHeight = CROP_DIMENSION / naturalHeight;
+    const minScale = Math.max(scaleWidth, scaleHeight);
+
+    setMinZoom(minScale);
+    setZoom(minScale); // Start fully fitted
+  };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -46,7 +59,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, onClose, 
   
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
       const newZoom = zoom - e.deltaY * 0.001;
-      setZoom(Math.max(1, newZoom)); // Prevent zooming out too much
+      setZoom(Math.max(minZoom, Math.min(minZoom * 10, newZoom)));
   };
 
   useEffect(() => {
@@ -77,11 +90,25 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, onClose, 
     const scaledHeight = image.naturalHeight * zoom;
 
     // Calculate the top-left corner of the image relative to the viewport
-    const imageLeft = position.x + (canvas.width - scaledWidth) / 2;
-    const imageTop = position.y + (canvas.height - scaledHeight) / 2;
+    // The viewport center is (position.x + canvas.width/2, position.y + canvas.height/2)
+    // But simplified:
+    // CSS Translate moves the image center.
+    // Canvas drawImage needs the top-left coordinate of the source image on the canvas.
+    
+    // Center of canvas is CROP_DIMENSION / 2
+    // Center of scaled image should be at (CROP_DIMENSION / 2) + position.x
+    // Top-left of scaled image is Center - (scaledWidth / 2)
+    
+    const imageLeft = (canvas.width / 2) + position.x - (scaledWidth / 2);
+    const imageTop = (canvas.height / 2) + position.y - (scaledHeight / 2);
 
     // Clear canvas and draw the scaled and translated image
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Enable high quality scaling
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
     ctx.drawImage(image, imageLeft, imageTop, scaledWidth, scaledHeight);
 
     canvas.toBlob((blob) => {
@@ -100,7 +127,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, onClose, 
 
         <div className="p-6">
             <div 
-                className="relative w-full h-64 mx-auto overflow-hidden cursor-move"
+                className="relative w-full h-64 mx-auto overflow-hidden cursor-move bg-slate-100 dark:bg-slate-900"
                 onMouseDown={handleMouseDown}
                 onWheel={handleWheel}
             >
@@ -108,30 +135,37 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, onClose, 
                     ref={imageRef}
                     src={imageSrc}
                     alt="Profile to crop"
+                    onLoad={onImageLoad}
                     className="absolute top-1/2 left-1/2"
                     style={{
+                        // CRITICAL FIX: maxWidth: 'none' ensures the CSS size matches the naturalWidth * zoom calculation used in Canvas
+                        // Without this, CSS shrinks the image visually, but Canvas uses the full resolution, causing a "zoomed in" crop result.
+                        maxWidth: 'none', 
+                        maxHeight: 'none',
                         transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${zoom})`,
                         transition: isDragging ? 'none' : 'transform 0.1s ease-out',
                         userSelect: 'none',
                         pointerEvents: 'none',
                     }}
                 />
-                <div className="absolute inset-0 m-auto w-[200px] h-[200px] rounded-full shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] pointer-events-none"></div>
+                {/* Dark overlay outside the circle */}
+                <div className="absolute inset-0 pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] rounded-full w-[200px] h-[200px] m-auto border-2 border-white/50"></div>
             </div>
 
             <div className="flex items-center gap-3 mt-4">
-                <span className="material-symbols-outlined text-slate-500 dark:text-slate-400">zoom_out</span>
+                <span className="material-symbols-outlined text-slate-500 dark:text-slate-400 text-sm">zoom_out</span>
                 <input
                     type="range"
-                    min="1"
-                    max="3"
-                    step="0.01"
+                    min={minZoom}
+                    max={minZoom * 5} // Allow zooming up to 5x the fit size
+                    step={minZoom / 20}
                     value={zoom}
                     onChange={(e) => setZoom(parseFloat(e.target.value))}
                     className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700"
                 />
-                 <span className="material-symbols-outlined text-slate-500 dark:text-slate-400">zoom_in</span>
+                 <span className="material-symbols-outlined text-slate-500 dark:text-slate-400 text-sm">zoom_in</span>
             </div>
+            <p className="text-center text-xs text-slate-400 mt-2">Arrastra para mover, usa el slider para zoom.</p>
             <canvas ref={canvasRef} className="hidden" />
         </div>
 

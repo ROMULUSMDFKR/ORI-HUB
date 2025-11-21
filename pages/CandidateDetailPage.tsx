@@ -1,10 +1,8 @@
 
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
-import { Candidate, Note, ActivityLog, CandidateStatus, CandidateAiAnalysis, RejectionReason, BlacklistReason, Prospect, ProspectStage, User, Brand, WebResult, ReviewsTag, PeopleAlsoSearch, ReviewsDistribution } from '../types';
+import { Candidate, Note, ActivityLog, CandidateStatus, CandidateAiAnalysis, RejectionReason, BlacklistReason, Prospect, ProspectStage, User, Brand, ReviewsTag, PeopleAlsoSearch, ReviewsDistribution, Priority } from '../types';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import { api } from '../api/firebaseApi';
@@ -29,15 +27,17 @@ const DetailTabButton: React.FC<{ active: boolean, onClick: () => void, label: s
     </button>
 );
 
-const RatingStars: React.FC<{ rating: number, count?: number }> = ({ rating, count }) => {
+const RatingStars: React.FC<{ rating: number | null | undefined, count?: number }> = ({ rating, count }) => {
+    const validRating = typeof rating === 'number' ? rating : 0;
+    
     return (
-        <div className="flex items-center gap-1" title={`${rating} de 5 estrellas`}>
+        <div className="flex items-center gap-1" title={`${validRating} de 5 estrellas`}>
             <span className="flex text-yellow-400">
                 {[1, 2, 3, 4, 5].map((star) => (
-                    <span key={star} className="material-symbols-outlined !text-lg" style={{ fontVariationSettings: `'FILL' ${star <= Math.round(rating) ? 1 : 0}` }}>star</span>
+                    <span key={star} className="material-symbols-outlined !text-lg" style={{ fontVariationSettings: `'FILL' ${star <= Math.round(validRating) ? 1 : 0}` }}>star</span>
                 ))}
             </span>
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">{rating.toFixed(1)}</span>
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">{validRating.toFixed(1)}</span>
             {count !== undefined && <span className="text-xs text-slate-500 dark:text-slate-400">({count.toLocaleString()} reseñas)</span>}
         </div>
     );
@@ -50,7 +50,7 @@ const SocialIcon: React.FC<{ url: string }> = ({ url }) => {
     const icons: Record<string, { path: string; brandColor: string }> = {
         linkedin: { path: "M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z", brandColor: 'text-blue-700 dark:text-blue-500' },
         facebook: { path: "M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z", brandColor: 'text-blue-600 dark:text-blue-400' },
-        instagram: { path: "M12 2.163c3.204 0 3.584.012 4.85.07 1.272.058 2.164.332 2.923.644.802.321 1.455.787 2.122 1.455.666.666 1.134 1.32 1.455 2.122.312.759.586 1.651.644 2.923.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.058 1.272-.332 2.164-.644 2.923-.321.802-.787 1.455-1.455 2.122-.666.666-1.32 1.134-2.122 1.455-.759.312-1.651.586-2.923.644-1.266.058-1.646.07-4.85.07s-3.584-.012-4.85-.07c-1.272-.058-2.164-.332-2.923-.644-.802-.321-1.455-.787-2.122-1.455-.666-.666-1.134-1.32-1.455-2.122-.312-.759-.586-1.651-.644-2.923-.058-1.646-.07-4.85s.012-3.584.07-4.85c.058-1.272.332-2.164.644-2.923.321.802.787 1.455 1.455-2.122.666.666 1.32-1.134 2.122-1.455.759-.312 1.651-.586 2.923-.644 1.266-.058 1.646-.07 4.85-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-1.356.06-2.305.328-3.122.656-.843.334-1.594.8-2.313 1.523-.718.72-1.189 1.47-1.522 2.313-.328.817-.596 1.766-.656 3.122-.058 1.28-.072 1.688-.072 4.947s.014 3.667.072 4.947c.06 1.356.328 2.305.656 3.122.334.843.8 1.594 1.522 2.313.72.718 1.47 1.189 2.313 1.522.817.328 1.766.596 3.122.656 1.28.058 1.688.072 4.947.072s3.667-.014 4.947-.072c1.356-.06 2.305-.328 3.122-.656.843-.334 1.594-.8 2.313-1.522.718-.72 1.189-1.47 1.522-2.313.328-.817-.596-1.766-.656-3.122.058-1.688.072-4.947s-.014-3.667-.072-4.947c-.06-1.356-.328-2.305-.656-3.122-.334-.843-.8-1.594-1.522-2.313-.72-.718-1.47-1.189-2.313-1.522-.817-.328-1.766-.596-3.122-.656-1.28-.058-1.688-.072-4.947-.072z", brandColor: 'text-pink-600 dark:text-pink-400'},
+        instagram: { path: "M12 2.163c3.204 0 3.584.012 4.85.07 1.272.058 2.164.332 2.923.644.802.321 1.455.787 2.122 1.455.666.666 1.134 1.32 1.455 2.122.312.759.586 1.651.644 2.923.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.058 1.272-.332 2.164-.644 2.923-.321.802-.787 1.455-1.455 2.122-.666.666-1.32 1.134-2.122 1.455-.759.312-1.651.586-2.923.644-1.266.058-1.646.07-4.85.07s-3.584-.012-4.85-.07c-1.272-.058-2.164-.332-2.923-.644-.802-.321-1.455-.787-2.122-1.455-.666-.666-1.134-1.32-1.455-2.122-.312-.759-.586-1.651-.644-2.923-.058-1.646-.07-4.85s.012-3.584.07-4.85c.058-1.272.332-2.164.644-2.923.321.802.787 1.455 1.455-2.122.666.666 1.32-1.134 2.122-1.455.759-.312 1.651-.586 2.923-.644 1.266-.058 1.646-.07 4.85-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-1.356.06-2.305.328-3.122.656-.843.334-1.594.8-2.313 1.523-.718.72-1.189 1.47-1.522 2.313-.328.817-.596 1.766-.656 3.122-.058 1.28-.072 1.688-.072 4.947s.014 3.667.072 4.947c.06 1.356.328 2.305.656 3.122.334.843.8 1.594 1.522 2.313.72.718 1.47 1.189 2.313 1.522.817.328 1.766.596 3.122.656 1.28.058 1.688.072 4.947.072s3.667-.014 4.947-.072c1.356-.06 2.305-.328 3.122-.656.843-.334 1.594-.8 2.313-1.522.718-.72 1.189-1.47 1.522-2.313.328-.817-.596-1.766-.656-3.122-.656-1.28-.058-1.688-.072-4.947-.072z", brandColor: 'text-pink-600 dark:text-pink-400'},
         twitter: { path: "M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616v.063c0 2.238 1.591 4.098 3.693 4.523-.623.169-1.28.216-1.942.175.586 1.83 2.28 3.166 4.285 3.201-1.815 1.423-4.093 2.223-6.502 2.223-.423 0-.84-.025-1.25-.073 2.348 1.503 5.143 2.38 8.14 2.38 9.771 0 15.12-8.12 15.01-15.13v-.681c1.041-.748 1.944-1.68 2.663-2.766z", brandColor: 'text-sky-500 dark:text-sky-400' },
     };
 
@@ -85,31 +85,6 @@ const InfoCard: React.FC<{ title?: string; children: React.ReactNode; icon?: str
         </div>
     </div>
 );
-
-const ActionModal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; reasons: string[]; onConfirm: (reason: string, notes?: string) => void; }> = ({ isOpen, onClose, title, reasons, onConfirm }) => {
-    const [reason, setReason] = useState(reasons[0] || '');
-    const [notes, setNotes] = useState('');
-
-    useEffect(() => { if (isOpen) { setReason(reasons[0] || ''); setNotes(''); } }, [isOpen, reasons]);
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl m-4 max-w-md w-full" onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b border-slate-200 dark:border-slate-700"><h3 className="text-lg font-semibold">{title}</h3></div>
-                <div className="p-6 space-y-4">
-                    <CustomSelect label="Motivo *" options={reasons.map(r => ({ value: r, name: r }))} value={reason} onChange={setReason} />
-                    <div><label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Notas (Opcional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="mt-1 block w-full" /></div>
-                </div>
-                <div className="flex justify-end p-4 bg-slate-50 dark:bg-slate-800/50 rounded-b-lg space-x-2">
-                    <button onClick={onClose} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">Cancelar</button>
-                    <button onClick={() => onConfirm(reason, notes)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:bg-indigo-700">Confirmar</button>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 const ActivityFeed: React.FC<{ activities: ActivityLog[], usersMap: Map<string, User> }> = ({ activities, usersMap }) => {
     const iconMap: Record<ActivityLog['type'], string> = {
@@ -158,8 +133,6 @@ const OpeningHours: React.FC<{ hours: { day: string, hours: string }[] }> = ({ h
         'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles', 'Thursday': 'Jueves', 'Friday': 'Viernes', 'Saturday': 'Sábado', 'Sunday': 'Domingo'
     };
 
-    // Reorder to start from Monday if needed, currently usually sorted by Google
-    
     return (
         <div className="text-sm space-y-1">
             {hours.map((h, idx) => (
@@ -205,7 +178,6 @@ const CandidateDetailPage: React.FC = () => {
         const emails = new Set<string>();
         if (currentCandidate.email) emails.add(currentCandidate.email);
         if (currentCandidate.emails) currentCandidate.emails.forEach(e => e && emails.add(e));
-        // Also check AI analysis for extra contact info if available
         if (currentCandidate.aiAnalysis?.additionalEmails) currentCandidate.aiAnalysis.additionalEmails.forEach(e => e && emails.add(e));
 
 
@@ -311,6 +283,7 @@ const CandidateDetailPage: React.FC = () => {
             email: currentCandidate.email || (currentCandidate.emails && currentCandidate.emails[0]) || undefined,
             address: currentCandidate.address || undefined,
             notes: combinedNotes,
+            priority: Priority.Media // Default priority
         };
     
         const newProspect = await api.addDoc('prospects', newProspectData);
@@ -467,7 +440,7 @@ const CandidateDetailPage: React.FC = () => {
                         <Badge text={`${profileCompleteness}% Info`} color={completenessColor} />
                     </div>
                     <div className="flex items-center gap-2 mt-1 text-slate-500 dark:text-slate-400 text-sm">
-                        {currentCandidate.averageRating !== undefined && (
+                        {currentCandidate.averageRating != null && (
                             <RatingStars rating={currentCandidate.averageRating} count={currentCandidate.reviewCount} />
                         )}
                         {currentCandidate.price && (
@@ -637,90 +610,14 @@ const CandidateDetailPage: React.FC = () => {
                                 {currentCandidate.description && (
                                     <div className="mb-4">
                                         <h4 className="text-xs font-bold text-slate-500 uppercase mb-1">Descripción</h4>
-                                        <p className="text-sm text-slate-700 dark:text-slate-300">{currentCandidate.description}</p>
-                                    </div>
-                                )}
-                                {currentCandidate.questionsAndAnswers && currentCandidate.questionsAndAnswers.length > 0 && (
-                                    <div>
-                                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Preguntas Frecuentes (Google)</h4>
-                                        <ul className="space-y-3">
-                                            {currentCandidate.questionsAndAnswers.slice(0,3).map((qa: any, idx: number) => (
-                                                <li key={idx} className="text-sm">
-                                                    <p className="font-semibold text-slate-800 dark:text-slate-200">P: {qa.question}</p>
-                                                    <p className="text-slate-600 dark:text-slate-400">R: {qa.answer}</p>
-                                                </li>
-                                            ))}
-                                        </ul>
+                                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{currentCandidate.description}</p>
                                     </div>
                                 )}
                             </InfoCard>
                         </div>
                     )}
-
-                    {activeTab === 'mercado' && (
-                        <div className="grid grid-cols-1 gap-6">
-                             <InfoCard title="Lo que dice la gente (Tags de Reseñas)" icon="reviews">
-                                {currentCandidate.reviewsTags && currentCandidate.reviewsTags.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2">
-                                        {currentCandidate.reviewsTags.map((tag, idx) => (
-                                            <span key={idx} className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-sm flex items-center gap-2 border border-slate-200 dark:border-slate-600">
-                                                {tag.title}
-                                                <span className="bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-400 text-xs px-1.5 rounded-full">{tag.count}</span>
-                                            </span>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-slate-500 italic">No hay etiquetas de reseñas disponibles.</p>
-                                )}
-                            </InfoCard>
-
-                            <InfoCard title="La gente también busca (Competidores/Relacionados)" icon="compare_arrows">
-                                {currentCandidate.peopleAlsoSearch && currentCandidate.peopleAlsoSearch.length > 0 ? (
-                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        {currentCandidate.peopleAlsoSearch.map((item, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-100 dark:border-slate-700">
-                                                <div>
-                                                    <p className="font-semibold text-sm text-slate-800 dark:text-slate-200">{item.title}</p>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-xs text-yellow-600 dark:text-yellow-400 flex items-center gap-0.5"><span className="material-symbols-outlined !text-xs">star</span> {item.totalScore}</span>
-                                                        <span className="text-xs text-slate-400">({item.reviewsCount})</span>
-                                                    </div>
-                                                </div>
-                                                <button className="text-xs text-indigo-600 font-medium hover:underline" onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(item.title)}`, '_blank')}>Buscar</button>
-                                            </div>
-                                        ))}
-                                     </div>
-                                ) : (
-                                    <p className="text-sm text-slate-500 italic">No hay datos de búsquedas relacionadas.</p>
-                                )}
-                            </InfoCard>
-                        </div>
-                    )}
-
-                    {activeTab === 'multimedia' && (
-                        <InfoCard title="Galería de Imágenes" icon="photo_library">
-                            {currentCandidate.images && currentCandidate.images.length > 0 ? (
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                    {currentCandidate.images.map((img, idx) => (
-                                        <div key={idx} className="aspect-square rounded-lg overflow-hidden bg-slate-100 relative group">
-                                            <img src={img.url} alt={`Local ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
-                                            <a href={img.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                                <span className="material-symbols-outlined text-white">open_in_new</span>
-                                            </a>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-slate-500 italic py-8 text-center">No hay imágenes disponibles.</p>
-                            )}
-                        </InfoCard>
-                    )}
-
                 </div>
             </div>
-            
-            <ActionModal isOpen={isRejectModalOpen} onClose={() => { setIsRejectModalOpen(false); setNewStatus(currentCandidate.status); }} title="Rechazar Candidato" reasons={Object.values(RejectionReason)} onConfirm={handleReject}/>
-            <ActionModal isOpen={isBlacklistModalOpen} onClose={() => { setIsBlacklistModalOpen(false); setNewStatus(currentCandidate.status); }} title="Añadir a Lista Negra" reasons={Object.values(BlacklistReason)} onConfirm={handleBlacklist}/>
         </>
     );
 };

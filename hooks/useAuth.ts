@@ -27,6 +27,7 @@ export const useAuth = () => {
                         email: fbUser.email || '',
                         avatarUrl: fbUser.photoURL || `https://i.pravatar.cc/150?u=${fbUser.uid}`,
                         roleId: defaultRole?.id || '',
+                        role: defaultRole?.name || 'Usuario',
                         isActive: true,
                         // Default for legacy/auto-created users who skipped the new flow
                         hasCompletedOnboarding: true, 
@@ -100,6 +101,7 @@ export const useAuth = () => {
             email: authUser.email || '',
             avatarUrl: authUser.photoURL || `https://i.pravatar.cc/150?u=${authUser.uid}`,
             roleId: defaultRole?.id || '',
+            role: defaultRole?.name || 'Usuario',
             isActive: true,
             permissions: defaultRole?.permissions, // Stamp permissions on creation
             hasCompletedOnboarding: true // Direct signup skips the forced flow for now

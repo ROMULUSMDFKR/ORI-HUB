@@ -279,10 +279,12 @@ const registerUserWithInvitation = async (invitation: Invitation, password: stri
             email: invitation.email,
             avatarUrl: `https://i.pravatar.cc/150?u=${authUser.uid}`, // Placeholder
             roleId: invitation.roleId,
+            role: 'Miembro', // Providing a default role string
             teamId: invitation.teamId,
             companyId: invitation.companyId,
             permissions: invitation.permissions,
             isActive: true,
+            hasCompletedOnboarding: false,
         };
         
         await setDoc(doc(db, 'users', authUser.uid), newUserProfile);

@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AuditLog, Commission, CommissionStatus, ConnectedEmailAccount, User } from '../types';
 import { useCollection } from '../hooks/useCollection';
@@ -326,19 +328,42 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, refreshUser }) => {
         }
     };
 
-    const [theme, setTheme] = useState(() => {
-        return localStorage.getItem('crm-theme-mode') || 'light';
+    // Initialize theme state from user profile, local storage, or default
+    const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+        if (user.theme) return user.theme;
+        const localTheme = localStorage.getItem('crm-theme-mode');
+        return (localTheme === 'dark' || localTheme === 'light') ? localTheme : 'light';
     });
 
+    // When user prop updates (e.g., initial load), sync local state
     useEffect(() => {
-        if (theme === 'dark') {
+        if (user.theme) {
+            setTheme(user.theme);
+        }
+    }, [user.theme]);
+
+    const handleThemeToggle = async () => {
+        const newTheme = theme === 'dark' ? 'light' : 'dark';
+        setTheme(newTheme); // Optimistic update
+
+        // Apply visual change immediately (though App.tsx useEffect handles this too, this ensures instant feedback)
+        if (newTheme === 'dark') {
             document.documentElement.classList.add('dark');
-            localStorage.setItem('crm-theme-mode', 'dark');
         } else {
             document.documentElement.classList.remove('dark');
-            localStorage.setItem('crm-theme-mode', 'light');
         }
-    }, [theme]);
+        localStorage.setItem('crm-theme-mode', newTheme);
+
+        // Persist to DB
+        try {
+            await api.updateDoc('users', user.id, { theme: newTheme });
+            refreshUser(); // Notify global app state
+        } catch (error) {
+            console.error("Failed to save theme preference", error);
+            // Revert logic could be added here if critical
+        }
+    };
+
 
     const userActivity = useMemo(() => {
         if (!user || !auditLogs) return [];
@@ -493,7 +518,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, refreshUser }) => {
                                     <p className="font-medium text-slate-800 dark:text-slate-200">Modo Oscuro</p>
                                     <p className="text-sm text-slate-500 dark:text-slate-400">Ideal para trabajar de noche.</p>
                                 </div>
-                                <ToggleSwitch enabled={theme === 'dark'} onToggle={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')} />
+                                <ToggleSwitch enabled={theme === 'dark'} onToggle={handleThemeToggle} />
                             </div>
                         </div>
                     )}

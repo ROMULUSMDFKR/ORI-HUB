@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Product, Category, Unit, Currency } from '../types';
@@ -7,6 +6,16 @@ import { useCollection } from '../hooks/useCollection';
 import { UNITS } from '../constants';
 import CustomSelect from '../components/ui/CustomSelect';
 import { api } from '../api/firebaseApi';
+
+// --- Reusable Component Outside ---
+const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
+        <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
+        <div className="space-y-4">
+        {children}
+        </div>
+    </div>
+);
 
 const initialProductState: Omit<Product, 'id'> = {
     sku: '',
@@ -64,15 +73,6 @@ const NewProductPage: React.FC = () => {
             }
         }
     };
-
-    const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
-          <div className="space-y-4">
-            {children}
-          </div>
-        </div>
-      );
 
     return (
         <div>

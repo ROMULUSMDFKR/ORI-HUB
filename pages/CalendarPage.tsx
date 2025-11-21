@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { Task, LogisticsDelivery, Prospect, Sample, PurchaseOrder, Quote, Company, Birthday } from '../types';
+import { Task, Delivery, Prospect, Sample, PurchaseOrder, Quote, Company, Birthday } from '../types';
 // FIX: Se eliminó la importación de datos falsos.
 import Spinner from '../components/ui/Spinner';
 import { getOverdueStatus } from '../utils/time';
@@ -63,7 +64,7 @@ const TimeIndicator: React.FC<{ now: Date; view: 'list' | 'week' }> = ({ now, vi
 
 const CalendarPage: React.FC = () => {
     const { data: tasks, loading: tasksLoading } = useCollection<Task>('tasks');
-    const { data: deliveries, loading: delLoading } = useCollection<LogisticsDelivery>('deliveries');
+    const { data: deliveries, loading: delLoading } = useCollection<Delivery>('deliveries');
     const { data: prospects, loading: pLoading } = useCollection<Prospect>('prospects');
     const { data: samples, loading: sLoading } = useCollection<Sample>('samples');
     const { data: purchaseOrders, loading: poLoading } = useCollection<PurchaseOrder>('purchaseOrders');

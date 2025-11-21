@@ -1,12 +1,11 @@
+
 import React, { useState, useMemo } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { Delivery, DeliveryStatus, Company, Carrier } from '../types';
-import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
 import { Link } from 'react-router-dom';
-import FilterButton from '../components/ui/FilterButton';
 import DeliveryDetailModal from '../components/logistics/DeliveryDetailModal';
 
 const LogisticsDeliveriesPage: React.FC = () => {
@@ -15,8 +14,6 @@ const LogisticsDeliveriesPage: React.FC = () => {
     const { data: carriers, loading: carriersLoading } = useCollection<Carrier>('carriers');
 
     const [deliveries, setDeliveries] = useState<Delivery[] | null>(null);
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [carrierFilter, setCarrierFilter] = useState('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
 
@@ -29,18 +26,6 @@ const LogisticsDeliveriesPage: React.FC = () => {
     const companiesMap = useMemo(() => new Map(companies?.map(c => [c.id, c.shortName || c.name])), [companies]);
     const carriersMap = useMemo(() => new Map(carriers?.map(c => [c.id, c.name])), [carriers]);
     
-    const statusOptions = useMemo(() => Object.values(DeliveryStatus).map(s => ({ value: s, label: s })), []);
-    const carrierOptions = useMemo(() => (carriers || []).map(c => ({ value: c.id, label: c.name })), [carriers]);
-
-    const filteredData = useMemo(() => {
-        if (!deliveries) return [];
-        return deliveries.filter(delivery => {
-            if (statusFilter !== 'all' && delivery.status !== statusFilter) return false;
-            if (carrierFilter !== 'all' && delivery.carrierId !== carrierFilter) return false;
-            return true;
-        });
-    }, [deliveries, statusFilter, carrierFilter]);
-
     const handleOpenModal = (delivery: Delivery) => {
         setSelectedDelivery(delivery);
         setIsModalOpen(true);
@@ -56,38 +41,95 @@ const LogisticsDeliveriesPage: React.FC = () => {
             case DeliveryStatus.EnTransito: return 'blue';
             case DeliveryStatus.Programada: return 'yellow';
             case DeliveryStatus.Incidencia:
-            case DeliveryStatus.Cancelada:
-                 return 'red';
+            case DeliveryStatus.Cancelada: return 'red';
             default: return 'gray';
         }
     };
 
-    const columns = [
-        { header: 'Entrega', accessor: (d: Delivery) => <span className="font-semibold">{d.salesOrderId} ({d.deliveryNumber})</span> },
-        { header: 'Cliente', accessor: (d: Delivery) => companiesMap.get(d.companyId) || 'N/A' },
-        { header: 'Destino', accessor: (d: Delivery) => d.destination },
-        { header: 'Transportista', accessor: (d: Delivery) => carriersMap.get(d.carrierId) || 'N/A' },
-        { header: 'Estado', accessor: (d: Delivery) => <Badge text={d.status} color={getStatusColor(d.status)} /> },
-        { header: 'Fecha Prog.', accessor: (d: Delivery) => new Date(d.scheduledDate).toLocaleDateString() },
-        { header: 'Acciones', accessor: (d: Delivery) => <button onClick={() => handleOpenModal(d)} className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">Ver/Actualizar</button> },
-    ];
+    // Group deliveries by date
+    const groupedDeliveries = useMemo<Record<string, Delivery[]>>(() => {
+        if (!deliveries) return {};
+        const groups: Record<string, Delivery[]> = {};
+        const now = new Date();
+        const todayStr = now.toLocaleDateString();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toLocaleDateString();
+
+        const sortedDeliveries = [...deliveries].sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
+
+        sortedDeliveries.forEach(delivery => {
+            const date = new Date(delivery.scheduledDate);
+            const dateStr = date.toLocaleDateString();
+            let key = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).toUpperCase();
+            
+            if (dateStr === todayStr) key = 'HOY';
+            else if (dateStr === tomorrowStr) key = 'MAÑANA';
+
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(delivery);
+        });
+        
+        return groups;
+    }, [deliveries]);
 
     const loading = deliveriesLoading || companiesLoading || carriersLoading;
 
+    if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
+
     return (
         <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
-                <FilterButton label="Estado" options={statusOptions} selectedValue={statusFilter} onSelect={setStatusFilter} />
-                <FilterButton label="Transportista" options={carrierOptions} selectedValue={carrierFilter} onSelect={setCarrierFilter} />
+             <div>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Logística</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Monitorea y gestiona las operaciones de entrega.</p>
             </div>
 
-            {loading ? (
-                 <div className="flex justify-center py-12"><Spinner /></div>
-            ) : !filteredData || filteredData.length === 0 ? (
-                 <EmptyState icon="local_shipping" title="No se encontraron entregas" message="Ajusta los filtros o crea una nueva orden de venta para ver entregas." />
-            ) : (
-                <Table columns={columns} data={filteredData} />
-            )}
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-6">Próximas Entregas</h3>
+                
+                {!deliveries || deliveries.length === 0 ? (
+                    <EmptyState icon="local_shipping" title="No hay entregas programadas" message="Las entregas creadas desde Órdenes de Venta aparecerán aquí." />
+                ) : (
+                    <div className="space-y-8">
+                        {Object.keys(groupedDeliveries).map((dateLabel) => {
+                            const dateDeliveries = groupedDeliveries[dateLabel];
+                            return (
+                            <div key={dateLabel}>
+                                <h4 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-3 border-b border-slate-100 dark:border-slate-700 pb-1">{dateLabel}</h4>
+                                <div className="space-y-3">
+                                    {dateDeliveries.map(delivery => (
+                                        <div 
+                                            key={delivery.id} 
+                                            onClick={() => handleOpenModal(delivery)}
+                                            className="group flex items-center justify-between p-4 bg-white dark:bg-slate-700/30 border border-slate-200 dark:border-slate-700 rounded-lg hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-500 transition-all cursor-pointer"
+                                        >
+                                            <div className="flex-1 grid grid-cols-12 gap-4 items-center">
+                                                <div className="col-span-4">
+                                                    <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
+                                                        {delivery.isSample ? 'Muestra de producto' : `Entrega de orden ${delivery.salesOrderId}`}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">{delivery.deliveryNumber}</p>
+                                                </div>
+                                                <div className="col-span-3">
+                                                    <p className="text-xs uppercase text-slate-400 font-semibold">Cliente</p>
+                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{companiesMap.get(delivery.companyId) || 'N/A'}</p>
+                                                </div>
+                                                <div className="col-span-3">
+                                                    <p className="text-xs uppercase text-slate-400 font-semibold">Transportista</p>
+                                                    <p className="text-sm text-slate-600 dark:text-slate-400 truncate">{carriersMap.get(delivery.carrierId) || 'Asignación Pendiente'}</p>
+                                                </div>
+                                                 <div className="col-span-2 text-right">
+                                                    <Badge text={delivery.status} color={getStatusColor(delivery.status)} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )})}
+                    </div>
+                )}
+            </div>
 
             <DeliveryDetailModal
                 isOpen={isModalOpen}

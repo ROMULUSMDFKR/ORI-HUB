@@ -205,19 +205,32 @@ const SalesOrdersPipelinePage: React.FC = () => {
             ];
             return <Table columns={columns} data={salesOrders} />;
         case 'history':
+            if (pipelineActivities.length === 0) {
+                 return (
+                     <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
+                         <span className="material-symbols-outlined text-4xl mb-2">history</span>
+                         <p>No hay actividad registrada para las órdenes de venta.</p>
+                     </div>
+                 );
+             }
             return (
                 <ul className="space-y-4">
                     {pipelineActivities.map(activity => {
                         const user = usersMap.get(activity.userId);
                         const so = salesOrders.find(s => s.id === activity.salesOrderId);
-                        if (!user || !so) return null;
+                        
+                        const userName = user?.name || 'Usuario Desconocido';
+                        const userAvatar = user?.avatarUrl || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+                        const soLink = so ? `/hubs/sales-orders/${so.id}` : '#';
+                        const soId = so?.id || 'Orden Desconocida';
+
                         return (
                             <li key={activity.id} className="flex items-start gap-3 text-sm p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                                <div><img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full" /></div>
+                                <div><img src={userAvatar} alt={userName} className="w-8 h-8 rounded-full" /></div>
                                 <div className="flex-1">
                                     <p className="text-slate-800 dark:text-slate-200">{activity.description}</p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                        {user.name} en <Link to={`/hubs/sales-orders/${so?.id}`} className="font-semibold hover:underline">{so?.id}</Link> &bull; {new Date(activity.createdAt).toLocaleString()}
+                                        {userName} en <Link to={soLink} className="font-semibold hover:underline">{soId}</Link> &bull; {new Date(activity.createdAt).toLocaleString()}
                                     </p>
                                 </div>
                             </li>

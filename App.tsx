@@ -1,12 +1,12 @@
 
 
+
 import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useAuth } from './hooks/useAuth';
 
 import Header from './components/layout/Header';
-import QuickTaskModal from './components/layout/QuickTaskModal';
 import PrimarySidebar from './components/layout/PrimarySidebar';
 import ContentLayout from './components/layout/ContentLayout';
 import { NAV_LINKS } from './constants';
@@ -14,6 +14,7 @@ import SecondarySidebar from './components/layout/SecondarySidebar';
 import { User, Task } from './types';
 import { api } from './api/firebaseApi';
 import { ToastProvider } from './contexts/ToastContext';
+import { ChatProvider } from './contexts/ChatContext';
 import ToastContainer from './components/ui/ToastContainer';
 import { useToast } from './hooks/useToast';
 
@@ -149,6 +150,7 @@ const AiAccessSettingsPage = lazy(() => import('./pages/settings/AiAccessSetting
 const EmailAppearancePage = lazy(() => import('./pages/CrmPage'));
 const RoleManagementPage = lazy(() => import('./pages/settings/RoleManagementPage'));
 const EditRolePage = lazy(() => import('./pages/settings/EditRolePage'));
+const InternalCompaniesSettings = lazy(() => import('./pages/settings/InternalCompaniesSettings'));
 
 // Auth & Onboarding
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -160,9 +162,25 @@ const TermsAndConditionsPage = lazy(() => import('./pages/TermsAndConditionsPage
 
 const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () => void }> = ({ user, onLogout, refreshUser }) => {
     const location = useLocation();
-    const [isQuickTaskOpen, setIsQuickTaskOpen] = useState(false);
     const [headerTitle, setHeaderTitle] = useState('Hoy');
     const { showToast } = useToast();
+
+    // --- Apply Theme Preference ---
+    useEffect(() => {
+        // Priority: User Profile > Local Storage > System Preference (default light)
+        const userTheme = user.theme;
+        const localTheme = localStorage.getItem('crm-theme-mode');
+        
+        if (userTheme) {
+            if (userTheme === 'dark') document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+            // Sync local storage
+            localStorage.setItem('crm-theme-mode', userTheme);
+        } else if (localTheme) {
+             if (localTheme === 'dark') document.documentElement.classList.add('dark');
+             else document.documentElement.classList.remove('dark');
+        }
+    }, [user.theme]);
 
     const secondarySidebarContent = useMemo(() => {
         const currentTopLevelPath = `/${location.pathname.split('/')[1]}`;
@@ -222,23 +240,6 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
              setHeaderTitle('');
         }
     }, [location.pathname]);
-
-    const handleQuickTaskSave = async (taskData: Partial<Task>) => {
-        if (!user) return;
-        try {
-            await api.addDoc('tasks', {
-                ...taskData,
-                createdAt: new Date().toISOString(),
-                createdById: user.id,
-                assignees: [user.id],
-                watchers: [],
-            });
-            showToast('success', 'Tarea rápida creada.');
-        } catch (error) {
-            console.error(error);
-            showToast('error', 'Error al crear tarea.');
-        }
-    };
 
     return (
         <div className="flex h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden">
@@ -361,6 +362,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/settings/roles" element={<RoleManagementPage />} />
                             <Route path="/settings/roles/:id/edit" element={<EditRolePage />} />
                             <Route path="/settings/teams" element={<TeamManagementPage />} />
+                            <Route path="/settings/internal-companies" element={<InternalCompaniesSettings />} />
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />
                             <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />
                             <Route path="/settings/industries" element={<IndustryManagementPage />} />
@@ -372,21 +374,6 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                         </Routes>
                     </Suspense>
                 </ContentLayout>
-
-                {/* Floating Action Button for Quick Task */}
-                <button
-                    onClick={() => setIsQuickTaskOpen(true)}
-                    className="absolute bottom-8 right-8 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 transition-all z-40 hover:scale-105 active:scale-95"
-                    title="Tarea Rápida"
-                >
-                    <span className="material-symbols-outlined text-2xl">add_task</span>
-                </button>
-
-                <QuickTaskModal
-                    isOpen={isQuickTaskOpen}
-                    onClose={() => setIsQuickTaskOpen(false)}
-                    onSave={handleQuickTaskSave}
-                />
             </div>
         </div>
     );
@@ -399,31 +386,33 @@ export const App: React.FC = () => {
 
     return (
         <ToastProvider>
-            <HashRouter>
-                <Routes>
-                    <Route path="/login" element={!user ? <LoginPage onLogin={login} /> : <Navigate to="/" />} />
-                    <Route path="/signup" element={<SignupPage />} />
-                    <Route path="/activate" element={<ActivateAccountPage />} />
-                    <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
-                    <Route path="/terms" element={<TermsAndConditionsPage />} />
-                    <Route path="/onboarding" element={user ? <OnboardingPage onComplete={refreshUser} /> : <Navigate to="/login" />} />
-                    
-                    <Route path="/*" element={
-                        user ? (
-                            user.hasCompletedOnboarding === false ? (
-                                <Navigate to="/onboarding" />
+            <ChatProvider>
+                <HashRouter>
+                    <Routes>
+                        <Route path="/login" element={!user ? <LoginPage onLogin={login} /> : <Navigate to="/" />} />
+                        <Route path="/signup" element={<SignupPage />} />
+                        <Route path="/activate" element={<ActivateAccountPage />} />
+                        <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+                        <Route path="/terms" element={<TermsAndConditionsPage />} />
+                        <Route path="/onboarding" element={user ? <OnboardingPage onComplete={refreshUser} /> : <Navigate to="/login" />} />
+                        
+                        <Route path="/*" element={
+                            user ? (
+                                user.hasCompletedOnboarding === false ? (
+                                    <Navigate to="/onboarding" />
+                                ) : (
+                                    <React.Fragment>
+                                        <AppContent user={user} onLogout={logout} refreshUser={refreshUser} />
+                                        <ToastContainer />
+                                    </React.Fragment>
+                                )
                             ) : (
-                                <React.Fragment>
-                                    <AppContent user={user} onLogout={logout} refreshUser={refreshUser} />
-                                    <ToastContainer />
-                                </React.Fragment>
+                                <Navigate to="/login" />
                             )
-                        ) : (
-                            <Navigate to="/login" />
-                        )
-                    } />
-                </Routes>
-            </HashRouter>
+                        } />
+                    </Routes>
+                </HashRouter>
+            </ChatProvider>
         </ToastProvider>
     );
 };

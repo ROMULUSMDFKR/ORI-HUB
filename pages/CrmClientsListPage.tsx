@@ -1,19 +1,26 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-// FIX: Replaced non-existent 'Client' type with 'Company'.
-import { Company } from '../types';
+// FIX: Imported User type
+import { Company, User } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 
 const CrmClientsListPage: React.FC = () => {
     // FIX: Switched to fetching 'companies' collection with 'Company' type.
-    const { data: companies, loading, error } = useCollection<Company>('companies');
+    const { data: companies, loading: companiesLoading, error } = useCollection<Company>('companies');
+    const { data: users, loading: usersLoading } = useCollection<User>('users');
+    
     const [filter, setFilter] = useState('');
     const navigate = useNavigate();
+
+    // Create a map of user IDs to User objects for quick lookup
+    const usersMap = useMemo(() => {
+        if (!users) return new Map<string, User>();
+        return new Map(users.map(u => [u.id, u]));
+    }, [users]);
 
     const filteredClients = useMemo(() => {
         if (!companies) return [];
@@ -35,8 +42,41 @@ const CrmClientsListPage: React.FC = () => {
             )
         },
         { header: 'Industria', accessor: (client: Company) => client.industry || '-' },
-        { header: 'Responsable', accessor: (client: Company) => client.ownerId },
+        { 
+            header: 'Responsable', 
+            accessor: (client: Company) => {
+                const user = usersMap.get(client.ownerId);
+                if (!user) return <span className="text-slate-400">N/A</span>;
+                return (
+                    <div className="flex items-center gap-2">
+                        <img 
+                            src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} 
+                            alt={user.name} 
+                            className="w-6 h-6 rounded-full object-cover" 
+                        />
+                        <span className="text-sm text-slate-700 dark:text-slate-300">{user.name}</span>
+                    </div>
+                );
+            }
+        },
+        {
+            header: 'Acciones',
+            accessor: (client: Company) => (
+                <div className="flex justify-end gap-2">
+                    <button 
+                        onClick={() => navigate(`/crm/clients/${client.id}/edit`)}
+                        className="text-slate-400 hover:text-indigo-600 transition-colors"
+                        title="Editar"
+                    >
+                        <span className="material-symbols-outlined text-base">edit</span>
+                    </button>
+                </div>
+            ),
+            className: 'text-right'
+        }
     ];
+
+    const loading = companiesLoading || usersLoading;
 
     const renderContent = () => {
         if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;

@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { Candidate, CandidateStatus, Brand } from '../types';
 import Table from '../components/ui/Table';
@@ -8,6 +7,7 @@ import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
 import FilterButton from '../components/ui/FilterButton';
+import { getCanonicalState } from '../constants'; // Import helper
 
 const calculateProfileScore = (c: Candidate) => {
     let score = 0;
@@ -34,6 +34,7 @@ const CandidatesPage: React.FC = () => {
     const { data: candidates, loading: cLoading, error } = useCollection<Candidate>('candidates');
     const { data: brands, loading: bLoading } = useCollection<Brand>('brands');
     const navigate = useNavigate();
+    const locationHook = useLocation();
 
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [tagFilter, setTagFilter] = useState<string>('all');
@@ -41,25 +42,72 @@ const CandidatesPage: React.FC = () => {
     const [stateFilter, setStateFilter] = useState<string>('all');
     const [cityFilter, setCityFilter] = useState<string>('all');
     const [scoreFilter, setScoreFilter] = useState<string>('all');
+    const [importHistoryFilter, setImportHistoryFilter] = useState<string | null>(null);
     
     // Tag-based search state
     const [searchTags, setSearchTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
+    const [showSuggestions, setShowSuggestions] = useState(false);
 
     const loading = cLoading || bLoading;
+
+    // Handle Import History Filter from Navigation State
+    useEffect(() => {
+        if (locationHook.state && locationHook.state.importHistoryId) {
+            setImportHistoryFilter(locationHook.state.importHistoryId);
+            // Reset other filters to default to show the full import batch clearly
+            setStatusFilter('all');
+            setTagFilter('all');
+            setCompanyFilter('all');
+            setStateFilter('all');
+            setCityFilter('all');
+            setScoreFilter('all');
+            setSearchTags([]);
+        }
+    }, [locationHook.state]);
     
+    // Extract all unique categories and names for suggestions
+    const allSuggestions = useMemo(() => {
+        if (!candidates) return [];
+        const suggestions = new Set<string>();
+        candidates.forEach(c => {
+            c.rawCategories?.forEach(cat => {
+                if (cat) suggestions.add(cat);
+            });
+            // Also add names to suggestions for better UX
+            if (c.name) suggestions.add(c.name);
+        });
+        return Array.from(suggestions).sort();
+    }, [candidates]);
+
+    const suggestions = useMemo(() => {
+        if (!tagInput.trim()) return [];
+        const lowerInput = tagInput.toLowerCase();
+        return allSuggestions.filter(item => 
+            item.toLowerCase().includes(lowerInput) && 
+            !searchTags.includes(item)
+        ).slice(0, 10); // Limit to top 10 matches
+    }, [tagInput, allSuggestions, searchTags]);
+
     // Handle Tag Input
     const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && tagInput.trim()) {
             e.preventDefault();
+            // Only add if it's not already there
             if (!searchTags.includes(tagInput.trim())) {
                 setSearchTags([...searchTags, tagInput.trim()]);
             }
             setTagInput('');
-        } else if (e.key === 'Backspace' && !tagInput && searchTags.length > 0) {
-            // Remove last tag if input is empty and backspace is pressed
-            setSearchTags(searchTags.slice(0, -1));
+            setShowSuggestions(false);
         }
+    };
+
+    const addSearchTag = (tag: string) => {
+        if (!searchTags.includes(tag)) {
+            setSearchTags([...searchTags, tag]);
+        }
+        setTagInput('');
+        setShowSuggestions(false);
     };
 
     const removeSearchTag = (tag: string) => {
@@ -69,25 +117,33 @@ const CandidatesPage: React.FC = () => {
     const filteredData = useMemo(() => {
         if (!candidates) return [];
         return candidates.filter(c => {
+            // Special Import History Filter
+            if (importHistoryFilter && c.importHistoryId !== importHistoryFilter) return false;
+
             const statusMatch = statusFilter === 'all' || c.status === statusFilter;
             const tagMatch = tagFilter === 'all' || c.tags.includes(tagFilter);
             const companyMatch = companyFilter === 'all' || c.assignedCompanyId === companyFilter;
-            const stateMatch = stateFilter === 'all' || c.state === stateFilter;
+            
+            // Use normalized state for filtering
+            const normalizedState = getCanonicalState(c.state);
+            const stateMatch = stateFilter === 'all' || normalizedState === stateFilter;
+            
             const cityMatch = cityFilter === 'all' || c.city === cityFilter;
             
             // Logic: Search Terms (Additive / OR logic)
-            // If no tags, show all. If tags exist, candidate must match AT LEAST ONE tag in their rawCategories.
+            // Broad search across Name, Categories, Tags, City, and State
             let searchMatch = true;
             if (searchTags.length > 0) {
-                if (!c.rawCategories || c.rawCategories.length === 0) {
-                    searchMatch = false;
-                } else {
-                    // Check if any of the search tags are included in any of the candidate's raw categories
-                    // Case insensitive matching
-                    searchMatch = searchTags.some(tag => 
-                        c.rawCategories?.some(cat => cat.toLowerCase().includes(tag.toLowerCase()))
+                searchMatch = searchTags.some(tag => {
+                    const lowerTag = tag.toLowerCase();
+                    return (
+                        c.name.toLowerCase().includes(lowerTag) ||
+                        c.rawCategories?.some(cat => cat.toLowerCase().includes(lowerTag)) ||
+                        c.tags?.some(t => t.toLowerCase().includes(lowerTag)) ||
+                        c.city?.toLowerCase().includes(lowerTag) ||
+                        c.state?.toLowerCase().includes(lowerTag)
                     );
-                }
+                });
             }
 
             const score = calculateProfileScore(c);
@@ -110,18 +166,28 @@ const CandidatesPage: React.FC = () => {
 
             return statusMatch && tagMatch && companyMatch && stateMatch && cityMatch && scoreMatch && searchMatch;
         });
-    }, [candidates, statusFilter, tagFilter, companyFilter, stateFilter, cityFilter, scoreFilter, searchTags]);
+    }, [candidates, statusFilter, tagFilter, companyFilter, stateFilter, cityFilter, scoreFilter, searchTags, importHistoryFilter]);
 
     // Dynamic filter options
     const { stateOptions, cityOptions } = useMemo(() => {
         if (!candidates) return { stateOptions: [], cityOptions: [] };
         
-        const uniqueStates = [...new Set(candidates.map(c => c.state).filter(Boolean) as string[])].sort();
-        const stateOpts = uniqueStates.map(s => ({ value: s, label: s }));
+        // Use Set to deduplicate normalized names
+        const uniqueStates = new Set<string>();
+        candidates.forEach(c => {
+            const normalized = getCanonicalState(c.state);
+            if(normalized) uniqueStates.add(normalized);
+        });
+        const stateOpts = Array.from(uniqueStates).sort().map(s => ({ value: s, label: s }));
 
         let citiesInState: string[] = [];
         if (stateFilter !== 'all') {
-            citiesInState = [...new Set(candidates.filter(c => c.state === stateFilter).map(c => c.city).filter(Boolean) as string[])].sort();
+            citiesInState = [...new Set(
+                candidates
+                .filter(c => getCanonicalState(c.state) === stateFilter)
+                .map(c => c.city)
+                .filter(Boolean) as string[]
+            )].sort();
         }
         const cityOpts = citiesInState.map(c => ({ value: c, label: c }));
 
@@ -212,10 +278,28 @@ const CandidatesPage: React.FC = () => {
                 <div className="flex items-center gap-3">
                     <Link to="/prospecting/upload" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                         <span className="material-symbols-outlined mr-2">upload</span>
-                        Importar Candidatos
+                        Importar / Buscar Candidatos
                     </Link>
                 </div>
             </div>
+            
+            {/* Import History Banner */}
+            {importHistoryFilter && (
+                <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 p-3 rounded-lg flex justify-between items-center flex-shrink-0">
+                    <div className="flex items-center gap-2 text-indigo-800 dark:text-indigo-200">
+                        <span className="material-symbols-outlined">filter_list</span>
+                        <span className="text-sm font-medium">Estás viendo los resultados de una importación específica ({filteredData.length} registros).</span>
+                    </div>
+                    <button 
+                        onClick={() => setImportHistoryFilter(null)} 
+                        className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                    >
+                        <span className="material-symbols-outlined !text-sm">close</span>
+                        Ver Todos
+                    </button>
+                </div>
+            )}
+
             <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700 flex-shrink-0">
                 <FilterButton label="Estatus" options={statusOptions} selectedValue={statusFilter} onSelect={setStatusFilter} />
                 <FilterButton label="Etiqueta" options={tagOptions} selectedValue={tagFilter} onSelect={setTagFilter} />
@@ -224,29 +308,46 @@ const CandidatesPage: React.FC = () => {
                 <FilterButton label="Ciudad" options={cityOptions} selectedValue={cityFilter} onSelect={setCityFilter} disabled={stateFilter === 'all'} />
                 <FilterButton label="Puntuación" options={scoreOptions} selectedValue={scoreFilter} onSelect={setScoreFilter} />
                 
-                {/* Search Term Filter with Tags */}
-                <div className="flex-grow ml-auto flex justify-end">
-                    <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 w-full max-w-md focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition-all">
-                        <span className="material-symbols-outlined text-slate-400 text-xl">search</span>
-                        <div className="flex flex-wrap gap-2 items-center flex-1">
-                            {searchTags.map((tag, index) => (
-                                <span key={index} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-medium">
-                                    {tag}
-                                    <button onClick={() => removeSearchTag(tag)} className="hover:text-indigo-900 dark:hover:text-indigo-100 focus:outline-none">
-                                        &times;
-                                    </button>
-                                </span>
-                            ))}
-                            <input
-                                type="text"
-                                value={tagInput}
-                                onChange={(e) => setTagInput(e.target.value)}
-                                onKeyDown={handleTagInputKeyDown}
-                                placeholder={searchTags.length === 0 ? "Filtrar por término..." : ""}
-                                className="bg-transparent outline-none text-sm text-slate-800 dark:text-slate-200 min-w-[120px] flex-1 py-1"
-                            />
-                        </div>
+                {/* Search Term Input with Autocomplete */}
+                <div className="relative">
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 w-64 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition-all">
+                        <span className="material-symbols-outlined text-slate-400 text-xl mr-2">search</span>
+                        <input
+                            type="text"
+                            value={tagInput}
+                            onChange={(e) => { setTagInput(e.target.value); setShowSuggestions(true); }}
+                            onFocus={() => setShowSuggestions(true)}
+                            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                            onKeyDown={handleTagInputKeyDown}
+                            placeholder="Buscar..."
+                            className="bg-transparent outline-none text-sm text-slate-800 dark:text-slate-200 w-full placeholder-slate-500 dark:placeholder-slate-400"
+                        />
                     </div>
+                    {showSuggestions && suggestions.length > 0 && (
+                        <ul className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                            {suggestions.map(suggestion => (
+                                <li
+                                    key={suggestion}
+                                    onClick={() => addSearchTag(suggestion)}
+                                    className="px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                                >
+                                    {suggestion}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+
+                {/* Active Search Tags */}
+                <div className="flex flex-wrap gap-2 items-center flex-1">
+                    {searchTags.map((tag, index) => (
+                        <span key={index} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-medium border border-indigo-200 dark:border-indigo-800">
+                            {tag}
+                            <button onClick={() => removeSearchTag(tag)} className="hover:text-indigo-900 dark:hover:text-indigo-100 focus:outline-none flex items-center">
+                                <span className="material-symbols-outlined !text-sm">close</span>
+                            </button>
+                        </span>
+                    ))}
                 </div>
             </div>
             

@@ -176,6 +176,7 @@ const NewPurchaseOrderPage: React.FC = () => {
             subtotal,
             tax,
             total,
+            paidAmount: 0,
         };
 
         try {

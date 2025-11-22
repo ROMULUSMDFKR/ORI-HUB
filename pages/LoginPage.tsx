@@ -77,7 +77,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       </div>
 
       {/* Background Layer 2: Giant Asterisk - Slower Rotation (120s) */}
-      <div className="absolute top-[-105vh] left-[-105vh] z-10 pointer-events-none">
+      <div 
+        className="absolute left-[-105vh] z-10 pointer-events-none"
+        style={{ top: 'calc(-105vh - 250px)' }}
+      >
         <svg 
             xmlns="http://www.w3.org/2000/svg" 
             viewBox="0 0 20 20" 

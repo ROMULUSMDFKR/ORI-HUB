@@ -1,3 +1,5 @@
+
+
 export interface User {
     id: string;
     name: string;
@@ -343,6 +345,17 @@ export interface Quote {
 }
 
 export enum QuoteStatus {
+    Borrador = 'Borrador',
+    EnAprobacionInterna = 'En Aprobación Interna',
+    AjustesRequeridos = 'Ajustes Requeridos',
+    ListaParaEnviar = 'Lista Para Enviar',
+    EnviadaAlCliente = 'Enviada Al Cliente',
+    EnNegociacion = 'En Negociación',
+    AprobadaPorCliente = 'Aprobada Por Cliente',
+    Rechazada = 'Rechazada'
+}
+
+export enum QuotePipelineStage {
     Borrador = 'Borrador',
     EnAprobacionInterna = 'En Aprobación Interna',
     AjustesRequeridos = 'Ajustes Requeridos',
@@ -732,7 +745,7 @@ export interface InvoiceItem {
     unitPrice: number;
     subtotal: number;
 }
-
+// FIX: Moved CommissionStatus enum definition before its usage in the Commission interface.
 export enum CommissionStatus {
     Pendiente = 'Pendiente',
     Pagada = 'Pagada',

@@ -108,7 +108,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
       {/* Background Layer 2: Giant Asterisk - Slower Rotation (120s) */}
       <div 
-        className="absolute left-[calc(-135vh-100px)] z-10 pointer-events-none"
+        className="absolute left-[calc(-135vh-100px)] z-10 pointer-events-none animate-entrance"
         style={{ top: 'calc(-135vh - 250px)' }}
       >
         <svg 

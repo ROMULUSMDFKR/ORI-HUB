@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -13,6 +15,7 @@ const CrmSuppliersListPage: React.FC = () => {
     const [filter, setFilter] = useState('');
     const [industryFilter, setIndustryFilter] = useState<string>('all');
     const [ratingFilter, setRatingFilter] = useState<string>('all');
+    //FIX: Add navigate to use it in EmptyState
     const navigate = useNavigate();
 
     const filteredData = useMemo(() => {

@@ -1,3 +1,5 @@
+
+
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -87,9 +89,7 @@ const ProductDashboardPage: React.FC = () => {
     // --- Data Processing ---
     const lotsByProductId = useMemo(() => {
         if (!lotsData) return new Map<string, ProductLot[]>();
-        // The data is an array, so we can reduce it.
-        const allLots: ProductLot[] = Array.isArray(lotsData) ? lotsData : [];
-        return allLots.reduce((acc, lot) => {
+        return lotsData.reduce((acc, lot) => {
             if (!acc.has(lot.productId)) {
                 acc.set(lot.productId, []);
             }

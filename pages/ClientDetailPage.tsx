@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
@@ -252,7 +253,9 @@ const ClientDetailPage: React.FC = () => {
     const companyQuotes = useMemo(() => quotes?.filter(q => q.companyId === id) || [], [quotes, id]);
     const companySamples = useMemo(() => samples?.filter(s => s.companyId === id) || [], [samples, id]);
     const companySalesOrders = useMemo(() => salesOrders?.filter(so => so.companyId === id) || [], [salesOrders, id]);
-    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+    // FIX: Añado un tipo explícito a useMemo para asegurar la inferencia correcta de tipos para `usersMap`.
+    // Esto resuelve el error `Map<unknown, unknown>` y el error de acceso a `author.name`.
+    const usersMap = useMemo(() => new Map<string, User>(users?.map(u => [u.id, u])), [users]);
 
     const owner = useMemo(() => usersMap.get(currentCompany?.ownerId || ''), [usersMap, currentCompany]);
 
@@ -356,12 +359,11 @@ const ClientDetailPage: React.FC = () => {
         try {
             if (isEditingPrimary) {
                 // 1. Update Company Document - Primary Contact Embed
-                const updatedPrimary = {
-                    ...currentCompany.primaryContact, // Preserve existing ID if any
+                // FIX: Aseguro que `updatedPrimary` sea un objeto `Contact` completo para cumplir con la firma del tipo.
+                const updatedPrimary: Contact = {
+                    // Empiezo con propiedades base para asegurar que todos los campos existan
+                    ...(currentCompany.primaryContact || { id: `contact-${Date.now()}`, role: 'Contacto Principal' }),
                     ...safeContactData,
-                    role: safeContactData.role || 'Contacto Principal',
-                    // Ensure ID is present
-                    id: currentCompany.primaryContact?.id || safeContactData.id || `contact-${Date.now()}`,
                 };
                 
                 await api.updateDoc('companies', id, { primaryContact: updatedPrimary });

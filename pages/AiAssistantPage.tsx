@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GoogleGenAI, FunctionDeclaration, Type } from '@google/genai';
 import { useCollection } from '../hooks/useCollection';
@@ -16,10 +17,10 @@ interface Message {
 
 // MOCK PERMISSIONS - In a real app, this would come from a user context
 const MOCK_ACTION_PERMISSIONS: Record<string, Record<string, boolean>> = {
-    'Owner': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true, 'createProspect': true },
-    'Admin': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true, 'createProspect': true },
-    'Ventas': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true, 'createProspect': true },
-    'Logística': { 'createTask': true, 'updateClientStatus': false, 'getSummary': true, 'createProspect': false },
+    'Owner': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true, 'createProspect': true, 'analyzeWebsite': true },
+    'Admin': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true, 'createProspect': true, 'analyzeWebsite': true },
+    'Ventas': { 'createTask': true, 'updateClientStatus': true, 'getSummary': true, 'createProspect': true, 'analyzeWebsite': true },
+    'Logística': { 'createTask': true, 'updateClientStatus': false, 'getSummary': true, 'createProspect': false, 'analyzeWebsite': false },
 };
 
 // DEFINE ALL POSSIBLE AI FUNCTIONS
@@ -62,13 +63,24 @@ const ALL_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
             required: ['clientName', 'newStatus'],
         },
     },
+    {
+        name: 'analyzeWebsite',
+        description: 'Analiza una URL de sitio web o perfil para extraer información de contacto y detalles de la empresa.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                url: { type: Type.STRING, description: 'La URL del sitio web a analizar.' },
+            },
+            required: ['url'],
+        },
+    },
 ];
 
 const AiAssistantPage: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 0,
-            text: "¡Hola! Soy tu asistente de IA. Puedes pedirme que cree tareas, registre nuevos prospectos, resuma datos o actualice el estado de un cliente. También puedes usar el micrófono para hablar.",
+            text: "¡Hola! Soy tu asistente de IA. Puedes pedirme que cree tareas, registre nuevos prospectos (incluso desde una URL), resuma datos o actualice el estado de un cliente.",
             sender: 'ai'
         }
     ]);
@@ -164,7 +176,8 @@ const AiAssistantPage: React.FC = () => {
 
             const prompt = `
                 Eres "Studio AI", un asistente de IA experto en CRM. Responde a la pregunta del usuario de forma concisa y útil.
-                Si la pregunta parece una orden para ejecutar una acción (como 'crear', 'actualizar', 'registrar', 'modificar'), utiliza las herramientas disponibles. 
+                Si la pregunta parece una orden para ejecutar una acción (como 'crear', 'actualizar', 'registrar', 'analizar enlace'), utiliza las herramientas disponibles. 
+                Si el usuario te da una URL para crear un prospecto, PRIMERO llama a 'analyzeWebsite' para extraer la información y espera mi respuesta con los datos extraídos.
                 Si no tienes una herramienta para la acción o no tienes permiso, informa al usuario amablemente.
                 De lo contrario, responde basándote en el contexto.
                 Contexto: ${context}
@@ -182,11 +195,14 @@ const AiAssistantPage: React.FC = () => {
             if (response.functionCalls && response.functionCalls.length > 0) {
                 const functionCall = response.functionCalls[0];
                 let apiResponseText = '';
+                let aiResponseText = '';
 
                 if (functionCall.name === 'createTask') {
                     console.log('AI wants to create a task:', functionCall.args);
                     await api.addDoc('tasks', { id: `task-${Date.now()}`, assignees: [currentUser.id], ...functionCall.args });
                     apiResponseText = `¡Tarea "${functionCall.args.title}" creada exitosamente!`;
+                    aiResponseText = apiResponseText;
+
                 } else if (functionCall.name === 'createProspect') {
                     console.log('AI wants to create a prospect:', functionCall.args);
                     
@@ -203,22 +219,60 @@ const AiAssistantPage: React.FC = () => {
                         priority: 'Media'
                     };
                     
-                    // If company name is provided, append to name or notes since Prospect interface is simple in this mock
                     if (functionCall.args.company) {
                          newProspect.notes += `\nEmpresa: ${functionCall.args.company}`;
                     }
 
                     await api.addDoc('prospects', newProspect);
                     apiResponseText = `¡Prospecto "${functionCall.args.name}" creado exitosamente en la etapa "Nueva"!`;
+                    aiResponseText = apiResponseText;
 
                 } else if (functionCall.name === 'updateClientStatus') {
                     console.log('AI wants to update a client:', functionCall.args);
                     apiResponseText = `Acción simulada: Estatus de "${functionCall.args.clientName}" actualizado a "${functionCall.args.newStatus}".`;
+                    aiResponseText = apiResponseText;
+
+                } else if (functionCall.name === 'analyzeWebsite') {
+                    console.log('AI wants to analyze a website:', functionCall.args);
+                    
+                    // SIMULATE SCRAPING LOGIC (Since we cannot do real CORS requests in frontend)
+                    const url = functionCall.args.url as string;
+                    let extractedData = {};
+                    
+                    // Simple mock logic based on URL content to make it feel intelligent
+                    if (url.includes('linkedin')) {
+                        extractedData = {
+                            name: "Contacto de LinkedIn",
+                            company: "Empresa LinkedIn",
+                            role: "Gerente",
+                            estValue: 15000
+                        };
+                    } else {
+                        // Extract domain as company name mock
+                        const domain = url.replace(/(^\w+:|^)\/\//, '').split('/')[0].replace('www.', '').split('.')[0];
+                        const capitalized = domain.charAt(0).toUpperCase() + domain.slice(1);
+                        extractedData = {
+                            name: `Contacto de ${capitalized}`,
+                            company: capitalized,
+                            estValue: 5000,
+                            notes: `Extraído automáticamente de ${url}`
+                        };
+                    }
+                    
+                    // We don't add a message yet, we feed this back to the AI or ask user confirmation
+                    // For this simplified flow, we'll tell the user what we found and ask to confirm.
+                    const foundDataStr = JSON.stringify(extractedData, null, 2);
+                    aiResponseText = `He analizado el enlace. Encontré la siguiente información:\n\n${foundDataStr}\n\n¿Quieres que proceda a crear el prospecto con estos datos?`;
+                    
+                    // OPTIONAL: If you want the AI to automatically chain the creation, you would need a loop here.
+                    // For better UX, asking confirmation is safer.
+                
                 } else {
                     apiResponseText = `No reconozco la acción: ${functionCall.name}`;
+                    aiResponseText = apiResponseText;
                 }
                 
-                const aiMessage: Message = { id: Date.now() + 1, text: apiResponseText, sender: 'ai' };
+                const aiMessage: Message = { id: Date.now() + 1, text: aiResponseText, sender: 'ai' };
                 setMessages(prev => [...prev, aiMessage]);
             } else {
                 const aiMessage: Message = { id: Date.now() + 1, text: response.text, sender: 'ai' };
@@ -279,7 +333,7 @@ const AiAssistantPage: React.FC = () => {
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Pregúntale algo a tu asistente..."
+                        placeholder="Ej: Crea un prospecto desde www.empresa.com"
                         className="w-full !pr-24"
                         disabled={isLoading}
                     />

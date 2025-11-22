@@ -129,7 +129,7 @@ const PurchasesDashboardPage: React.FC = () => {
                                                 <p className="text-xs text-slate-500 dark:text-slate-400">{suppliersMap.get(po.supplierId)}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="font-bold text-sm">${po.total.toLocaleString()}</p>
+                                                <p className="font-bold text-sm">${(po.total || 0).toLocaleString()}</p>
                                                 <Badge text={po.status} color={getStatusColor(po.status)} />
                                             </div>
                                         </li>

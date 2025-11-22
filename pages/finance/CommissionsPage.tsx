@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { Commission, CommissionStatus, SalesOrder, User } from '../../types';
@@ -91,7 +92,7 @@ const CommissionsPage: React.FC = () => {
     const columns = [
         { header: 'Vendedor', accessor: (c: Commission) => usersMap.get(c.salespersonId) || 'N/A' },
         { header: 'Orden de Venta', accessor: (c: Commission) => c.salesOrderId },
-        { header: 'Monto', accessor: (c: Commission) => `$${c.amount.toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right font-semibold' },
+        { header: 'Monto', accessor: (c: Commission) => `$${(c.amount || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right font-semibold' },
         { header: 'Fecha Creación', accessor: (c: Commission) => new Date(c.createdAt).toLocaleDateString() },
         { header: 'Estado', accessor: (c: Commission) => <Badge text={c.status} color={c.status === CommissionStatus.Pagada ? 'green' : 'yellow'} /> },
         { 

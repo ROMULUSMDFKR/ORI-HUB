@@ -1,3 +1,4 @@
+
 import { ProspectStage, SampleStatus, QuotePipelineStage, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role } from './types';
 
 export const NAV_LINKS = [
@@ -200,14 +201,14 @@ export const SAMPLES_PIPELINE_COLUMNS = [
         objective: 'Contactar al cliente para obtener resultados de sus pruebas de laboratorio o campo. ¿Cumplió con las especificaciones técnicas?' 
     },
     { 
-        stage: SampleStatus.Cerrada, 
-        group: 'FINALIZADO', 
-        objective: 'Proceso de muestra concluido exitosamente. Proceder a cotización comercial si el feedback fue positivo.' 
+        stage: SampleStatus.Aprobada, 
+        group: 'RESULTADO', 
+        objective: 'El cliente aprobó la muestra. Las especificaciones cumplieron con sus requisitos. ¡Éxito! Se archivará automáticamente en 24h.' 
     },
     { 
-        stage: SampleStatus.Archivada, 
-        group: 'FINALIZADO', 
-        objective: 'Muestras antiguas o canceladas que se guardan para historial. No requieren seguimiento activo.' 
+        stage: SampleStatus.Cerrada, 
+        group: 'RESULTADO', 
+        objective: 'La muestra no fue aprobada o el proceso se canceló. Se requiere motivo de cierre. Se archivará automáticamente en 24h.' 
     },
 ];
 

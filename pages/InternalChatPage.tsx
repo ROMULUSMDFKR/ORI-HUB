@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/firebaseApi';
 import { useToast } from '../hooks/useToast';
 import { useChatNotifications } from '../contexts/ChatContext';
+import UserAvatar from '../components/ui/UserAvatar';
 
 const ChatWindow: React.FC<{
     chatId: string;
@@ -49,6 +50,14 @@ const ChatWindow: React.FC<{
         return groupsData?.find(g => g.id === chatId);
     }, [chatId, chatType, usersMap, groupsData]);
 
+    const targetName = useMemo(() => {
+        if (!chatTarget) return '';
+        if (chatType === 'user') {
+             return (chatTarget as User).nickname || (chatTarget as User).name;
+        }
+        return (chatTarget as Group).name;
+    }, [chatTarget, chatType]);
+
     if (loading || !currentUser || !chatTarget) {
         return <div className="flex-1 flex items-center justify-center"><Spinner /></div>;
     }
@@ -57,26 +66,28 @@ const ChatWindow: React.FC<{
         <div className="flex-1 flex flex-col">
             <header className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center gap-3">
                 {chatType === 'user' ? (
-                     <img src={(chatTarget as User).avatarUrl} alt={chatTarget.name} className="w-10 h-10 rounded-full" />
+                     <UserAvatar user={chatTarget as User} size="md" />
                 ) : (
                     <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
                         <span className="material-symbols-outlined text-slate-500">groups</span>
                     </div>
                 )}
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{chatTarget.name}</h2>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{targetName}</h2>
             </header>
             
             <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-100 dark:bg-slate-900/50">
                 {conversation.map(msg => {
                     const sender = usersMap.get(msg.senderId);
                     const isMe = msg.senderId === currentUser.id;
+                    const senderName = sender ? (sender.nickname || sender.name) : 'Desconocido';
+
                     return (
                         <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                             {chatType === 'group' && !isMe && sender && (
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 ml-10">{sender.name}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 ml-10">{senderName}</p>
                             )}
                              <div className={`flex items-end gap-2 max-w-lg ${isMe ? 'flex-row-reverse' : ''}`}>
-                                {sender && <img src={sender.avatarUrl} alt={sender.name} className="w-6 h-6 rounded-full mb-1" />}
+                                {sender && <UserAvatar user={sender} size="xs" />}
                                 <div className={`p-3 rounded-lg ${isMe ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200'}`}>
                                     <p className="text-sm">{msg.text}</p>
                                 </div>
@@ -94,7 +105,7 @@ const ChatWindow: React.FC<{
                             type="text"
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
-                            placeholder={`Mensaje a ${chatTarget.name}...`}
+                            placeholder={`Mensaje a ${targetName}...`}
                             className="w-full pr-12"
                         />
                         <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-indigo-600 text-white hover:opacity-90 disabled:opacity-50" disabled={!newMessage.trim()}>
@@ -113,9 +124,6 @@ const InternalChatPage: React.FC = () => {
     const { user: currentUser } = useAuth();
     const { showToast } = useToast();
     
-    // Replace useCollection with manual polling logic to ensure real-time-like updates
-    // In a real app with ChatContext this polling might be redundant for notifications, 
-    // but still useful to sync full history.
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [messagesLoading, setMessagesLoading] = useState(true);
 
@@ -161,7 +169,7 @@ const InternalChatPage: React.FC = () => {
             if (type === 'user' && id !== currentUser.id) {
                 const notification = {
                     userId: id, // receiverId
-                    title: `Nuevo mensaje de ${currentUser.name}`,
+                    title: `Nuevo mensaje de ${currentUser.nickname || currentUser.name}`,
                     message: text,
                     type: 'message' as 'message',
                     link: `/communication/chat/user/${currentUser.id}`, // Link back to the sender

@@ -160,74 +160,84 @@ const MapPage: React.FC = () => {
         });
     }, [candidates, statusFilter, tagFilter, companyFilter, stateFilter, cityFilter, scoreFilter, searchTags]);
 
-    // --- MAP INITIALIZATION & MARKERS ---
+    // --- MAP INITIALIZATION ---
     useEffect(() => {
-        if (mapContainerRef.current && !cLoading) {
-            if (!mapRef.current) {
-                mapRef.current = L.map(mapContainerRef.current).setView([23.6345, -102.5528], 5);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                }).addTo(mapRef.current);
-                markersRef.current = L.markerClusterGroup({
-                    showCoverageOnHover: false,
-                    maxClusterRadius: 50,
-                });
-                mapRef.current.addLayer(markersRef.current);
+        if (mapContainerRef.current && !mapRef.current) {
+            mapRef.current = L.map(mapContainerRef.current).setView([23.6345, -102.5528], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(mapRef.current);
+            
+            markersRef.current = L.markerClusterGroup({
+                showCoverageOnHover: false,
+                maxClusterRadius: 50,
+            });
+            mapRef.current.addLayer(markersRef.current);
+        }
+
+        // Cleanup function to destroy map on unmount
+        return () => {
+            if (mapRef.current) {
+                mapRef.current.remove();
+                mapRef.current = null;
+                markersRef.current = null;
+                boundaryLayerRef.current = null;
             }
+        };
+    }, []);
 
-            if (markersRef.current) {
-                markersRef.current.clearLayers();
-            }
+    // --- MARKERS UPDATE ---
+    useEffect(() => {
+        if (!mapRef.current || !markersRef.current) return;
 
-            const markers: any[] = [];
-            if (filteredData.length > 0) {
-                filteredData.forEach(c => {
-                    if (c.location && c.location.lat && c.location.lng) {
-                        const colorClass = getStatusColorClass(c.status);
-                        const customIcon = L.divIcon({
-                            className: 'custom-pin',
-                            html: `<div class="pin-inner ${colorClass}"></div>`,
-                            iconSize: [16, 16],
-                            iconAnchor: [8, 8]
-                        });
+        markersRef.current.clearLayers();
 
-                        const marker = L.marker([c.location.lat, c.location.lng], { icon: customIcon });
-                        
-                        const popupContent = `
-                            <div class="p-1 min-w-[220px] font-sans text-left">
-                                <div class="flex justify-between items-start mb-2">
-                                    <h3 class="font-bold text-base text-slate-800 leading-tight pr-2 m-0">${c.name}</h3>
-                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${colorClass.replace('bg-', 'bg-')} flex-shrink-0">${c.status}</span>
-                                </div>
-                                <p class="text-xs text-slate-500 mb-3 leading-snug">${c.address || 'Ubicación aproximada'}</p>
-                                <button 
-                                    onclick="window.navigateToCandidate('${c.id}')" 
-                                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-2 px-4 rounded shadow-sm transition-colors flex items-center justify-center cursor-pointer"
-                                >
-                                    Abrir Ficha
-                                </button>
+        const markers: any[] = [];
+        if (filteredData.length > 0) {
+            filteredData.forEach(c => {
+                if (c.location && c.location.lat && c.location.lng) {
+                    const colorClass = getStatusColorClass(c.status);
+                    const customIcon = L.divIcon({
+                        className: 'custom-pin',
+                        html: `<div class="pin-inner ${colorClass}"></div>`,
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8]
+                    });
+
+                    const marker = L.marker([c.location.lat, c.location.lng], { icon: customIcon });
+                    
+                    const popupContent = `
+                        <div class="p-1 min-w-[220px] font-sans text-left">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="font-bold text-base text-slate-800 leading-tight pr-2 m-0">${c.name}</h3>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${colorClass.replace('bg-', 'bg-')} flex-shrink-0">${c.status}</span>
                             </div>
-                        `;
-                        
-                        marker.bindPopup(popupContent);
-                        markers.push(marker);
-                    }
-                });
+                            <p class="text-xs text-slate-500 mb-3 leading-snug">${c.address || 'Ubicación aproximada'}</p>
+                            <button 
+                                onclick="window.navigateToCandidate('${c.id}')" 
+                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-2 px-4 rounded shadow-sm transition-colors flex items-center justify-center cursor-pointer"
+                            >
+                                Abrir Ficha
+                            </button>
+                        </div>
+                    `;
+                    
+                    marker.bindPopup(popupContent);
+                    markers.push(marker);
+                }
+            });
 
-                markersRef.current.addLayers(markers);
-                
-                if (stateFilter === 'all') {
-                    try {
-                        if(markers.length > 0) {
-                            mapRef.current.fitBounds(markersRef.current.getBounds(), { padding: [50, 50] });
-                        }
-                    } catch (e) {
-                        console.warn("Could not fit bounds");
-                    }
+            markersRef.current.addLayers(markers);
+            
+            if (stateFilter === 'all' && markers.length > 0) {
+                try {
+                    mapRef.current.fitBounds(markersRef.current.getBounds(), { padding: [50, 50] });
+                } catch (e) {
+                    console.warn("Could not fit bounds", e);
                 }
             }
         }
-    }, [filteredData, cLoading, stateFilter]);
+    }, [filteredData, stateFilter]);
 
 
     // --- STATE BOUNDARY GEOJSON EFFECT ---
@@ -246,7 +256,6 @@ const MapPage: React.FC = () => {
 
                         const data = await response.json();
                         const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-                        // Normalize the filter value too for comparison
                         const targetState = normalize(stateFilter);
 
                         const stateFeature = data.features.find((f: any) => {
@@ -254,7 +263,6 @@ const MapPage: React.FC = () => {
                             if (!name) return false;
                             const normalizedName = normalize(name);
                             
-                            // Special mapping for GeoJSON specific naming quirks vs standard names
                             if ((targetState === 'cdmx' || targetState === 'ciudad de mexico') && (normalizedName === 'distrito federal' || normalizedName === 'ciudad de mexico')) return true;
                             if ((targetState === 'estado de mexico' || targetState === 'mexico') && (normalizedName === 'mexico' || normalizedName === 'estado de mexico')) return true;
                             
@@ -283,11 +291,10 @@ const MapPage: React.FC = () => {
     }, [stateFilter, showBoundary]);
 
 
-    // Dynamic filter options using Canonical State Names
+    // Dynamic filter options
     const { stateOptions, cityOptions } = useMemo(() => {
         if (!candidates) return { stateOptions: [], cityOptions: [] };
         
-        // Use a Set to deduplicate Canonical names
         const uniqueStates = new Set<string>();
         candidates.forEach(c => {
             const canonical = getCanonicalState(c.state);
@@ -298,7 +305,6 @@ const MapPage: React.FC = () => {
 
         let citiesInState: string[] = [];
         if (stateFilter !== 'all') {
-            // Filter candidates where canonical state matches the filter
             citiesInState = [...new Set(
                 candidates
                 .filter(c => getCanonicalState(c.state) === stateFilter)

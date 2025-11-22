@@ -10,6 +10,7 @@ import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
 import { api } from '../api/firebaseApi';
 import { useToast } from '../hooks/useToast';
+import { useAuth } from '../hooks/useAuth'; // Added import
 
 type Tab = 'General' | 'Perfil' | 'Actividad' | 'Notas';
 
@@ -182,6 +183,7 @@ const EditClientPage: React.FC = () => {
     const { data: allActivities, loading: aLoading } = useCollection<ActivityLog>('activities');
     const { data: users, loading: uLoading } = useCollection<User>('users');
     const { showToast } = useToast();
+    const { user: currentUser } = useAuth(); // Use Auth Hook
 
     const [editedCompany, setEditedCompany] = useState<Company | null>(null);
     const [notes, setNotes] = useState<Note[]>([]);
@@ -237,6 +239,10 @@ const EditClientPage: React.FC = () => {
 
             if (!initializedCompany.profile.communication.days) {
                 initializedCompany.profile.communication.days = [];
+            }
+            
+            if (!initializedCompany.profile.purchaseProcess.budgetUnit) {
+                initializedCompany.profile.purchaseProcess.budgetUnit = 'Tonelada';
             }
 
             setEditedCompany(initializedCompany);
@@ -324,6 +330,17 @@ const EditClientPage: React.FC = () => {
         if (editedCompany && id) {
             try {
                 await api.updateDoc('companies', id, editedCompany);
+                
+                // Log Activity
+                const log: Omit<ActivityLog, 'id'> = {
+                    companyId: id,
+                    type: 'Sistema',
+                    description: 'Perfil de empresa actualizado manualmente.',
+                    userId: currentUser?.id || 'system',
+                    createdAt: new Date().toISOString()
+                };
+                await api.addDoc('activities', log);
+
                 showToast('success', "Cambios guardados correctamente.");
                 navigate(`/crm/clients/${id}`);
             } catch (error) {
@@ -351,6 +368,8 @@ const EditClientPage: React.FC = () => {
     const primaryPhone = editedCompany.primaryContact?.phones && editedCompany.primaryContact.phones.length > 0 
         ? editedCompany.primaryContact.phones[0] 
         : editedCompany.primaryContact?.phone || '';
+    
+    const unitOptions = ['Tonelada', 'Litro', 'Unidad', 'Kilogramo'];
 
     const renderGeneralTab = () => (
         <div className="space-y-6">
@@ -512,7 +531,29 @@ const EditClientPage: React.FC = () => {
                 </Section>
                  <Section title="Detalles del Proceso">
                     <Select label="Término de Pago" value={editedCompany.profile?.purchaseProcess?.paymentTerm || ''} onChange={(val) => handleChange('profile.purchaseProcess.paymentTerm', val)} options={PAYMENT_TERM_OPTIONS} />
-                    <Input label="Presupuesto Estimado" value={editedCompany.profile?.purchaseProcess?.budget || 0} onChange={(val) => handleChange('profile.purchaseProcess.budget', val)} type="number" />
+                    
+                    {/* Updated Budget Section with Unit */}
+                    <div className="col-span-2 md:col-span-1">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Presupuesto Estimado</label>
+                        <div className="flex gap-2">
+                            <div className="flex-grow">
+                                <input 
+                                    type="number" 
+                                    value={editedCompany.profile?.purchaseProcess?.budget || 0} 
+                                    onChange={(e) => handleChange('profile.purchaseProcess.budget', e.target.value)} 
+                                    className="block w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500" 
+                                />
+                            </div>
+                            <div className="w-1/3 min-w-[120px]">
+                                <CustomSelect 
+                                    options={unitOptions.map(u => ({ value: u, name: u }))} 
+                                    value={editedCompany.profile?.purchaseProcess?.budgetUnit || 'Tonelada'} 
+                                    onChange={(val) => handleChange('profile.purchaseProcess.budgetUnit', val)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <Select label="Tipo de Compra" value={editedCompany.profile?.purchaseProcess?.purchaseType || ''} onChange={(val) => handleChange('profile.purchaseProcess.purchaseType', val)} options={PURCHASE_TYPE_OPTIONS} />
                 </Section>
             </FormBlock>

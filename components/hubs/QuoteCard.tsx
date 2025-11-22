@@ -75,7 +75,7 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ item, onDragStart }) => {
                   </div>
               )}
            </div>
-           <p className="text-sm text-indigo-600 dark:text-indigo-400 font-bold">${item.totals.grandTotal.toLocaleString('en-US', {maximumFractionDigits: 0})}</p>
+           <p className="text-sm text-indigo-600 dark:text-indigo-400 font-bold">${(item.totals?.grandTotal || 0).toLocaleString('en-US', {maximumFractionDigits: 0})}</p>
       </div>
     </div>
   );

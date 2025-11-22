@@ -38,6 +38,7 @@ const NewSalesOrderPage: React.FC = () => {
         total: 0,
         deliveries: [],
         currency: 'MXN' as 'MXN' | 'USD',
+        taxRate: 16 // Default
     };
 
     const [salesOrder, setSalesOrder] = useState<Partial<SalesOrder>>(initialState);
@@ -64,13 +65,21 @@ const NewSalesOrderPage: React.FC = () => {
         setSelectedQuoteId(quoteId);
         const selectedQuote = quotes?.find(q => q.id === quoteId);
         if (selectedQuote) {
-            const total = selectedQuote.items.reduce((sum, item) => sum + item.subtotal, 0);
+            // Determine tax rate from quote. If missing (old records), default to 16. If present (e.g. 0), use it.
+            const taxRate = selectedQuote.taxRate !== undefined ? selectedQuote.taxRate : 16;
+            
+            // Recalculate total based on Quote items + Tax
+            const subtotal = selectedQuote.items.reduce((sum, item) => sum + item.subtotal, 0);
+            const taxAmount = subtotal * (taxRate / 100);
+            const total = subtotal + taxAmount;
+
             setSalesOrder(prev => ({
                 ...prev,
                 quoteId: selectedQuote.id,
                 items: selectedQuote.items,
                 total: total,
-                currency: selectedQuote.currency // Inherit currency from quote
+                currency: selectedQuote.currency, // Inherit currency from quote
+                taxRate: taxRate // Inherit tax rate
             }));
         } else {
              setSalesOrder(prev => ({...prev, quoteId: '', items: [], total: 0}));
@@ -153,6 +162,14 @@ const NewSalesOrderPage: React.FC = () => {
                 <div className="lg:col-span-1">
                     <SectionCard title="Resumen">
                          <div className="space-y-2 text-sm text-slate-500 dark:text-slate-400">
+                            <div className="flex justify-between">
+                                <span>Moneda:</span>
+                                <span className="font-semibold">{salesOrder.currency}</span>
+                            </div>
+                             <div className="flex justify-between">
+                                <span>IVA:</span>
+                                <span className="font-semibold">{salesOrder.taxRate}%</span>
+                            </div>
                             <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-2 mt-2 text-slate-800 dark:text-slate-200">
                                 <span>Total:</span>
                                 <span>${salesOrder.total?.toLocaleString('en-US', { minimumFractionDigits: 2 })} {salesOrder.currency}</span>

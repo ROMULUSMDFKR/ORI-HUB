@@ -142,8 +142,8 @@ const NewInvoicePage: React.FC = () => {
                                     <tr key={index}>
                                         <td className="px-6 py-4 text-sm text-slate-800 dark:text-slate-200">{item.productName}</td>
                                         <td className="px-6 py-4 text-sm text-right text-slate-800 dark:text-slate-200">{item.qty} {item.unit}</td>
-                                        <td className="px-6 py-4 text-sm text-right text-slate-800 dark:text-slate-200">${item.unitPrice.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                                        <td className="px-6 py-4 text-sm text-right text-slate-800 dark:text-slate-200">${item.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                        <td className="px-6 py-4 text-sm text-right text-slate-800 dark:text-slate-200">${(item.unitPrice || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                        <td className="px-6 py-4 text-sm text-right text-slate-800 dark:text-slate-200">${(item.subtotal || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -153,9 +153,9 @@ const NewInvoicePage: React.FC = () => {
                 <div className="lg:col-span-1 space-y-6">
                     <FormBlock title="Resumen">
                         <div className="space-y-2 text-sm text-slate-500 dark:text-slate-400">
-                            <div className="flex justify-between"><span>Subtotal:</span><span className="font-semibold text-slate-800 dark:text-slate-200">${invoice.subtotal?.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                            <div className="flex justify-between"><span>IVA ({(TAX_RATE * 100).toFixed(0)}%):</span><span className="font-semibold text-slate-800 dark:text-slate-200">${invoice.tax?.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                            <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-2 mt-2 text-slate-800 dark:text-slate-200"><span>Total:</span><span>${invoice.total?.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                            <div className="flex justify-between"><span>Subtotal:</span><span className="font-semibold text-slate-800 dark:text-slate-200">${(invoice.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                            <div className="flex justify-between"><span>IVA ({(TAX_RATE * 100).toFixed(0)}%):</span><span className="font-semibold text-slate-800 dark:text-slate-200">${(invoice.tax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                            <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-2 mt-2 text-slate-800 dark:text-slate-200"><span>Total:</span><span>${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
                         </div>
                     </FormBlock>
                     <FormBlock title="Notas">

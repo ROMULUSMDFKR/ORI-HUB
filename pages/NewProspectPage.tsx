@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Prospect, ProspectStage, Priority, User, Company } from '../types';
 import CustomSelect from '../components/ui/CustomSelect';
@@ -7,12 +7,13 @@ import { useCollection } from '../hooks/useCollection';
 import DuplicateChecker from '../components/ui/DuplicateChecker';
 import { useToast } from '../hooks/useToast';
 import { api } from '../api/firebaseApi';
+import { useAuth } from '../hooks/useAuth';
 
 const initialProspectState: Partial<Prospect> = {
     name: '',
     estValue: 0,
-    ownerId: 'user-1', // Default value, can be updated from fetched users
-    createdById: 'user-1', // Default value
+    ownerId: '', // Will be populated with current user
+    createdById: '', // Will be populated with current user
     stage: ProspectStage.Nueva,
     priority: Priority.Media,
     origin: '',
@@ -32,6 +33,7 @@ const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ tit
 
 const NewProspectPage: React.FC = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [prospect, setProspect] = useState(initialProspectState);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [searchTerm, setSearchTerm] = useState('');
@@ -42,11 +44,22 @@ const NewProspectPage: React.FC = () => {
     const { data: prospects } = useCollection<Prospect>('prospects');
     const { data: users } = useCollection<User>('users');
 
+    // Auto-assign current user
+    useEffect(() => {
+        if (user) {
+            setProspect(prev => ({
+                ...prev,
+                ownerId: prev.ownerId || user.id,
+                createdById: prev.createdById || user.id
+            }));
+        }
+    }, [user]);
 
     const validate = (): boolean => {
         const newErrors: Record<string, string> = {};
         if (!prospect.name?.trim()) newErrors.name = 'El nombre es requerido.';
-        if (!prospect.estValue || prospect.estValue <= 0) newErrors.estValue = 'El valor estimado debe ser mayor a cero.';
+        // Allow 0, only fail on negative
+        if (prospect.estValue !== undefined && prospect.estValue < 0) newErrors.estValue = 'El valor estimado no puede ser negativo.';
         if (!prospect.ownerId) newErrors.ownerId = 'El responsable es requerido.';
         if (!prospect.createdById) newErrors.createdById = 'El creador es requerido.';
         setErrors(newErrors);
@@ -117,7 +130,7 @@ const NewProspectPage: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Valor Estimado (USD)</label>
-                            <input type="number" value={prospect.estValue || ''} onChange={(e) => handleChange('estValue', parseFloat(e.target.value) || 0)} className="mt-1 block w-full" />
+                            <input type="number" value={prospect.estValue || 0} onChange={(e) => handleChange('estValue', parseFloat(e.target.value) || 0)} className="mt-1 block w-full" />
                             {errors.estValue && <p className="text-red-500 text-xs mt-1">{errors.estValue}</p>}
                         </div>
                         <CustomSelect label="Responsable" options={userOptions} value={prospect.ownerId || ''} onChange={val => handleChange('ownerId', val)} />

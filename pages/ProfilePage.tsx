@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AuditLog, Commission, CommissionStatus, ConnectedEmailAccount, User } from '../types';
 import { useCollection } from '../hooks/useCollection';
@@ -259,7 +257,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, refreshUser }) => {
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const [imageToCrop, setImageToCrop] = useState<string | null>(null);
     const [isCropperOpen, setIsCropperOpen] = useState(false);
+    const { showToast } = useToast();
 
+    // Security Tab State
+    const [securityState, setSecurityState] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -289,6 +295,41 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, refreshUser }) => {
             console.error(error);
         } finally {
             setIsSaving(false);
+        }
+    };
+    
+    const handleSecurityChange = (field: keyof typeof securityState, value: string) => {
+        setSecurityState(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleUpdatePassword = async () => {
+        const { currentPassword, newPassword, confirmPassword } = securityState;
+        
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            showToast('warning', 'Por favor completa todos los campos.');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            showToast('error', 'Las contraseñas nuevas no coinciden.');
+            return;
+        }
+        
+        if (newPassword.length < 6) {
+             showToast('warning', 'La contraseña debe tener al menos 6 caracteres.');
+             return;
+        }
+        
+        setIsUpdatingPassword(true);
+        try {
+            // Simulation for demo as we need re-authentication in real Firebase flow
+            await new Promise(resolve => setTimeout(resolve, 1500)); 
+            showToast('success', 'Contraseña actualizada correctamente (Simulación).');
+            setSecurityState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        } catch (error) {
+            showToast('error', 'Error al actualizar la contraseña.');
+        } finally {
+            setIsUpdatingPassword(false);
         }
     };
 
@@ -499,14 +540,45 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, refreshUser }) => {
                     {activeTab === 'my-commissions' && <MyCommissionsTab userId={user.id} />}
                     {activeTab === 'security' && (
                         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                            <h3 className="text-lg font-semibold mb-4">Cambiar Contraseña</h3>
+                            <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Cambiar Contraseña</h3>
                             <div className="space-y-4 max-w-sm">
-                            <Input label="Contraseña Actual" type="password" value="" onChange={() => {}} />
-                            <Input label="Nueva Contraseña" type="password" value="" onChange={() => {}} />
-                            <Input label="Confirmar Nueva Contraseña" type="password" value="" onChange={() => {}} />
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Contraseña Actual</label>
+                                    <input 
+                                        type="password" 
+                                        value={securityState.currentPassword} 
+                                        onChange={(e) => handleSecurityChange('currentPassword', e.target.value)}
+                                        className="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border-transparent rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Nueva Contraseña</label>
+                                    <input 
+                                        type="password" 
+                                        value={securityState.newPassword} 
+                                        onChange={(e) => handleSecurityChange('newPassword', e.target.value)}
+                                        className="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border-transparent rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Confirmar Nueva Contraseña</label>
+                                    <input 
+                                        type="password" 
+                                        value={securityState.confirmPassword} 
+                                        onChange={(e) => handleSecurityChange('confirmPassword', e.target.value)}
+                                        className="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border-transparent rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                    />
+                                </div>
                             </div>
                             <div className="mt-6 flex justify-end">
-                                <button onClick={() => alert('Actualizando contraseña... (simulación)')} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Actualizar Contraseña</button>
+                                <button 
+                                    onClick={handleUpdatePassword} 
+                                    disabled={isUpdatingPassword}
+                                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {isUpdatingPassword && <span className="material-symbols-outlined animate-spin !text-base">progress_activity</span>}
+                                    Actualizar Contraseña
+                                </button>
                             </div>
                         </div>
                     )}

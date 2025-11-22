@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
@@ -49,7 +50,7 @@ const ExpensesPage: React.FC = () => {
         { header: 'Fecha', accessor: (exp: Expense) => new Date(exp.date).toLocaleDateString() },
         { header: 'Descripción', accessor: (exp: Expense) => exp.description },
         { header: 'Categoría', accessor: (exp: Expense) => <Badge text={exp.category} color={getCategoryColor(exp.category)} /> },
-        { header: 'Monto', accessor: (exp: Expense) => `$${exp.amount.toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right font-semibold' },
+        { header: 'Monto', accessor: (exp: Expense) => `$${(exp.amount || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right font-semibold' },
     ];
     
     return (

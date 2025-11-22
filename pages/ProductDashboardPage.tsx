@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -35,7 +36,7 @@ const ChartCard: React.FC<{ title: string; data: { label: string; value: number 
           <div key={item.label} className="group">
             <div className="flex justify-between items-center mb-1">
               <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{item.label}</span>
-              <span className="text-sm font-bold text-slate-800 dark:text-slate-200">${item.value.toLocaleString()}</span>
+              <span className="text-sm font-bold text-slate-800 dark:text-slate-200">${(item.value || 0).toLocaleString()}</span>
             </div>
             <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
               <div

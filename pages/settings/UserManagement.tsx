@@ -232,15 +232,28 @@ const UserManagementPage: React.FC = () => {
         {
             header: 'Rol',
             accessor: (user: User) => {
-                const roleName = roles?.find(r => r.id === user.roleId)?.name || user.roleName || 'Sin Rol';
-                return <Badge text={roleName} color="blue" />;
+                // Prioritize finding the role object by ID to get the latest name
+                const roleObj = roles?.find(r => r.id === user.roleId);
+                const roleName = roleObj ? roleObj.name : (user.roleName || user.role || 'Sin Rol');
+                
+                let color: 'blue' | 'green' | 'yellow' | 'red' | 'gray' = 'gray';
+                if (roleName === 'Admin') color = 'red';
+                if (roleName === 'Ventas') color = 'green';
+                if (roleName === 'Logística') color = 'blue';
+
+                return <Badge text={roleName} color={color} />;
             }
         },
         {
             header: 'Equipo',
             accessor: (user: User) => {
                 const team = teams?.find(t => t.id === user.teamId);
-                return team ? team.name : '-';
+                return team ? (
+                    <span className="flex items-center gap-1">
+                        <span className="material-symbols-outlined !text-sm text-slate-400">groups</span>
+                        {team.name}
+                    </span>
+                ) : <span className="text-slate-400 text-sm">-</span>;
             }
         },
         {
@@ -266,7 +279,7 @@ const UserManagementPage: React.FC = () => {
             <div className="flex justify-between items-center">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Usuarios</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Gestiona el acceso y los roles de los miembros de tu equipo.</p>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Gestiona el acceso, los roles y la asignación de equipos de tu organización.</p>
                 </div>
                 <button onClick={() => setIsDrawerOpen(true)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700 transition-colors">
                     <span className="material-symbols-outlined mr-2">person_add</span>

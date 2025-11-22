@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/firebaseApi';
 import Spinner from '../../components/ui/Spinner';
@@ -51,6 +50,7 @@ const SecuritySettings = () => {
                             id="max-attempts"
                             value={maxAttempts}
                             onChange={e => setMaxAttempts(Number(e.target.value))}
+                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                         <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Después de este número de intentos, la cuenta se bloqueará.</p>
                     </div>
@@ -61,6 +61,7 @@ const SecuritySettings = () => {
                             id="lockout-time"
                             value={lockoutTime}
                             onChange={e => setLockoutTime(Number(e.target.value))}
+                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">La cuenta permanecerá bloqueada durante este tiempo.</p>
                     </div>

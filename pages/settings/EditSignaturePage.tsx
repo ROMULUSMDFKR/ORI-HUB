@@ -246,9 +246,14 @@ const SignatureTemplateBuilderPage: React.FC = () => {
         const data = JSON.parse(e.dataTransfer.getData('application/json'));
         const type = data.type as ElementType;
         
-        // Safely clone the config object using structuredClone or fallback to simple spread if needed
         const config = COMPONENT_CONFIG[type];
-        const safeProps = typeof structuredClone === 'function' ? structuredClone(config.props) : JSON.parse(JSON.stringify(config.props));
+        
+        // Safe shallow copy of props to avoid circular reference issues with JSON.stringify/parse deep cloning hacks
+        const safeProps = {
+            ...config.props,
+            styles: { ...config.props.styles },
+            containerStyles: { ...config.props.containerStyles }
+        };
 
         const newElement: Element = {
             id: `el-${Date.now()}`,
@@ -256,7 +261,8 @@ const SignatureTemplateBuilderPage: React.FC = () => {
             content: config.content,
             props: safeProps,
             columnCount: config.columnCount,
-            columns: config.columns ? (typeof structuredClone === 'function' ? structuredClone(config.columns) : [[], []]) : undefined
+            // Ensure new array references for columns
+            columns: config.columns ? [[], []] : undefined 
         };
         
         if (parentId) { // Dropped inside a column

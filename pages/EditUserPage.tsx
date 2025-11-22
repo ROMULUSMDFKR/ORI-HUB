@@ -56,16 +56,19 @@ const EditUserPage: React.FC = () => {
     const handleSave = async () => {
         if (!editedUser) return;
         try {
-            // Save user data + the specific permissions state
-            // This decouples the user from the role definition
+            // Find the selected role object to get its name
+            const selectedRole = roles?.find(r => r.id === editedUser.roleId);
+            
+            // Update the user data
+            // CRITICAL: Update the 'role' string property to match the selected Role Name
+            // This ensures the UI (headers, badges) displays "Ventas" instead of "Miembro"
             const userToSave = {
                 ...editedUser,
+                role: selectedRole ? selectedRole.name : editedUser.role, 
+                roleName: selectedRole ? selectedRole.name : editedUser.roleName,
                 permissions: permissions 
             };
             
-            // Remove runtime properties if any
-            delete userToSave.roleName; 
-
             await api.updateDoc('users', editedUser.id, userToSave);
             alert("Usuario y permisos guardados con éxito.");
             navigate('/settings/users');
@@ -97,7 +100,7 @@ const EditUserPage: React.FC = () => {
             </div>
 
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm space-y-4">
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Información General</h3>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Información General y Roles</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre</label>
@@ -109,10 +112,13 @@ const EditUserPage: React.FC = () => {
                     </div>
                     
                     <div>
-                        <CustomSelect label="Rol (Plantilla)" options={roleOptions} value={editedUser.roleId} onChange={val => handleFieldChange('roleId', val)} />
-                        <p className="text-xs text-slate-500 mt-1">Cambiar el rol restablecerá los permisos a los valores predeterminados de ese rol.</p>
+                        <CustomSelect label="Rol (Plantilla)" options={roleOptions} value={editedUser.roleId || ''} onChange={val => handleFieldChange('roleId', val)} />
+                        <p className="text-xs text-slate-500 mt-1">Al cambiar el rol (ej. a "Ventas"), se actualizarán los permisos y el acceso a secciones como Comisiones.</p>
                     </div>
-                    <CustomSelect label="Equipo" options={[{value: '', name: 'Sin equipo'}, ...teamOptions]} value={editedUser.teamId || ''} onChange={val => handleFieldChange('teamId', val)} />
+                    <div>
+                        <CustomSelect label="Equipo" options={[{value: '', name: 'Sin equipo'}, ...teamOptions]} value={editedUser.teamId || ''} onChange={val => handleFieldChange('teamId', val)} />
+                        <p className="text-xs text-slate-500 mt-1">Define el grupo de trabajo (ej. Ventas, Logística).</p>
+                    </div>
                     <CustomSelect label="Empresa" options={[{value: '', name: 'Sin empresa'}, ...companyOptions]} value={editedUser.companyId || ''} onChange={val => handleFieldChange('companyId', val)} />
                 </div>
 
@@ -123,8 +129,8 @@ const EditUserPage: React.FC = () => {
             </div>
             
             <div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4">Permisos Específicos del Usuario</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Estos permisos son específicos para este usuario y anulan la configuración predeterminada del rol.</p>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4">Permisos Específicos</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Puedes personalizar los permisos individuales. Para ver "Comisiones", asegúrate de que el rol tenga acceso a Finanzas o habilítalo aquí manualmente.</p>
                 <PermissionsEditor permissions={permissions} setPermissions={setPermissions} />
             </div>
         </div>

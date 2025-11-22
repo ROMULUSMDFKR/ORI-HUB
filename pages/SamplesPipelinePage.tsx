@@ -69,6 +69,29 @@ const SamplesPipelinePage: React.FC = () => {
   useEffect(() => {
     if (samplesData) {
       setSamples(samplesData);
+      
+      // Check for auto-archive
+      const now = new Date().getTime();
+      const hours24 = 24 * 60 * 60 * 1000;
+      
+      const toArchive = samplesData.filter(s => {
+          if ((s.status === SampleStatus.Aprobada || s.status === SampleStatus.Cerrada) && s.closureDate) {
+              const closureTime = new Date(s.closureDate).getTime();
+              return (now - closureTime) > hours24;
+          }
+          return false;
+      });
+
+      if (toArchive.length > 0) {
+          toArchive.forEach(async (s) => {
+              try {
+                  await api.updateDoc('samples', s.id, { status: SampleStatus.Archivada });
+                  console.log(`Auto-archiving sample ${s.id}`);
+              } catch (e) {
+                  console.error("Error auto-archiving", e);
+              }
+          });
+      }
     }
   }, [samplesData]);
 
@@ -135,6 +158,13 @@ const SamplesPipelinePage: React.FC = () => {
       handleArchive(itemId);
       return;
     }
+    
+    // Prevent dragging directly to Aprobada/Cerrada from pipeline view because it requires reason input
+    // Users should open the card to close/approve
+    if (targetStage === SampleStatus.Aprobada || targetStage === SampleStatus.Cerrada) {
+        showToast('info', 'Para Aprobar o Cerrar una muestra, abre la tarjeta y usa el botón "Guardar Estado" para ingresar el motivo.');
+        return;
+    }
 
     const originalSample = samples.find(s => s.id === itemId);
     if (!originalSample || originalSample.status === targetStage) return;
@@ -183,6 +213,7 @@ const SamplesPipelinePage: React.FC = () => {
                         </div>
                         <div className="flex gap-4 h-full">
                             {groupedColumns[groupName].map(col => {
+                              // Filter samples for this stage
                               const stageItems = samples.filter(p => p.status === col.stage);
                               return (
                                 <div key={col.stage} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, col.stage)} className="h-full">
@@ -198,7 +229,7 @@ const SamplesPipelinePage: React.FC = () => {
         case 'list':
             const columns = [
                 { header: 'Nombre', accessor: (s: Sample) => <Link to={`/hubs/samples/${s.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{s.name}</Link> },
-                { header: 'Estado', accessor: (s: Sample) => <Badge text={s.status} color="yellow" />},
+                { header: 'Estado', accessor: (s: Sample) => <Badge text={s.status} color={s.status === SampleStatus.Aprobada ? 'green' : (s.status === SampleStatus.Cerrada ? 'gray' : 'yellow')} />},
                 { header: 'Responsable', accessor: (s: Sample) => usersMap.get(s.ownerId)?.name || 'N/A' },
                 { header: 'Fecha Solicitud', accessor: (s: Sample) => new Date(s.requestDate).toLocaleDateString()},
             ];

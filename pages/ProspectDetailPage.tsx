@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
@@ -7,7 +8,8 @@ import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import { api } from '../api/firebaseApi';
 import ActivityDrawer from '../components/crm/ActivityDrawer';
-import { GoogleGenAI } from '@google/genai';
+import ContactDrawer from '../components/crm/ContactDrawer';
+import { GoogleGenAI, Type } from '@google/genai';
 import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
 import { PIPELINE_COLUMNS } from '../constants';
@@ -182,6 +184,7 @@ const ProspectDetailPage: React.FC = () => {
     const [prospect, setProspect] = useState<Prospect | null>(null);
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
+    const [isContactDrawerOpen, setIsContactDrawerOpen] = useState(false);
     const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
     const [suggestion, setSuggestion] = useState('');
     const [suggestionLoading, setSuggestionLoading] = useState(false);
@@ -243,6 +246,28 @@ const ProspectDetailPage: React.FC = () => {
                 console.error("Error saving prospect status:", error);
                 showToast('error', 'No se pudo guardar el estado.');
             }
+        }
+    };
+
+    const handleSaveContact = async (contactData: Contact) => {
+        if (!id || !currentUser) return;
+
+        try {
+            const newContact = {
+                ...contactData,
+                prospectId: id,
+                // Ensure companyId is null, not undefined, to avoid Firestore errors
+                companyId: null,
+                ownerId: currentUser.id
+            };
+
+            await api.addDoc('contacts', newContact);
+            addActivityLog('Sistema', `Añadió un nuevo contacto: ${contactData.name}`, id);
+            showToast('success', 'Contacto añadido al prospecto.');
+            setIsContactDrawerOpen(false);
+        } catch (error) {
+            console.error("Error adding contact:", error);
+            showToast('error', 'Error al guardar el contacto.');
         }
     };
 
@@ -319,6 +344,9 @@ const ProspectDetailPage: React.FC = () => {
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
+                config: {
+                  thinkingConfig: { thinkingBudget: 0 }
+                }
             });
             
             setSuggestion(response.text);
@@ -496,7 +524,7 @@ const ProspectDetailPage: React.FC = () => {
                         ) : (
                             <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No hay contactos asociados.</p>
                         )}
-                        <button onClick={() => showToast('info', 'Funcionalidad para añadir contacto en desarrollo.')} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 flex items-center mt-2">
+                        <button onClick={() => setIsContactDrawerOpen(true)} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 flex items-center mt-2">
                             <span className="material-symbols-outlined mr-1 text-lg">add_circle</span>
                             Añadir Contacto
                         </button>
@@ -517,6 +545,13 @@ const ProspectDetailPage: React.FC = () => {
                     prospectId={prospect.id}
                     onAddActivity={handleAddActivity}
                 />
+
+                <ContactDrawer
+                    isOpen={isContactDrawerOpen}
+                    onClose={() => setIsContactDrawerOpen(false)}
+                    onSave={handleSaveContact}
+                />
+
                 <SuggestionModal
                     isOpen={isSuggestionModalOpen}
                     onClose={() => setIsSuggestionModalOpen(false)}

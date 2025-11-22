@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -65,7 +66,7 @@ const BillingPage: React.FC = () => {
         { header: 'Fecha Emisión', accessor: (inv: Invoice) => new Date(inv.createdAt).toLocaleDateString() },
         { header: 'Fecha Venc.', accessor: (inv: Invoice) => new Date(inv.dueDate).toLocaleDateString() },
         { header: 'Estado', accessor: (inv: Invoice) => <Badge text={inv.status} color={getStatusColor(inv.status)} /> },
-        { header: 'Total', accessor: (inv: Invoice) => `$${inv.total.toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right font-semibold' },
+        { header: 'Total', accessor: (inv: Invoice) => `$${(inv.total || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right font-semibold' },
     ];
     
     const statusOptions = Object.values(InvoiceStatus).map(s => ({ value: s, label: s }));
@@ -86,7 +87,7 @@ const BillingPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <KpiCard title="Total Facturado (ciclo)" value={`$${(totalBilled/1000).toFixed(1)}k`} icon="receipt_long" />
                 <KpiCard title="Pendiente de Cobro" value={`$${(totalPending/1000).toFixed(1)}k`} icon="hourglass_top" />
-                <KpiCard title="Facturas Vencidas" value={`$${(totalOverdue/1000).toFixed(1)}k`} icon="error" className="bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20" />
+                <KpiCard title="Facturas Vencidas" value={`$${(totalOverdue/1000).toFixed(1)}k`} icon="error" className="bg-red-5 dark:bg-red-500/10 border-red-200 dark:border-red-500/20" />
             </div>
 
             <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex items-center gap-4 border border-slate-200 dark:border-slate-700">

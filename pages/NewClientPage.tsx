@@ -65,6 +65,7 @@ const initialClientState: Partial<Company> = {
             approvalCriteria: [],
             paymentTerm: 'Contado',
             budget: 0,
+            budgetUnit: 'Tonelada',
             purchaseType: 'Puntual'
         },
         useCase: {
@@ -278,6 +279,23 @@ const NewClientPage: React.FC = () => {
             } as Omit<Company, 'id'>;
 
             const docRef = await api.addDoc('companies', newClientData);
+
+            // Automatically create the contact in the contacts collection
+            if (client.primaryContact && client.primaryContact.name) {
+                const contactData: Contact = {
+                    id: `contact-${Date.now()}`,
+                    name: client.primaryContact.name,
+                    email: client.primaryContact.email || '',
+                    phone: client.primaryContact.phone || '',
+                    role: client.primaryContact.role || 'Contacto Principal', // Default role if empty
+                    emails: client.primaryContact.email ? [client.primaryContact.email] : [],
+                    phones: client.primaryContact.phone ? [client.primaryContact.phone] : [],
+                    companyId: docRef.id, // Link to the newly created company
+                    ownerId: newClientData.ownerId,
+                };
+                await api.addDoc('contacts', contactData);
+            }
+
             showToast('success', 'Cliente creado exitosamente.');
             navigate(`/crm/clients/${docRef.id}`);
         } catch (error) {
@@ -292,6 +310,8 @@ const NewClientPage: React.FC = () => {
         value: code,
         name: `${code} - ${INCOTERM_DESCRIPTIONS[code] || ''}`
     }));
+
+    const unitOptions = ['Tonelada', 'Litro', 'Unidad', 'Kilogramo'];
 
     const renderGeneralTab = () => (
         <div className="space-y-6">
@@ -430,7 +450,29 @@ const NewClientPage: React.FC = () => {
                 </Section>
                  <Section title="Detalles del Proceso">
                     <Select label="Término de Pago" value={client.profile?.purchaseProcess?.paymentTerm || ''} onChange={(val) => handleChange('profile.purchaseProcess.paymentTerm', val)} options={PAYMENT_TERM_OPTIONS} />
-                    <Input label="Presupuesto Estimado" value={client.profile?.purchaseProcess?.budget || 0} onChange={(val) => handleChange('profile.purchaseProcess.budget', val)} type="number" />
+                    
+                    {/* Updated Budget Section with Unit */}
+                    <div className="col-span-2 md:col-span-1">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Presupuesto Estimado</label>
+                        <div className="flex gap-2">
+                            <div className="flex-grow">
+                                <input 
+                                    type="number" 
+                                    value={client.profile?.purchaseProcess?.budget || 0} 
+                                    onChange={(e) => handleChange('profile.purchaseProcess.budget', e.target.value)} 
+                                    className="block w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500" 
+                                />
+                            </div>
+                            <div className="w-1/3 min-w-[120px]">
+                                <CustomSelect 
+                                    options={unitOptions.map(u => ({ value: u, name: u }))} 
+                                    value={client.profile?.purchaseProcess?.budgetUnit || 'Tonelada'} 
+                                    onChange={(val) => handleChange('profile.purchaseProcess.budgetUnit', val)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <Select label="Tipo de Compra" value={client.profile?.purchaseProcess?.purchaseType || ''} onChange={(val) => handleChange('profile.purchaseProcess.purchaseType', val)} options={PURCHASE_TYPE_OPTIONS} />
                 </Section>
             </FormBlock>

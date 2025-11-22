@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { SalesOrder, Delivery, DeliveryStatus, Company, User } from '../../types';
@@ -41,8 +42,8 @@ const SalesOrderCard: React.FC<SalesOrderCardProps> = ({ item, deliveries: propD
   
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Priority identifier: Folio > Short ID
-  const displayId = item.folio || `#${item.id.slice(-6).toUpperCase()}`;
+  // Priority identifier: Folio > Short ID with OV prefix
+  const displayId = item.folio || `OV-${item.id.slice(-6).toUpperCase()}`;
 
   return (
     <div
@@ -101,7 +102,7 @@ const SalesOrderCard: React.FC<SalesOrderCardProps> = ({ item, deliveries: propD
                   </div>
               )}
            </div>
-           <p className="text-sm text-indigo-600 dark:text-indigo-400 font-bold">${item.total.toLocaleString('en-US', {maximumFractionDigits: 0})}</p>
+           <p className="text-sm text-indigo-600 dark:text-indigo-400 font-bold">${(item.total || 0).toLocaleString('en-US', {maximumFractionDigits: 0})}</p>
       </div>
     </div>
   );

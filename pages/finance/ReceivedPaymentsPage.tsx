@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
@@ -27,7 +28,7 @@ const ReceivedPaymentsPage: React.FC = () => {
         },
         { 
             header: 'Monto Pagado', 
-            accessor: (inv: Invoice) => `$${inv.paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}`, 
+            accessor: (inv: Invoice) => `$${(inv.paidAmount || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`, 
             className: 'text-right font-semibold' 
         },
         { 

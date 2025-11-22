@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
@@ -90,9 +91,9 @@ const PendingPaymentsPage: React.FC = () => {
                 return <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>{new Date(inv.dueDate).toLocaleDateString()}</span>;
             }
         },
-        { header: 'Total', accessor: (inv: Invoice) => `$${inv.total.toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right' },
-        { header: 'Pagado', accessor: (inv: Invoice) => `$${inv.paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right' },
-        { header: 'Saldo', accessor: (inv: Invoice) => `$${(inv.total - inv.paidAmount).toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right font-semibold' },
+        { header: 'Total', accessor: (inv: Invoice) => `$${(inv.total || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right' },
+        { header: 'Pagado', accessor: (inv: Invoice) => `$${(inv.paidAmount || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right' },
+        { header: 'Saldo', accessor: (inv: Invoice) => `$${((inv.total || 0) - (inv.paidAmount || 0)).toLocaleString('en-US', {minimumFractionDigits: 2})}`, className: 'text-right font-semibold' },
         { header: 'Estado', accessor: (inv: Invoice) => <Badge text={inv.status} color={getStatusColor(inv.status)} /> },
     ];
 

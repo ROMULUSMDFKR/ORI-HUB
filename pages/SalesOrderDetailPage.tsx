@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { SalesOrder, SalesOrderStatus, Note, ActivityLog, Company, Product, Quote, User, Sample, Delivery, DeliveryStatus, Attachment } from '../types';
+import { SalesOrder, SalesOrderStatus, Note, ActivityLog, Company, Product, Quote, User, Sample, Delivery, DeliveryStatus, Attachment, InventoryMove } from '../types';
 import { SALES_ORDERS_PIPELINE_COLUMNS, TAX_RATE } from '../constants';
 import Spinner from '../components/ui/Spinner';
 import CustomSelect from '../components/ui/CustomSelect';
@@ -159,11 +159,18 @@ const SalesOrderDetailPage: React.FC = () => {
     const handleSaveChanges = async () => {
         if (!order || !id) return;
         setIsSaving(true);
-        const newTotal = order.items.reduce((sum, item) => sum + item.subtotal, 0);
+        
+        // Recalculate total
+        const subtotal = order.items.reduce((sum, item) => sum + item.subtotal, 0);
+        // Use order.taxRate if exists, otherwise default to 16 (legacy support)
+        const taxRate = order.taxRate !== undefined ? (order.taxRate / 100) : TAX_RATE;
+        const newTotal = subtotal + (subtotal * taxRate);
+        
         const updatedOrder = { ...order, total: newTotal };
 
         try {
             await api.updateDoc('salesOrders', id, updatedOrder);
+            
             if (initialOrder && initialOrder.status !== order.status) {
                  const log: Omit<ActivityLog, 'id'> = { 
                     salesOrderId: id, 
@@ -173,6 +180,27 @@ const SalesOrderDetailPage: React.FC = () => {
                     createdAt: new Date().toISOString() 
                 };
                 await api.addDoc('activities', log);
+                
+                // --- AUTOMATIC INVENTORY DEDUCTION ---
+                // Trigger when status changes to 'Entregada'
+                if (order.status === SalesOrderStatus.Entregada && initialOrder.status !== SalesOrderStatus.Entregada) {
+                    const inventoryPromises = order.items.map(item => {
+                        const move: Omit<InventoryMove, 'id'> = {
+                            type: 'out',
+                            productId: item.productId,
+                            lotId: item.lotId,
+                            qty: -Math.abs(item.qty), // Negative for deduction
+                            unit: item.unit,
+                            note: `Salida por Orden de Venta: ${order.folio || order.id}`,
+                            userId: currentUser?.id || 'system',
+                            createdAt: new Date().toISOString()
+                        };
+                        return api.addDoc('inventoryMoves', move);
+                    });
+                    
+                    await Promise.all(inventoryPromises);
+                    showToast('success', 'Inventario descontado automáticamente.');
+                }
             }
             showToast('success', 'Orden de Venta actualizada.');
             setIsEditing(false);
@@ -250,6 +278,13 @@ const SalesOrderDetailPage: React.FC = () => {
     // Priority identifier: Folio > Abbreviated ID
     const displayTitle = order.folio || `OV-${order.id.slice(-6).toUpperCase()}`;
     const currencyLabel = order.currency || 'MXN'; // Default to MXN if not present for legacy records
+    
+    // Determine effective tax rate for display calculation
+    const effectiveTaxRate = order.taxRate !== undefined ? (order.taxRate / 100) : TAX_RATE;
+    const subtotalValue = (order.total || 0) / (1 + effectiveTaxRate);
+    const taxValue = (order.total || 0) - subtotalValue;
+    const taxLabel = effectiveTaxRate === 0 ? '0%' : `${(effectiveTaxRate * 100).toFixed(0)}%`;
+
 
     return (
         <div className="space-y-6 pb-20">
@@ -397,10 +432,10 @@ const SalesOrderDetailPage: React.FC = () => {
                                                         onChange={e => handleItemChange(idx, 'unitPrice', parseFloat(e.target.value))}
                                                         className={standardInputClasses + " text-right"}
                                                     />
-                                                ) : `$${item.unitPrice.toLocaleString()}`}
+                                                ) : `$${(item.unitPrice || 0).toLocaleString()}`}
                                             </td>
                                             <td className="p-2 text-right font-bold">
-                                                ${(item.qty * item.unitPrice).toLocaleString()}
+                                                ${((item.qty || 0) * (item.unitPrice || 0)).toLocaleString()}
                                             </td>
                                         </tr>
                                     ))}
@@ -418,179 +453,4 @@ const SalesOrderDetailPage: React.FC = () => {
                                     <p className="text-xs text-slate-500 uppercase font-bold">Progreso de Entrega</p>
                                     <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                                         {deliveryStats.totalDelivered} <span className="text-sm text-slate-500 font-normal">/ {deliveryStats.totalOrdered}</span>
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                        Entregas Realizadas: <strong>{deliveryStats.countDelivered} / {deliveryStats.countTotal}</strong>
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
-                                <div 
-                                    className="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" 
-                                    style={{ width: `${Math.min(deliveryStats.progress, 100)}%` }}
-                                ></div>
-                            </div>
-                            <p className="text-xs text-right text-slate-500 mt-1">Pendiente: {deliveryStats.totalOrdered - deliveryStats.totalDelivered}</p>
-                        </div>
-
-                        {/* List of Deliveries */}
-                        {orderDeliveries.length > 0 ? (
-                             <div className="space-y-3">
-                                {orderDeliveries.map((del: Delivery, idx: number) => (
-                                    <div key={idx} className="flex justify-between items-center p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:shadow-sm transition-shadow">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${del.status === DeliveryStatus.Entregada ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>
-                                                <span className="material-symbols-outlined text-sm">{del.status === DeliveryStatus.Entregada ? 'check' : 'schedule'}</span>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-slate-800 dark:text-slate-200">
-                                                    {del.status} - {del.qty} {order.items[0]?.unit || 'unidades'}
-                                                </p>
-                                                <p className="text-xs text-slate-500">{new Date(del.scheduledDate).toLocaleDateString()} - {del.destination}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            {del.proofOfDelivery && (
-                                                <a 
-                                                    href={del.proofOfDelivery.url} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded border border-indigo-200 hover:bg-indigo-100 flex items-center gap-1"
-                                                    title={del.proofOfDelivery.name}
-                                                >
-                                                    <span className="material-symbols-outlined !text-sm">description</span>
-                                                    Ver Talón
-                                                </a>
-                                            )}
-                                            <Link to="/logistics/deliveries" className="text-sm text-slate-500 hover:text-indigo-600 hover:underline">Detalle</Link>
-                                        </div>
-                                    </div>
-                                ))}
-                             </div>
-                        ) : (
-                            <div className="text-center py-4 text-slate-500 italic border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
-                                No hay entregas registradas aún.
-                            </div>
-                        )}
-
-                        {/* Add Delivery Form */}
-                        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Registrar Entrega / Recolección Parcial</h4>
-                            <div className="flex flex-col md:flex-row gap-3 items-end">
-                                <div className="w-full md:flex-1">
-                                    <label className="text-xs text-slate-500 mb-1 block">Cantidad</label>
-                                    <input 
-                                        type="number" 
-                                        value={newDeliveryQty} 
-                                        onChange={e => setNewDeliveryQty(parseFloat(e.target.value))} 
-                                        className={standardInputClasses} 
-                                        placeholder="0.00"
-                                    />
-                                </div>
-                                <div className="w-full md:flex-1">
-                                    <label className="text-xs text-slate-500 mb-1 block">Fecha</label>
-                                    <input 
-                                        type="date" 
-                                        value={newDeliveryDate} 
-                                        onChange={e => setNewDeliveryDate(e.target.value)} 
-                                        className={standardInputClasses} 
-                                    />
-                                </div>
-                                <div className="w-full md:w-auto flex items-center gap-2">
-                                    <input 
-                                        type="file" 
-                                        ref={fileInputRef}
-                                        onChange={handleFileChange}
-                                        className="hidden"
-                                        accept="image/*,.pdf"
-                                    />
-                                    <button 
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className={`flex-1 md:flex-none h-[38px] px-3 rounded-lg border text-sm flex items-center justify-center gap-2 transition-colors ${deliveryFile ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600'}`}
-                                        title={deliveryFile ? deliveryFile.name : "Adjuntar Talón"}
-                                    >
-                                        <span className="material-symbols-outlined !text-lg">{deliveryFile ? 'check_circle' : 'attach_file'}</span>
-                                        {deliveryFile ? 'Talón Adjunto' : 'Adjuntar Talón'}
-                                    </button>
-                                    {deliveryFile && (
-                                        <button 
-                                            onClick={() => { setDeliveryFile(null); if(fileInputRef.current) fileInputRef.current.value = ''; }}
-                                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                                            title="Quitar archivo"
-                                        >
-                                            <span className="material-symbols-outlined !text-lg">close</span>
-                                        </button>
-                                    )}
-                                </div>
-                                <button 
-                                    onClick={handleAddDelivery}
-                                    disabled={newDeliveryQty <= 0 || isUploadingFile}
-                                    className="w-full md:w-auto bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed h-[38px] flex items-center justify-center gap-2"
-                                >
-                                    {isUploadingFile ? <span className="material-symbols-outlined animate-spin !text-sm">progress_activity</span> : <span className="material-symbols-outlined !text-sm">add</span>}
-                                    Registrar
-                                </button>
-                            </div>
-                        </div>
-                    </SectionCard>
-                    
-                    {/* Notes Section - Active Order Notes */}
-                    <NotesSection 
-                        entityId={order.id}
-                        entityType="salesOrder"
-                        notes={salesOrderNotes}
-                        onNoteAdded={handleNoteAdded}
-                    />
-
-                </div>
-
-                {/* RIGHT COLUMN */}
-                <div className="lg:col-span-1 space-y-6">
-                    
-                    {/* Financial Summary */}
-                     <div className="bg-indigo-900 text-white p-6 rounded-xl shadow-lg relative overflow-hidden sticky top-6">
-                        <div className="relative z-10">
-                            <h3 className="text-lg font-bold mb-4 border-b border-indigo-700 pb-2">Resumen Financiero</h3>
-                            
-                            <div className="space-y-2 text-sm text-indigo-100">
-                                <div className="flex justify-between">
-                                    <span>Subtotal</span>
-                                    <span>${(order.total / (1 + TAX_RATE)).toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
-                                </div>
-                                <div className="flex justify-between text-xs">
-                                    <span>IVA (16%)</span>
-                                    <span>${(order.total - (order.total / (1 + TAX_RATE))).toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
-                                </div>
-                                
-                                <div className="pt-4 mt-2 border-t-2 border-indigo-600 flex justify-between items-end">
-                                    <span className="text-lg font-medium opacity-80">Total</span>
-                                    <span className="text-3xl font-bold tracking-tight">${order.total.toLocaleString()}</span>
-                                </div>
-                                <p className="text-right text-xs text-indigo-300 mt-1">{currencyLabel}</p>
-                            </div>
-                        </div>
-                        {/* Decorative background element */}
-                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-indigo-500 rounded-full opacity-20 blur-2xl"></div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
-                        <h4 className="text-sm font-bold text-slate-500 uppercase mb-2">Acciones Rápidas</h4>
-                         <button onClick={() => showToast('info', 'Generando Factura...')} className="w-full text-left flex items-center p-2 hover:bg-slate-50 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200 text-sm font-medium">
-                            <span className="material-symbols-outlined mr-3 text-slate-400">receipt_long</span>
-                            Generar Factura
-                        </button>
-                         <button onClick={() => showToast('info', 'Enviando confirmación...')} className="w-full text-left flex items-center p-2 hover:bg-slate-50 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200 text-sm font-medium">
-                            <span className="material-symbols-outlined mr-3 text-slate-400">mail</span>
-                            Enviar Confirmación
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default SalesOrderDetailPage;
+                               

@@ -254,9 +254,9 @@ const ClientDetailPage: React.FC = () => {
     const companyQuotes = useMemo(() => quotes?.filter(q => q.companyId === id) || [], [quotes, id]);
     const companySamples = useMemo(() => samples?.filter(s => s.companyId === id) || [], [samples, id]);
     const companySalesOrders = useMemo(() => salesOrders?.filter(so => so.companyId === id) || [], [salesOrders, id]);
-    // FIX: Añado un tipo explícito a useMemo para asegurar la inferencia correcta de tipos para `usersMap`.
-    // Esto resuelve el error `Map<unknown, unknown>` y el error de acceso a `author.name`.
-    const usersMap = useMemo(() => new Map<string, User>(users?.map(u => [u.id, u])), [users]);
+    
+    // FIX: Added explicit type casting [string, User] to resolve Map constructor TypeScript error
+    const usersMap = useMemo(() => new Map<string, User>(users?.map(u => [u.id, u] as [string, User])), [users]);
 
     const owner = useMemo(() => usersMap.get(currentCompany?.ownerId || ''), [usersMap, currentCompany]);
 
@@ -363,7 +363,7 @@ const ClientDetailPage: React.FC = () => {
                 // FIX: Aseguro que `updatedPrimary` sea un objeto `Contact` completo para cumplir con la firma del tipo.
                 const updatedPrimary: Contact = {
                     // Empiezo con propiedades base para asegurar que todos los campos existan
-                    ...(currentCompany.primaryContact || { id: `contact-${Date.now()}`, role: 'Contacto Principal', ownerId: currentUser?.id || 'system' }),
+                    ...(currentCompany.primaryContact || { id: `contact-${Date.now()}`, role: 'Contacto Principal' }),
                     ...safeContactData,
                 };
                 

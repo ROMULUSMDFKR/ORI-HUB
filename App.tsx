@@ -25,9 +25,9 @@ const PageLoader: React.FC = () => (
   <div className="w-full h-screen flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-900">
     <div className="relative flex flex-col items-center">
         <img 
-            src="https://firebasestorage.googleapis.com/v0/b/ori-405da.firebasestorage.app/o/Logo%2FIMG_1039.png?alt=media&token=54ca4912-7921-445b-8bdd-97b11767672a" 
+            src="https://firebasestorage.googleapis.com/v0/b/ori-405da.firebasestorage.app/o/Logo%2FIMG_1043.png?alt=media&token=28b3c9f6-ebbc-4681-b604-3eae6dfa6bbc" 
             alt="ORI Logo" 
-            className="w-28 h-auto animate-pulse" 
+            className="w-20 h-auto animate-pulse" 
         />
         <div className="mt-8 flex space-x-2">
             <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>

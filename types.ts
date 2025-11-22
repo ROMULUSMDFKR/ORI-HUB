@@ -1,5 +1,3 @@
-
-
 export interface User {
     id: string;
     name: string;
@@ -735,6 +733,12 @@ export interface InvoiceItem {
     subtotal: number;
 }
 
+export enum CommissionStatus {
+    Pendiente = 'Pendiente',
+    Pagada = 'Pagada',
+    Cancelada = 'Cancelada'
+}
+
 export interface Commission {
     id: string;
     amount: number;
@@ -743,12 +747,6 @@ export interface Commission {
     salesOrderId: string;
     createdAt: string;
     paidAt?: string;
-}
-
-export enum CommissionStatus {
-    Pendiente = 'Pendiente',
-    Pagada = 'Pagada',
-    Cancelada = 'Cancelada'
 }
 
 export interface Expense {

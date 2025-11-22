@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';

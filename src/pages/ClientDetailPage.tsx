@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
@@ -361,7 +360,9 @@ const ClientDetailPage: React.FC = () => {
                 // FIX: Aseguro que `updatedPrimary` sea un objeto `Contact` completo para cumplir con la firma del tipo.
                 const updatedPrimary: Contact = {
                     // Empiezo con propiedades base para asegurar que todos los campos existan
-                    ...(currentCompany.primaryContact || { id: `contact-${Date.now()}`, role: 'Contacto Principal' }),
+                    id: currentCompany.primaryContact?.id || `contact-${Date.now()}`,
+                    role: 'Contacto Principal',
+                    ownerId: currentUser?.id || 'system-user',
                     ...safeContactData,
                 };
                 

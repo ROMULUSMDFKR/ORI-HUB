@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { AuditLog, User } from '../types';

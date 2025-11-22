@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { User as FirebaseUser } from 'firebase/auth';

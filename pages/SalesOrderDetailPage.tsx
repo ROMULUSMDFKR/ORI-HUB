@@ -453,4 +453,127 @@ const SalesOrderDetailPage: React.FC = () => {
                                     <p className="text-xs text-slate-500 uppercase font-bold">Progreso de Entrega</p>
                                     <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                                         {deliveryStats.totalDelivered} <span className="text-sm text-slate-500 font-normal">/ {deliveryStats.totalOrdered}</span>
-                               
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded">{deliveryStats.progress.toFixed(0)}%</span>
+                                </div>
+                            </div>
+                            {/* Progress Bar Visual */}
+                            <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-2.5">
+                                <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${deliveryStats.progress}%` }}></div>
+                            </div>
+                        </div>
+
+                        {/* Delivery List */}
+                        <div className="space-y-3">
+                            {orderDeliveries.map((d, index) => (
+                                <div key={d.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm">
+                                    <div>
+                                        <p className="font-semibold text-sm text-slate-800 dark:text-slate-200">
+                                            Entrega #{index + 1} ({d.deliveryNumber})
+                                        </p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            {new Date(d.scheduledDate).toLocaleDateString()} &bull; {d.destination}
+                                        </p>
+                                        {d.qty && <p className="text-xs font-medium text-indigo-600 mt-0.5">Cant: {d.qty}</p>}
+                                    </div>
+                                    <div className="text-right">
+                                        <Badge text={d.status} color={d.status === DeliveryStatus.Entregada ? 'green' : d.status === DeliveryStatus.EnTransito ? 'blue' : 'gray'} />
+                                        {d.trackingNumber && <p className="text-xs text-slate-400 mt-1 font-mono">{d.trackingNumber}</p>}
+                                    </div>
+                                </div>
+                            ))}
+                            {orderDeliveries.length === 0 && <p className="text-sm text-slate-500 italic text-center py-4">No hay entregas registradas.</p>}
+                        </div>
+
+                        {/* Add Delivery Form */}
+                        <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
+                            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Registrar Nueva Entrega Parcial</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                                <div className="md:col-span-3">
+                                    <label className="block text-xs text-slate-500 mb-1">Fecha</label>
+                                    <input 
+                                        type="date" 
+                                        value={newDeliveryDate}
+                                        onChange={(e) => setNewDeliveryDate(e.target.value)}
+                                        className={standardInputClasses}
+                                    />
+                                </div>
+                                <div className="md:col-span-3">
+                                    <label className="block text-xs text-slate-500 mb-1">Cantidad</label>
+                                    <input 
+                                        type="number" 
+                                        value={newDeliveryQty}
+                                        onChange={(e) => setNewDeliveryQty(parseFloat(e.target.value))}
+                                        className={standardInputClasses}
+                                        placeholder="0"
+                                    />
+                                </div>
+                                <div className="md:col-span-4">
+                                     <label className="block text-xs text-slate-500 mb-1">Evidencia (POD)</label>
+                                     <div className="flex items-center gap-2">
+                                         <input 
+                                            type="file" 
+                                            ref={fileInputRef}
+                                            className="hidden" 
+                                            onChange={handleFileChange}
+                                        />
+                                        <button 
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="w-full text-left px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 truncate"
+                                        >
+                                            {deliveryFile ? deliveryFile.name : 'Seleccionar archivo...'}
+                                        </button>
+                                     </div>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <button 
+                                        onClick={handleAddDelivery} 
+                                        disabled={!newDeliveryQty || isUploadingFile}
+                                        className="w-full bg-indigo-600 text-white font-semibold py-2 px-3 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50 flex justify-center items-center h-[38px]"
+                                    >
+                                        {isUploadingFile ? <Spinner /> : 'Añadir'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </SectionCard>
+                </div>
+
+                {/* RIGHT COLUMN - Summary & Totals */}
+                <div className="lg:col-span-1 space-y-6">
+                    
+                    {/* Totals Card */}
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">Totales</h3>
+                        
+                        <div className="flex justify-between text-sm text-slate-600 dark:text-slate-300">
+                            <span>Subtotal</span>
+                            <span>${subtotalValue.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-slate-600 dark:text-slate-300">
+                            <span>IVA ({taxLabel})</span>
+                            <span>${taxValue.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                        </div>
+                        <div className="flex justify-between text-lg font-bold text-indigo-600 dark:text-indigo-400 border-t border-slate-100 dark:border-slate-700 pt-2 mt-2">
+                            <span>Total</span>
+                            <span>${(order.total || 0).toLocaleString(undefined, {maximumFractionDigits: 2})} {currencyLabel}</span>
+                        </div>
+                    </div>
+                    
+                    {/* Notes Section */}
+                    <NotesSection 
+                        entityId={id || ''}
+                        entityType="salesOrder"
+                        notes={salesOrderNotes}
+                        onNoteAdded={handleNoteAdded}
+                    />
+
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default SalesOrderDetailPage;

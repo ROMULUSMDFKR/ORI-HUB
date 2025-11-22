@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { Task, User, Comment } from '../types';
-// FIX: Removed MOCK_USERS import and will fetch users via a hook.
 import { useCollection } from '../hooks/useCollection';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
@@ -31,7 +31,6 @@ const TaskDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { data: initialTask, loading: taskLoading } = useDoc<Task>('tasks', id || '');
-    // FIX: Fetch users from the collection to replace mock data.
     const { data: users, loading: usersLoading } = useCollection<User>('users');
     
     const [task, setTask] = useState<Task | null>(null);
@@ -43,7 +42,6 @@ const TaskDetailPage: React.FC = () => {
         }
     }, [initialTask]);
     
-    // FIX: Create a memoized map for efficient user lookups.
     const usersMap = useMemo(() => {
         if (!users) return new Map<string, User>();
         return new Map(users.map(u => [u.id, u]));
@@ -53,9 +51,8 @@ const TaskDetailPage: React.FC = () => {
         if (!task) {
             return { assignees: [], watchers: [], creator: null, completedSubtasks: 0, totalSubtasks: 0, progress: 0 };
         }
-        // FIX: Use the usersMap to get full user objects. This fixes type errors.
-        const assignees = task.assignees.map(id => usersMap.get(id)).filter(Boolean) as User[];
-        const watchers = task.watchers.map(id => usersMap.get(id)).filter(Boolean) as User[];
+        const assignees = (task.assignees || []).map(id => usersMap.get(id)).filter(Boolean) as User[];
+        const watchers = (task.watchers || []).map(id => usersMap.get(id)).filter(Boolean) as User[];
         const creator = task.createdById ? usersMap.get(task.createdById) || null : null;
         
         const completed = task.subtasks?.filter(st => st.isCompleted).length || 0;
@@ -80,7 +77,6 @@ const TaskDetailPage: React.FC = () => {
         }
     };
 
-    // FIX: Combine loading states.
     const loading = taskLoading || usersLoading;
 
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
@@ -149,7 +145,6 @@ const TaskDetailPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="space-y-4 max-h-96 overflow-y-auto pr-2 border-t border-slate-200 dark:border-slate-700 pt-4">
-                                {/* FIX: Use the typesafe usersMap to get the comment author. */}
                                 {(task.comments && task.comments.length > 0) ? task.comments.map(comment => { 
                                     const user = usersMap.get(comment.userId); 
                                     return (

@@ -6,12 +6,11 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: '0.0.0.0',
-    port: 8080,
+    host: true, // Listen on all addresses (0.0.0.0)
+    port: Number(process.env.PORT) || 8080, // Use port from environment or default to 8080
   },
   preview: {
-    host: '0.0.0.0',
-    port: 8080,
-    allowedHosts: true,
+    host: true, // Listen on all addresses (0.0.0.0)
+    port: Number(process.env.PORT) || 8080, // Use port from environment or default to 8080
   },
 });

@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useCollection } from '../hooks/useCollection';
-import { ProductLot } from '../types';
+import { ProductLot } from '../../types';
 import Spinner from '../components/ui/Spinner';
 import Drawer from '../components/ui/Drawer';
 import { api } from '../api/firebaseApi';
@@ -49,7 +49,7 @@ const LocationCard: React.FC<{ location: LocationInfo; onEdit: (loc: LocationInf
 
 const InventoryLocationsPage: React.FC = () => {
     const { data: initialLocations, loading: locLoading } = useCollection<any>('locations');
-    const { data: lotsData, loading: lotsLoading } = useCollection<{[key: string]: ProductLot[]}>('lots');
+    const { data: lotsData, loading: lotsLoading } = useCollection<ProductLot>('lots');
     const [locations, setLocations] = useState<any[] | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     
@@ -68,13 +68,9 @@ const InventoryLocationsPage: React.FC = () => {
     const locationData = useMemo<LocationInfo[]>(() => {
         if (!locations || !lotsData) return [];
         
-        // lotsData comes as a flat array of ProductLot based on previous fixes, 
-        // but TypeScript might think it is nested if the generic was passed wrong in useCollection call above.
-        // We treat it as any[] or ProductLot[] here safely.
-        const allLots = Array.isArray(lotsData) ? (lotsData as any[]).flat() : [];
+        const allLots = lotsData || [];
 
         return locations.map((loc: any) => {
-            // Safe check for lot.stock using optional chaining
             const lotsInLocation = allLots.filter(lot => lot.stock?.some((s: any) => s.locationId === loc.id));
             
             const skuCount = new Set(
@@ -82,7 +78,6 @@ const InventoryLocationsPage: React.FC = () => {
             ).size;
             
             const totalQuantity = allLots.reduce((sum, lot) => {
-                // Safe check for lot.stock
                 const stockInLoc = lot.stock?.find((s: any) => s.locationId === loc.id);
                 return sum + (stockInLoc ? stockInLoc.qty : 0);
             }, 0);

@@ -87,6 +87,7 @@ export interface Company {
             approvalCriteria: string[];
             paymentTerm: string;
             budget: number;
+            budgetUnit?: string;
             purchaseType: string;
         };
         useCase: {
@@ -137,7 +138,8 @@ export enum CompanyPipelineStage {
     ClienteActivo = 'Cliente Activo',
     AlianzaEstrategica = 'Alianza Estratégica',
     EnRiesgo = 'En Riesgo',
-    ClienteInactivo = 'Cliente Inactivo'
+    ClienteInactivo = 'Cliente Inactivo',
+    ListaNegra = 'Lista Negra'
 }
 
 export interface Prospect {
@@ -286,6 +288,8 @@ export interface SalesOrder {
     deliveryIds?: string[];
     items: QuoteItem[];
     total: number;
+    currency?: Currency;
+    taxRate?: number;
     createdAt: string;
 }
 
@@ -306,6 +310,7 @@ export interface Quote {
     prospectId?: string;
     contactId?: string;
     salespersonId: string;
+    createdById?: string;
     approverId?: string;
     status: QuoteStatus;
     createdAt: string;
@@ -314,11 +319,11 @@ export interface Quote {
     exchangeRate: { official: number; commission: number; final: number };
     items: QuoteItem[];
     deliveries?: DeliverySchedule[];
-    commissions?: any[];
-    freight?: any[];
+    commissions?: QuoteCommission[];
+    freight?: { id: string; rate: number }[];
     handling?: QuoteHandling[];
-    insurance?: { enabled: boolean; costPerTon: number };
-    storage?: { enabled: boolean; period: number; unit: string; costPerTon: number };
+    insurance?: { enabled: boolean; costPerUnit: number };
+    storage?: { enabled: boolean; period: number; costPerUnit: number };
     otherItems?: any[];
     purchaseOrderAttachment?: Attachment;
     taxRate: number;
@@ -372,10 +377,20 @@ export interface QuoteItem {
     productName?: string; // Optional for display
 }
 
+export interface QuoteCommission {
+    id: string;
+    salespersonId: string;
+    type: 'percentage' | 'fixed' | 'per_ton' | 'per_kg' | 'per_liter' | 'per_unit';
+    value: number;
+}
+
 export interface QuoteHandling {
     id: string;
-    type: string;
-    costPerTon: number;
+    description: string;
+    costPerUnit: number;
+    type?: string;
+    costPerTon?: number;
+    maneuverType?: 'Carga' | 'Descarga' | 'Carga y Descarga' | 'Maniobra Especial';
 }
 
 export interface DeliverySchedule {
@@ -384,6 +399,7 @@ export interface DeliverySchedule {
     zip: string;
     qty: number;
     date: string;
+    unit?: Unit;
 }
 
 export interface Sample {
@@ -391,10 +407,18 @@ export interface Sample {
     name: string;
     status: SampleStatus;
     ownerId: string;
+    createdById?: string;
     requestDate: string;
     productId: string;
     prospectId?: string;
     companyId?: string;
+    notes?: string;
+    closureReason?: string;
+    closureDate?: string;
+    deliveryType?: string;
+    carrier?: string;
+    trackingNumber?: string;
+    trackingUrl?: string;
 }
 
 export enum SampleStatus {
@@ -404,7 +428,8 @@ export enum SampleStatus {
     Recibida = 'Recibida',
     ConFeedback = 'Con Feedback',
     Cerrada = 'Cerrada',
-    Archivada = 'Archivada'
+    Archivada = 'Archivada',
+    Aprobada = 'Aprobada'
 }
 
 export interface PurchaseOrder {
@@ -419,7 +444,7 @@ export interface PurchaseOrder {
     subtotal: number;
     tax: number;
     total: number;
-    paidAmount: number; // Derived or stored
+    paidAmount: number;
 }
 
 export interface PurchaseOrderItem {
@@ -463,6 +488,8 @@ export interface Delivery {
     deliveryNumber: string;
     isSample?: boolean;
     notes: Note[];
+    proofOfDelivery?: Attachment;
+    qty?: number;
 }
 
 export enum DeliveryStatus {
@@ -561,9 +588,6 @@ export interface ReviewsDistribution {
     fourStar: number;
     fiveStar: number;
 }
-
-export type RejectionReason = 'No interesado' | 'No califica' | 'Competencia' | 'Otro';
-export type BlacklistReason = 'Mal historial' | 'Fraude' | 'Solicitud del cliente';
 
 export interface ImportHistory {
     id: string;
@@ -726,111 +750,3 @@ export interface Commission {
     amount: number;
     status: CommissionStatus;
     salespersonId: string;
-    salesOrderId: string;
-    createdAt: string;
-    paidAt?: string;
-}
-
-export enum CommissionStatus {
-    Pendiente = 'Pendiente',
-    Pagada = 'Pagada',
-    Cancelada = 'Cancelada'
-}
-
-export interface Expense {
-    id: string;
-    amount: number;
-    date: string;
-    description: string;
-    category: 'Logística' | 'Materia Prima' | 'Oficina' | 'Nómina' | 'Marketing' | 'Otros';
-}
-
-export interface ChatMessage {
-    id: string;
-    text: string;
-    senderId: string;
-    receiverId: string; // User ID or Group ID
-    timestamp: string;
-}
-
-export interface Group {
-    id: string;
-    name: string;
-    members: string[];
-}
-
-export interface ArchiveFile {
-    id: string;
-    name: string;
-    size: number;
-    url: string;
-    lastModified: string;
-    uploadedById: string;
-    tags: string[];
-}
-
-export interface Birthday {
-    id: string;
-    userId: string;
-    name: string;
-    date: string; // YYYY-MM-DD
-}
-
-export interface Invitation {
-    id: string;
-    email: string;
-    name: string;
-    roleId: string;
-    teamId?: string | null;
-    companyId?: string | null;
-    permissions: Role['permissions'];
-    status: 'pending' | 'used';
-    createdAt: string;
-}
-
-export interface LogisticsOrigin {
-    id: string;
-    name: string;
-    products: string[];
-    status: 'Activo' | 'Inactivo';
-}
-
-export interface FreightPricingRule {
-    id: string;
-    origin: string;
-    destination: string;
-    minWeightKg: number;
-    maxWeightKg: number;
-    pricePerKg: number;
-    flatRate: number;
-    active: boolean;
-}
-
-export interface CommunicationChannel {
-    // Type alias for string to match constants if needed
-}
-
-export interface InventoryMove {
-    id: string;
-    type: 'in' | 'out' | 'transfer' | 'adjust';
-    productId: string;
-    lotId?: string;
-    qty: number;
-    unit: string;
-    fromLocationId?: string;
-    toLocationId?: string;
-    note?: string;
-    userId: string;
-    createdAt: string;
-}
-
-export type PreferredDays = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado';
-export type Tone = 'Amigable' | 'Formal' | 'Directo' | 'Técnico';
-export type Formality = 'Casual' | 'Profesional' | 'Estricto';
-export type SLA = 'Mismo día hábil' | '24 horas' | '48 horas' | 'Sin compromiso';
-export type QuoteFormat = 'PDF' | 'Link' | 'Email' | 'WhatsApp';
-export type PaymentTerm = 'Contado' | '7 días' | '15 días' | '30 días' | '60 días';
-export type PurchaseType = 'Puntual' | 'Recurrente' | 'Proyecto';
-export type Presentation = 'Granel' | 'Sacos' | 'Totes' | 'Porrones' | 'Big Bag';
-export type PurchaseFrequency = 'Semanal' | 'Mensual' | 'Bimestral' | 'Trimestral' | 'Anual';
-export type Incoterm = 'EXW' | 'FCA' | 'CPT' | 'CIP' | 'DAP' | 'DPU' | 'DDP';

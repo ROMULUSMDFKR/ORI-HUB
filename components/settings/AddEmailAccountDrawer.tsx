@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, ConnectedEmailAccount } from '../../types';
 import Drawer from '../ui/Drawer';
@@ -109,7 +110,8 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
                                 <input type="text" value={imapPort} onChange={e => setImapPort(e.target.value)} />
                             </div>
                         </div>
-                         <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span><ToggleSwitch enabled={useSslImap} onToggle={setUseSslImap} /></div>
+                         {/* FIX: Wrap state setter in an anonymous function to match the expected '() => void' type for onToggle. */}
+                         <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span><ToggleSwitch enabled={useSslImap} onToggle={() => setUseSslImap(prev => !prev)} /></div>
 
                         <h4 className="font-semibold pt-4 border-t border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200">Servidor Saliente (SMTP)</h4>
                          <div className="grid grid-cols-3 gap-3 items-end">
@@ -122,7 +124,8 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
                                 <input type="text" value={smtpPort} onChange={e => setSmtpPort(e.target.value)} />
                             </div>
                         </div>
-                        <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span><ToggleSwitch enabled={useSslSmtp} onToggle={setUseSslSmtp} /></div>
+                        {/* FIX: Wrap state setter in an anonymous function to match the expected '() => void' type for onToggle. */}
+                        <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span><ToggleSwitch enabled={useSslSmtp} onToggle={() => setUseSslSmtp(prev => !prev)} /></div>
                     </div>
                 )}
             </div>

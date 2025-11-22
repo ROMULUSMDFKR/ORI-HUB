@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 
 interface FilterButtonOption {
@@ -11,9 +12,10 @@ interface FilterButtonProps {
     selectedValue: string;
     onSelect: (value: string) => void;
     allLabel?: string;
+    disabled?: boolean;
 }
 
-const FilterButton: React.FC<FilterButtonProps> = ({ label, options, selectedValue, onSelect, allLabel = 'Todos' }) => {
+const FilterButton: React.FC<FilterButtonProps> = ({ label, options, selectedValue, onSelect, allLabel = 'Todos', disabled = false }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -36,7 +38,8 @@ const FilterButton: React.FC<FilterButtonProps> = ({ label, options, selectedVal
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 text-sm font-medium py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
+                disabled={disabled}
+                className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 text-sm font-medium py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <span className="material-symbols-outlined text-base text-slate-500 dark:text-slate-400">filter_list</span>
                 {buttonText}

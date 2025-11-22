@@ -1,5 +1,5 @@
 {
-  "name": "ori",
+  "name": "ori-app",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,21 +9,20 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-router-dom": "^7.9.5",
-    "@google/genai": "^1.29.0",
-    "ogl": "^1.0.11",
-    "three": "^0.166.1",
+    "firebase": "^10.12.2",
     "gsap": "^3.12.5",
-    "firebase": "^12.6.0",
-    "@vitejs/plugin-react": "^5.1.1",
-    "vite": "^7.2.4"
+    "ogl": "^1.0.11",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.23.1",
+    "three": "^0.166.1"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "@google/genai": "^0.1.0",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0"
   }
 }

@@ -30,8 +30,6 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
     }, [user, allAccounts]);
 
     const handleSaveNewAccount = async (account: ConnectedEmailAccount) => {
-        // FIX: Remove the temporary ID before saving to Firestore. 
-        // Firestore will generate a real ID, which is returned in 'addedAccount'.
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id, ...accountData } = account;
         const addedAccount = await api.addDoc('connectedAccounts', accountData);

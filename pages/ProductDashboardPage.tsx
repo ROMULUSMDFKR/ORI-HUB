@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -80,23 +81,35 @@ const ProductListCard: React.FC<{ title: string; products: Product[]; linkTo: st
 const ProductDashboardPage: React.FC = () => {
     const { data: products, loading: pLoading } = useCollection<Product>('products');
     const { data: categories, loading: cLoading } = useCollection<Category>('categories');
-    const { data: lotsData, loading: lLoading } = useCollection<{[key: string]: ProductLot[]}>('lots');
+    const { data: lotsData, loading: lLoading } = useCollection<ProductLot>('lots');
     const { data: salesOrders, loading: soLoading } = useCollection<SalesOrder>('salesOrders');
 
     const loading = pLoading || cLoading || lLoading || soLoading;
 
+    // --- Data Processing ---
+    const lotsByProductId = useMemo(() => {
+        if (!lotsData) return new Map<string, ProductLot[]>();
+        return lotsData.reduce((acc, lot) => {
+            if (!acc.has(lot.productId)) {
+                acc.set(lot.productId, []);
+            }
+            acc.get(lot.productId)!.push(lot);
+            return acc;
+        }, new Map<string, ProductLot[]>());
+    }, [lotsData]);
+
+
     // --- KPI Calculations ---
     const kpiData = useMemo(() => {
-        if (!products || !lotsData || !salesOrders) {
+        if (!products || !salesOrders) {
             return { total: 0, active: 0, lowStock: 0, topSeller: { name: '-', value: 0 } };
         }
 
-        const lotsObject = (lotsData && lotsData.length > 0) ? lotsData[0] : {};
         let lowStockCount = 0;
         
         products.forEach(p => {
             if (p.reorderPoint) {
-                const productLots = lotsObject[p.id] || [];
+                const productLots = lotsByProductId.get(p.id) || [];
                 const totalStock = productLots.reduce((sum, lot) => sum + lot.stock.reduce((lotSum, s) => lotSum + s.qty, 0), 0);
                 if (totalStock < p.reorderPoint) {
                     lowStockCount++;
@@ -126,7 +139,7 @@ const ProductDashboardPage: React.FC = () => {
             lowStock: lowStockCount,
             topSeller: topSeller,
         };
-    }, [products, lotsData, salesOrders]);
+    }, [products, salesOrders, lotsByProductId]);
 
     // --- Chart and List Data ---
     const salesByCategory = useMemo(() => {
@@ -149,15 +162,14 @@ const ProductDashboardPage: React.FC = () => {
     }, [products, categories, salesOrders]);
     
     const lowStockList = useMemo(() => {
-        if (!products || !lotsData) return [];
-        const lotsObject = (lotsData && lotsData.length > 0) ? lotsData[0] : {};
+        if (!products) return [];
         return products.filter(p => {
             if (!p.reorderPoint) return false;
-            const productLots = lotsObject[p.id] || [];
+            const productLots = lotsByProductId.get(p.id) || [];
             const totalStock = productLots.reduce((sum, lot) => sum + lot.stock.reduce((lotSum, s) => lotSum + s.qty, 0), 0);
             return totalStock < p.reorderPoint;
         }).slice(0, 5);
-    }, [products, lotsData]);
+    }, [products, lotsByProductId]);
 
     const recentProducts = useMemo(() => {
         if (!products) return [];

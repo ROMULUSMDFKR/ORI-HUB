@@ -29,7 +29,6 @@ const getCollection = async (collectionName: string): Promise<any[]> => {
     const querySnapshot = await getDocs(collection(db, collectionName));
     const data: any[] = [];
     querySnapshot.forEach((doc) => {
-      // FIX: Spread doc.data() first, then overwrite id with doc.id to ensure we use the real Firestore ID
       data.push({ ...doc.data(), id: doc.id });
     });
     return data;
@@ -46,7 +45,6 @@ const getDoc = async (collectionName: string, docId: string): Promise<any | null
     const docSnap = await getFirestoreDoc(docRef);
 
     if (docSnap.exists()) {
-      // FIX: Spread docSnap.data() first, then overwrite id with docSnap.id
       return { ...docSnap.data(), id: docSnap.id };
     } else {
       console.log(`No such document! (${collectionName}/${docId})`);
@@ -62,13 +60,10 @@ const addFirebaseDoc = async (collectionName: string, newDoc: any): Promise<any>
     try {
         const docRef = await addDoc(collection(db, collectionName), newDoc);
         
-        // Log Audit
         if (collectionName !== 'auditLogs') {
             await logAudit(collectionName, docRef.id, 'Crear');
         }
 
-        // Devolvemos el documento nuevo con el ID que Firestore le asignó.
-        // FIX: Ensure we return the real ID from docRef
         return { ...newDoc, id: docRef.id };
     } catch(error) {
         console.error(`Error adding document to ${collectionName}:`, error);
@@ -81,7 +76,6 @@ const updateFirebaseDoc = async (collectionName: string, docId: string, updates:
         const docRef = doc(db, collectionName, docId);
         await updateDoc(docRef, updates);
         
-        // Log Audit
         if (collectionName !== 'auditLogs') {
             await logAudit(collectionName, docId, 'Actualizar');
         }
@@ -96,7 +90,6 @@ const deleteFirebaseDoc = async (collectionName: string, docId: string): Promise
         const docRef = doc(db, collectionName, docId);
         await deleteFirestoreDoc(docRef);
         
-        // Log Audit
         if (collectionName !== 'auditLogs') {
             await logAudit(collectionName, docId, 'Eliminar');
         }
@@ -108,14 +101,7 @@ const deleteFirebaseDoc = async (collectionName: string, docId: string): Promise
     }
 };
 
-// En una aplicación real, no necesitarías esta función, pero la mantenemos para compatibilidad con el código existente.
 const getLotsForProduct = async (productId: string): Promise<any[]> => {
-    // Simple query implementation if needed in future, currently returning empty/mock
-    // To make this work with Firestore, we would query the 'lots' collection where productId == id
-    // For now, maintaining behavior but logging
-    console.warn("getLotsForProduct - simulado para estructura de datos actual.");
-    
-    // Attempt to fetch if possible (assuming 'lots' collection)
     try {
         const allLots = await getCollection('lots');
         return allLots.filter(l => l.productId === productId);
@@ -144,11 +130,9 @@ const uploadFile = async (file: File, path: string): Promise<string> => {
 const deleteFile = async (file: any): Promise<void> => {
   console.log(`%c[FIREBASE] Eliminando archivo: ${file.name}`, 'color: #F44336; font-weight: bold;');
   try {
-    // 1. Delete from Storage
     const storageRef = ref(storage, `archives/${file.name}`);
     await deleteObject(storageRef);
 
-    // 2. Delete from Firestore
     if (file.id) {
         const docRef = doc(db, 'archives', file.id);
         await deleteFirestoreDoc(docRef);
@@ -181,8 +165,6 @@ const setFirebaseDoc = async (collectionName: string, docId: string, data: any):
             await logAudit(collectionName, docId, 'Crear/Sobrescribir');
         }
 
-        // Return the full document with its ID for local state updates
-        // FIX: Ensure we return the ID used to set the doc
         return { ...data, id: docId };
     } catch (error) {
         console.error(`Error setting document ${collectionName}/${docId}:`, error);
@@ -199,10 +181,7 @@ const sendActivationEmail = async (email: string): Promise<void> => {
     }
 };
 
-// --- Admin Create User (Without Logout) ---
-
 const adminCreateUser = async (email: string, password: string, userData: Omit<User, 'id'>): Promise<string> => {
-    // Initialize a secondary app to avoid logging out the current user
     const secondaryApp = initializeApp(firebaseConfig, "Secondary");
     const secondaryAuth = getAuth(secondaryApp);
 
@@ -210,10 +189,9 @@ const adminCreateUser = async (email: string, password: string, userData: Omit<U
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
         const uid = userCredential.user.uid;
         
-        // Create the user profile in Firestore with the specific flag
         const newUserProfile: Omit<User, 'id'> = {
             ...userData,
-            hasCompletedOnboarding: false, // Force them to complete onboarding
+            hasCompletedOnboarding: false,
             avatarUrl: `https://i.pravatar.cc/150?u=${uid}`,
         };
         
@@ -221,7 +199,6 @@ const adminCreateUser = async (email: string, password: string, userData: Omit<U
         
         await logAudit('users', uid, 'Crear Usuario (Admin)');
 
-        // Clean up the secondary app session
         await signOut(secondaryAuth);
         
         return uid;
@@ -229,13 +206,9 @@ const adminCreateUser = async (email: string, password: string, userData: Omit<U
         console.error("Error in adminCreateUser:", error);
         throw error;
     } finally {
-        // Ensure the secondary app is deleted to free resources
         deleteApp(secondaryApp).catch(err => console.warn("Error deleting secondary app:", err));
     }
 };
-
-
-// --- New Invitation Functions (Legacy/Optional) ---
 
 const createInvitation = async (invitationData: Omit<Invitation, 'id' | 'createdAt' | 'status'>): Promise<string> => {
     try {
@@ -257,7 +230,6 @@ const getInvitation = async (invitationId: string): Promise<Invitation | null> =
         const docRef = doc(db, 'invitations', invitationId);
         const docSnap = await getFirestoreDoc(docRef);
         if (docSnap.exists()) {
-            // FIX: Spread docSnap.data() first
             return { ...docSnap.data(), id: docSnap.id } as Invitation;
         }
         return null;
@@ -269,17 +241,15 @@ const getInvitation = async (invitationId: string): Promise<Invitation | null> =
 
 const registerUserWithInvitation = async (invitation: Invitation, password: string): Promise<any> => {
     try {
-        // 1. Create Auth User
         const userCredential = await createUserWithEmailAndPassword(auth, invitation.email, password);
         const authUser = userCredential.user;
 
-        // 2. Create User Profile in Firestore
         const newUserProfile: Omit<User, 'id'> = {
             name: invitation.name,
             email: invitation.email,
-            avatarUrl: `https://i.pravatar.cc/150?u=${authUser.uid}`, // Placeholder
+            avatarUrl: `https://i.pravatar.cc/150?u=${authUser.uid}`,
             roleId: invitation.roleId,
-            role: 'Miembro', // Providing a default role string
+            role: 'Miembro',
             teamId: invitation.teamId,
             companyId: invitation.companyId,
             permissions: invitation.permissions,
@@ -291,7 +261,6 @@ const registerUserWithInvitation = async (invitation: Invitation, password: stri
         
         await logAudit('users', authUser.uid, 'Registro por Invitación');
 
-        // 3. Mark invitation as used (or delete it)
         await updateDoc(doc(db, 'invitations', invitation.id), { status: 'used' });
 
         return authUser;
@@ -302,13 +271,12 @@ const registerUserWithInvitation = async (invitation: Invitation, password: stri
     }
 };
 
-
 export const api = {
   getCollection,
   getDoc,
   addDoc: addFirebaseDoc,
   updateDoc: updateFirebaseDoc,
-  deleteDoc: deleteFirebaseDoc, // Exported generic delete
+  deleteDoc: deleteFirebaseDoc,
   getLotsForProduct,
   uploadFile,
   deleteFile,

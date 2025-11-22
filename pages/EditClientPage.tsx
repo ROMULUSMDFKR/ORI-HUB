@@ -194,7 +194,8 @@ const EditClientPage: React.FC = () => {
             // Initialize missing nested objects to prevent errors with controlled inputs
             const initializedCompany = {
                 ...initialCompany,
-                primaryContact: initialCompany.primaryContact || { name: '', email: '', phone: '' },
+                // FIX: Initialize primaryContact with all required properties for the Contact type.
+                primaryContact: initialCompany.primaryContact || { id: '', name: '', email: '', phone: '', role: 'Contacto Principal', ownerId: currentUser?.id || '' },
                 deliveryAddresses: initialCompany.deliveryAddresses || [],
                 fiscalAddress: initialCompany.fiscalAddress || { street: '', city: '', state: '', zip: '' },
                 profile: {
@@ -247,7 +248,7 @@ const EditClientPage: React.FC = () => {
 
             setEditedCompany(initializedCompany);
         }
-    }, [initialCompany]);
+    }, [initialCompany, currentUser]);
 
     useEffect(() => {
         if(allNotes && id) {

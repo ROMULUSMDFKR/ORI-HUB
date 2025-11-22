@@ -1,13 +1,7 @@
 
-
-
-
-
-
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Sample, Company, Product, Prospect } from '../../types';
-// FIX: Removed MOCK data imports and will fetch data using a hook.
 import { useCollection } from '../../hooks/useCollection';
 
 interface SampleCardProps {
@@ -17,7 +11,6 @@ interface SampleCardProps {
 }
 
 const SampleCard: React.FC<SampleCardProps> = ({ item, onDragStart, onArchive }) => {
-  // FIX: Fetch data with useCollection hook instead of using mock data.
   const { data: companies } = useCollection<Company>('companies');
   const { data: products } = useCollection<Product>('products');
   const { data: prospects } = useCollection<Prospect>('prospects');

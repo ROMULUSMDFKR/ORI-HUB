@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { AuditLog, User } from '../types';
@@ -28,7 +30,6 @@ const DateFilterButton: React.FC<{ label: string; value: string; onChange: (valu
 
 
 const AuditPage: React.FC = () => {
-    // FIX: Se destructuran los errores para su correcta gestión.
     const { data: auditLogs, loading: logsLoading, error: logsError } = useCollection<AuditLog>('auditLogs');
     const { data: users, loading: usersLoading, error: usersError } = useCollection<User>('users');
 
@@ -122,12 +123,10 @@ const AuditPage: React.FC = () => {
     ];
     
     const loading = logsLoading || usersLoading;
-    // FIX: Se combinan los errores para una gestión unificada.
     const error = logsError || usersError;
 
     const renderContent = () => {
         if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
-        // FIX: Se comprueba la variable de error.
         if (error) return <p className="text-center text-red-500 py-12">Error al cargar la auditoría.</p>;
         if (!filteredLogs || filteredLogs.length === 0) {
             return (

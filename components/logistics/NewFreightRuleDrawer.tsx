@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import Drawer from '../ui/Drawer';
 import CustomSelect from '../ui/CustomSelect';
 import { FreightPricingRule } from '../../types';
-// FIX: Se eliminó la importación de datos falsos.
 import { useCollection } from '../../hooks/useCollection';
 
 interface NewFreightRuleDrawerProps {
@@ -21,7 +21,6 @@ const NewFreightRuleDrawer: React.FC<NewFreightRuleDrawerProps> = ({ isOpen, onC
         flatRate: 0,
     };
     const [rule, setRule] = useState(initialState);
-    // FIX: Se obtienen las ubicaciones de la colección.
     const { data: locations } = useCollection<any>('locations');
 
     useEffect(() => {
@@ -35,15 +34,13 @@ const NewFreightRuleDrawer: React.FC<NewFreightRuleDrawerProps> = ({ isOpen, onC
     };
 
     const handleSave = () => {
-        // Basic validation
         if (!rule.origin || !rule.destination || rule.maxWeightKg <= rule.minWeightKg) {
             alert('Por favor, completa los campos correctamente. El peso máximo debe ser mayor al mínimo.');
             return;
         }
-        onSave(rule);
+        onSave({ ...rule, active: true });
     };
 
-    // FIX: Se usan las ubicaciones reales para las opciones.
     const originOptions = (locations || []).map((loc: any) => ({ value: loc.name, name: loc.name }));
 
     return (

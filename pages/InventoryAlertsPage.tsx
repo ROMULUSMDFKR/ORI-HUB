@@ -19,23 +19,19 @@ const AlertCard: React.FC<{ title: string; children: React.ReactNode; icon: stri
 
 const InventoryAlertsPage: React.FC = () => {
     const { data: products, loading: pLoading } = useCollection<Product>('products');
-    // FIX: Changed generic type to ProductLot instead of nested object
     const { data: lotsData, loading: lLoading } = useCollection<ProductLot>('lots');
 
     const lowStockAlerts = useMemo(() => {
         if (!products || !lotsData) return [];
         
-        // FIX: Treat lotsData as a flat array
         const allLots = lotsData;
         
         return products
             .map(product => {
                 if (!product.reorderPoint) return null;
                 
-                // Filter lots for this product
                 const productLots = allLots.filter(l => l.productId === product.id);
                 
-                // Calculate total stock
                 const totalStock = productLots.reduce((sum, lot) => sum + lot.stock.reduce((lotSum, s) => lotSum + s.qty, 0), 0);
                 
                 if (totalStock < product.reorderPoint) {

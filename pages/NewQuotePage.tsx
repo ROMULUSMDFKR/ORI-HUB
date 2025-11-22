@@ -835,7 +835,8 @@ const NewQuotePage: React.FC = () => {
                                 ></div>
                             </div>
                             <p className="text-[10px] text-right text-slate-400 mt-1">
-                                Programado: {(deliveryStats.totalScheduledQty || 0).toLocaleString()} / Cotizado: {(deliveryStats.totalQuotedQty || 0).toLocaleString()} {deliveryStats.primaryUnit}
+                                {/* FIX: Use totals.totalQuotedQty instead of deliveryStats.totalQuotedQty */}
+                                Programado: {(deliveryStats.totalScheduledQty || 0).toLocaleString()} / Cotizado: {(totals.totalQuotedQty || 0).toLocaleString()} {deliveryStats.primaryUnit}
                             </p>
                         </div>
 

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { SalesOrder, Delivery, DeliveryStatus, Company, User } from '../../types';
+import { SalesOrder, Delivery, DeliveryStatus, Company, User, SalesOrderStatus } from '../../types';
 import { useCollection } from '../../hooks/useCollection';
 
 interface SalesOrderCardProps {
@@ -13,12 +13,10 @@ interface SalesOrderCardProps {
 const SalesOrderCard: React.FC<SalesOrderCardProps> = ({ item, deliveries: propDeliveries, onDragStart }) => {
   const { data: companies } = useCollection<Company>('companies');
   const { data: users } = useCollection<User>('users');
-  // Fetch deliveries specifically for this order if not provided via props (for flexibility)
   const { data: fetchedDeliveries } = useCollection<Delivery>('deliveries');
   
   const client = useMemo(() => companies?.find(c => c.id === item.companyId), [companies, item.companyId]);
   
-  // Determine responsible person (Salesperson on order > Company Owner > Unknown)
   const responsibleUser = useMemo(() => {
       if (!users) return null;
       if (item.salespersonId) return users.find(u => u.id === item.salespersonId);
@@ -26,7 +24,6 @@ const SalesOrderCard: React.FC<SalesOrderCardProps> = ({ item, deliveries: propD
       return null;
   }, [users, item.salespersonId, client]);
 
-  // Use passed deliveries or filter from all fetched
   const deliveries = useMemo(() => {
       if (propDeliveries) return propDeliveries;
       if (fetchedDeliveries) return fetchedDeliveries.filter(d => d.salesOrderId === item.id);
@@ -35,14 +32,12 @@ const SalesOrderCard: React.FC<SalesOrderCardProps> = ({ item, deliveries: propD
 
   const completedDeliveries = deliveries.filter(d => d.status === DeliveryStatus.Entregada).length;
   const totalDeliveries = deliveries.length;
-  // Progress logic: 100% if no deliveries but status is 'Entregada', otherwise calc based on deliveries
   const progress = totalDeliveries > 0 
       ? (completedDeliveries / totalDeliveries) * 100 
-      : (item.status === 'Entregada' || item.status === 'Facturada' ? 100 : 0);
+      : (item.status === SalesOrderStatus.Entregada || item.status === SalesOrderStatus.Facturada ? 100 : 0);
   
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Priority identifier: Folio > Short ID with OV prefix
   const displayId = item.folio || `OV-${item.id.slice(-6).toUpperCase()}`;
 
   return (
@@ -74,8 +69,7 @@ const SalesOrderCard: React.FC<SalesOrderCardProps> = ({ item, deliveries: propD
         </div>
       </div>
       
-      {/* Delivery Progress Bar */}
-      {(totalDeliveries > 0 || item.status === 'EnTransito' || item.status === 'EnPreparacion') && (
+      {(totalDeliveries > 0 || item.status === SalesOrderStatus.EnTransito || item.status === SalesOrderStatus.EnPreparacion) && (
         <div className="mt-3">
             <div className="flex justify-between text-xs text-gray-500 mb-1">
                 <span>Entregas</span>

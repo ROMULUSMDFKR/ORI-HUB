@@ -1,15 +1,14 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-// FIX: Imported User type
 import { Company, User } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 
 const CrmClientsListPage: React.FC = () => {
-    // FIX: Switched to fetching 'companies' collection with 'Company' type.
     const { data: companies, loading: companiesLoading, error } = useCollection<Company>('companies');
     const { data: users, loading: usersLoading } = useCollection<User>('users');
     
@@ -24,7 +23,6 @@ const CrmClientsListPage: React.FC = () => {
 
     const filteredClients = useMemo(() => {
         if (!companies) return [];
-        // FIX: Updated filtering logic to use 'name' instead of 'legalName'.
         return companies.filter(client =>
             (client.name.toLowerCase().includes(filter.toLowerCase())) ||
             (client.shortName?.toLowerCase().includes(filter.toLowerCase()))
@@ -34,7 +32,6 @@ const CrmClientsListPage: React.FC = () => {
     const columns = [
         {
             header: 'Nombre',
-            // FIX: Corrected type to 'Company' and property to 'name'.
             accessor: (client: Company) => (
                 <Link to={`/crm/clients/${client.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
                     {client.shortName || client.name}

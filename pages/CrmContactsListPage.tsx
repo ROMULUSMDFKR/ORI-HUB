@@ -1,8 +1,8 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-// FIX: Imported Company type for correct data fetching.
 import { Contact, Company } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
@@ -50,7 +50,6 @@ const CrmContactsListPage: React.FC = () => {
     const { data: initialContacts, loading: contactsLoading, error } = useCollection<Contact>('contacts');
     const [contacts, setContacts] = useState<Contact[] | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    // FIX: Fetch from 'companies' collection with the correct 'Company' type.
     const { data: companies, loading: companiesLoading } = useCollection<Company>('companies');
     const { showToast } = useToast();
 
@@ -62,7 +61,6 @@ const CrmContactsListPage: React.FC = () => {
         { 
             header: 'Cliente', 
             accessor: (contact: Contact) => {
-                // FIX: Used 'companyId' instead of 'clientId' to match the Contact type.
                 const client = companies?.find(c => c.id === contact.companyId);
                 return client ? client.shortName : 'N/A';
             }

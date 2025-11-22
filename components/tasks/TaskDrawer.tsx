@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Drawer from '../ui/Drawer';
 import { Task, TaskStatus, Priority, User, Project, Comment, Subtask } from '../../types';
@@ -121,13 +122,16 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ isOpen, onClose, task, onSave }
             alert('El título es requerido.');
             return;
         }
+        // FIX: Explicitly define all required properties for finalTask to conform to the Task type.
         const finalTask: Task = {
+            ...editedTask,
             id: editedTask.id || `task-${Date.now()}`,
-            title: editedTask.title,
+            title: editedTask.title!,
             status: editedTask.status || TaskStatus.PorHacer,
+            priority: editedTask.priority || Priority.Media,
             assignees: editedTask.assignees || [],
             watchers: editedTask.watchers || [],
-            ...editedTask,
+            createdAt: editedTask.createdAt || new Date().toISOString()
         };
         onSave(finalTask);
     };

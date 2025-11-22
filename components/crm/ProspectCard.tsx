@@ -1,10 +1,6 @@
 
-
-
-
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-// FIX: Removed MOCK_USERS import and will fetch data using a hook.
 import { Prospect, User } from '../../types';
 import Badge from '../ui/Badge';
 import { useCollection } from '../../hooks/useCollection';
@@ -41,11 +37,9 @@ const InfoRow: React.FC<{ icon: string; text: React.ReactNode; isAlert?: boolean
 );
 
 const ProspectCard: React.FC<ProspectCardProps> = ({ prospect, onDragStart, onArchive }) => {
-  // FIX: Fetch users with useCollection hook instead of using mock data.
   const { data: users } = useCollection<User>('users');
   const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
-  // FIX: Provide a default object for `owner` to prevent accessing properties on `undefined`.
-  const owner = usersMap.get(prospect.ownerId) || { id: 'user-3', avatarUrl: '', name: 'Unknown' };
+  const owner = usersMap.get(prospect.ownerId) || { id: 'unknown-user', avatarUrl: '', name: 'Desconocido' };
   const [menuOpen, setMenuOpen] = useState(false);
 
   const priorityColor = {
@@ -63,7 +57,6 @@ const ProspectCard: React.FC<ProspectCardProps> = ({ prospect, onDragStart, onAr
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-            {/* FIX: Use prospect.id for the link, which is correctly typed. */}
             <Link to={`/hubs/prospects/${prospect.id}`} onClick={e => e.stopPropagation()}>
                 <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 hover:underline">{prospect.name}</h4>
             </Link>

@@ -1,6 +1,9 @@
 
 
 
+
+
+
 import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -22,9 +25,9 @@ const PageLoader: React.FC = () => (
   <div className="w-full h-screen flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-900">
     <div className="relative flex flex-col items-center">
         <img 
-            src="https://tradeaitirik.com.mx/wp-content/uploads/2025/11/ORI-LOGO.png" 
+            src="https://firebasestorage.googleapis.com/v0/b/ori-405da.firebasestorage.app/o/Logo%2FIMG_1039.png?alt=media&token=54ca4912-7921-445b-8bdd-97b11767672a" 
             alt="ORI Logo" 
-            className="w-24 h-auto animate-pulse" 
+            className="w-28 h-auto animate-pulse" 
         />
         <div className="mt-8 flex space-x-2">
             <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
@@ -147,7 +150,7 @@ const EmailSettingsPage = lazy(() => import('./pages/settings/EmailSettings'));
 const IndustryManagementPage = lazy(() => import('./pages/settings/IndustryManagement'));
 const PipelineManagementPage = lazy(() => import('./pages/settings/PipelineManagement'));
 const AiAccessSettingsPage = lazy(() => import('./pages/settings/AiAccessSettings'));
-const EmailAppearancePage = lazy(() => import('./pages/CrmPage'));
+const EmailAppearancePage = lazy(() => import('./pages/settings/EmailAppearancePage'));
 const RoleManagementPage = lazy(() => import('./pages/settings/RoleManagementPage'));
 const EditRolePage = lazy(() => import('./pages/settings/EditRolePage'));
 const InternalCompaniesSettings = lazy(() => import('./pages/settings/InternalCompaniesSettings'));

@@ -3,7 +3,6 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Company, User } from '../../types';
 import Badge from '../ui/Badge';
-// FIX: Removed MOCK_USERS import and will fetch data using a hook.
 import { useCollection } from '../../hooks/useCollection';
 
 interface CompanyCardProps {
@@ -12,7 +11,6 @@ interface CompanyCardProps {
 }
 
 const CompanyCard: React.FC<CompanyCardProps> = ({ item, onDragStart }) => {
-  // FIX: Fetch users with useCollection hook instead of using mock data.
   const { data: users } = useCollection<User>('users');
   const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
   const owner = usersMap.get(item.ownerId) || null;

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Drawer from '../ui/Drawer';
 import { Brand, Candidate } from '../../types';
@@ -14,6 +15,8 @@ interface LinkCandidatesDrawerProps {
   brand: Brand;
   onLinkCandidates: (brandId: string, candidateIds: string[]) => void;
 }
+
+const COMMON_STOPWORDS = ['gasolinera', 'estacion', 'servicio', 'service', 'station', 'grupo', 'corporativo', 'inc', 'llantas', 'taller', 'de', 'la', 'el', 'y', 'en', 'mexico', 'mx', 'sucursal'];
 
 const LinkCandidatesDrawer: React.FC<LinkCandidatesDrawerProps> = ({ isOpen, onClose, brand, onLinkCandidates }) => {
     const { data: allCandidates, loading: candidatesLoading } = useCollection<Candidate>('candidates');
@@ -144,15 +147,18 @@ const LinkCandidatesDrawer: React.FC<LinkCandidatesDrawerProps> = ({ isOpen, onC
         return null;
     };
 
+    // FIX: Extracted conditions into variables to resolve linter error.
+    const showFooter = status === 'reviewing' && suggestedCandidates.length > 0;
+    const isLinking = status === 'linking';
 
     return (
         <Drawer isOpen={isOpen} onClose={onClose} title={`Vincular Candidatos a "${brand.name}"`}>
             {renderContent()}
-            {(status === 'reviewing' && suggestedCandidates.length > 0) && (
+            {showFooter && (
                 <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
                     <button onClick={onClose} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 font-semibold py-2 px-4 rounded-lg">Cancelar</button>
-                    <button onClick={handleLink} disabled={selectedCandidateIds.length === 0 || status === 'linking'} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg disabled:opacity-50 flex items-center gap-2">
-                         {status === 'linking' && <span className="material-symbols-outlined animate-spin !text-sm">progress_activity</span>}
+                    <button onClick={handleLink} disabled={selectedCandidateIds.length === 0 || isLinking} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg disabled:opacity-50 flex items-center gap-2">
+                         {isLinking && <span className="material-symbols-outlined animate-spin !text-sm">progress_activity</span>}
                         Vincular ({selectedCandidateIds.length}) Seleccionados
                     </button>
                 </div>

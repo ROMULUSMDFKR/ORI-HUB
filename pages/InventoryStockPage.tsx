@@ -16,7 +16,6 @@ interface StockInfo {
 
 const InventoryStockPage: React.FC = () => {
     const { data: products, loading: pLoading } = useCollection<Product>('products');
-    // FIX: Changed generic type to ProductLot instead of nested object
     const { data: lotsData, loading: lLoading } = useCollection<ProductLot>('lots');
     const { data: categories, loading: cLoading } = useCollection<Category>('categories');
     
@@ -26,14 +25,11 @@ const InventoryStockPage: React.FC = () => {
     const stockData = useMemo<StockInfo[]>(() => {
         if (!products || !lotsData) return [];
 
-        // FIX: Treat lotsData as a flat array of ProductLot
         const allLots = lotsData;
         
         return products.map(product => {
-            // Filter lots belonging to this product
             const productLots = allLots.filter(lot => lot.productId === product.id);
             
-            // Sum quantities from all locations within those lots
             const totalStock = productLots.reduce((sum, lot) => {
                 return sum + lot.stock.reduce((lotSum, s) => lotSum + s.qty, 0);
             }, 0);

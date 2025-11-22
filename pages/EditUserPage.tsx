@@ -41,7 +41,6 @@ const EditUserPage: React.FC = () => {
             if (!prev) return null;
             const updated = { ...prev, [field]: value };
             
-            // If the role changed, apply that role's permissions as a new template
             if (field === 'roleId' && roles) {
                 const newRole = roles.find(r => r.id === value);
                 if (newRole) {
@@ -56,12 +55,8 @@ const EditUserPage: React.FC = () => {
     const handleSave = async () => {
         if (!editedUser) return;
         try {
-            // Find the selected role object to get its name
             const selectedRole = roles?.find(r => r.id === editedUser.roleId);
             
-            // Update the user data
-            // CRITICAL: Update the 'role' string property to match the selected Role Name
-            // This ensures the UI (headers, badges) displays "Ventas" instead of "Miembro"
             const userToSave = {
                 ...editedUser,
                 role: selectedRole ? selectedRole.name : editedUser.role, 

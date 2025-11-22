@@ -124,8 +124,8 @@ const QuotesPipelinePage: React.FC = () => {
     if (!itemId || !currentUser) return;
 
     const originalQuote = quotes.find(q => q.id === itemId);
-    // FIX: Cast targetStage to 'any' to bypass strict enum type comparison error.
-    if (!originalQuote || originalQuote.status === (targetStage as any)) return;
+    // FIX: Cast targetStage to 'QuoteStatus' to fix type comparison error. The enums have identical string values.
+    if (!originalQuote || originalQuote.status === (targetStage as QuoteStatus)) return;
 
     // Optimistic update
     setQuotes(prevItems =>

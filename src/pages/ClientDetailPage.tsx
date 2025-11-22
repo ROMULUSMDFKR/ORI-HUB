@@ -69,6 +69,49 @@ const HubItem: React.FC<{ item: any, type: 'quote' | 'sales-order' | 'sample', o
     )
 };
 
+const ActivityFeed: React.FC<{ activities: ActivityLog[], usersMap: Map<string, User> }> = ({ activities, usersMap }) => {
+    const iconMap: Record<ActivityLog['type'], string> = {
+        'Llamada': 'call',
+        'Email': 'email',
+        'Reunión': 'groups',
+        'Nota': 'note',
+        'Vista de Perfil': 'visibility',
+        'Análisis IA': 'auto_awesome',
+        'Cambio de Estado': 'change_circle',
+        'Sistema': 'dns'
+    };
+
+    return (
+        <InfoCard title="Historial de Actividad" className="h-full">
+            {activities.length > 0 ? (
+                 <ul className="space-y-0 relative">
+                     <div className="absolute top-0 bottom-0 left-4 w-px bg-slate-200 dark:bg-slate-700"></div>
+                     {activities.map((activity, index) => {
+                        const author = usersMap.get(activity.userId);
+                        const isSystem = activity.userId === 'system';
+                        return (
+                            <li key={activity.id} className="relative pl-10 py-4 first:pt-0 last:pb-0">
+                                <div className={`absolute left-0 top-4 w-8 h-8 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-slate-800 ${isSystem ? 'bg-slate-100 text-slate-500' : 'bg-indigo-100 text-indigo-600'}`}>
+                                    <span className="material-symbols-outlined !text-sm">{iconMap[activity.type] || 'circle'}</span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <p className="text-sm text-slate-800 dark:text-slate-200 font-medium">{activity.description}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                        {/* FIX: Use optional chaining to safely access 'name' property. */}
+                                        {isSystem ? 'Sistema' : author?.name || 'Usuario desconocido'} &bull; {new Date(activity.createdAt).toLocaleString()}
+                                    </p>
+                                </div>
+                            </li>
+                        )
+                     })}
+                 </ul>
+            ) : (
+                <p className="text-sm text-center text-slate-500 dark:text-slate-400 py-8">No hay actividades registradas para esta empresa.</p>
+            )}
+        </InfoCard>
+    );
+};
+
 // New Component for Profile Read-Only View
 const ProfileView: React.FC<{ company: Company }> = ({ company }) => {
     const { profile } = company;
@@ -90,7 +133,7 @@ const ProfileView: React.FC<{ company: Company }> = ({ company }) => {
             <InfoCard title="Comunicación">
                 <InfoRow label="Canal Preferido" value={displayArray(profile.communication?.channel)} />
                 <InfoRow label="Horario" value={profile.communication?.time || '-'} />
-                <InfoRow label="Días Preferidos" value={profile.communication?.days?.join(', ') || '-'} />
+                <InfoRow label="Días Preferidos" value={displayArray(profile.communication?.days)} />
                 <InfoRow label="Tono" value={profile.communication?.tone || '-'} />
                 <InfoRow label="Formalidad" value={profile.communication?.formality || '-'} />
                 <InfoRow label="SLA" value={profile.communication?.sla || '-'} />
@@ -141,7 +184,14 @@ const ProfileView: React.FC<{ company: Company }> = ({ company }) => {
                 <InfoRow label="Registro Proveedor" value={profile.purchaseProcess?.requiresSupplierRegistry ? 'Sí' : 'No'} />
                 <InfoRow label="Licitación" value={profile.purchaseProcess?.isTender ? 'Sí' : 'No'} />
                 <InfoRow label="Término de Pago" value={profile.purchaseProcess?.paymentTerm || '-'} />
-                <InfoRow label="Presupuesto" value={profile.purchaseProcess?.budget ? `$${profile.purchaseProcess.budget.toLocaleString()}` : '-'} />
+                <InfoRow 
+                    label="Presupuesto Estimado" 
+                    value={
+                        profile.purchaseProcess?.budget 
+                        ? `${profile.purchaseProcess.budget.toLocaleString()} ${profile.purchaseProcess.budgetUnit ? `(${profile.purchaseProcess.budgetUnit})` : ''}`
+                        : '-'
+                    } 
+                />
                 <InfoRow label="Tipo Compra" value={profile.purchaseProcess?.purchaseType || '-'} />
             </InfoCard>
 
@@ -171,7 +221,7 @@ const ClientDetailPage: React.FC = () => {
     
     const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
     const [currentStage, setCurrentStage] = useState<CompanyPipelineStage | undefined>();
-    const [activeTab, setActiveTab] = useState<'Resumen' | 'Perfil Comercial'>('Resumen');
+    const [activeTab, setActiveTab] = useState<'Resumen' | 'Perfil Comercial' | 'Actividad'>('Resumen');
     const { showToast } = useToast();
     const { user: currentUser } = useAuth();
 
@@ -193,6 +243,11 @@ const ClientDetailPage: React.FC = () => {
         if (!allNotes || !id) return [];
         return allNotes.filter(n => n.companyId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [allNotes, id]);
+    
+    const companyActivities = useMemo(() => {
+        if (!allActivities || !id) return [];
+        return allActivities.filter(a => a.companyId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [allActivities, id]);
 
     const companyContacts = useMemo(() => contacts?.filter(c => c.companyId === id) || [], [contacts, id]);
     const companyQuotes = useMemo(() => quotes?.filter(q => q.companyId === id) || [], [quotes, id]);
@@ -288,39 +343,46 @@ const ClientDetailPage: React.FC = () => {
     const handleSaveContact = async (contactData: Contact) => {
         if (!id || !currentCompany) return;
 
+        // Ensure no undefined values are passed to Firestore
+        const safeContactData = {
+            ...contactData,
+            companyId: id,
+            ownerId: contactData.ownerId || currentUser?.id || 'system',
+            emails: contactData.emails || [],
+            phones: contactData.phones || [],
+            email: contactData.email || '',
+            phone: contactData.phone || '',
+        };
+
         try {
             if (isEditingPrimary) {
-                // 1. Update Company Document
-                const updatedPrimary = {
-                    name: contactData.name,
-                    email: contactData.email, // Legacy
-                    phone: contactData.phone || '', // Legacy
-                    emails: contactData.emails,
-                    phones: contactData.phones,
+                // FIX: Construct a complete `Contact` object for `updatedPrimary` to ensure type compatibility.
+                const updatedPrimary: Contact = {
+                    // Start with base properties to ensure all fields exist
+                    ...(currentCompany.primaryContact || { id: `contact-${Date.now()}`, role: 'Contacto Principal' }),
+                    ...safeContactData,
                 };
                 
                 await api.updateDoc('companies', id, { primaryContact: updatedPrimary });
                 setCurrentCompany(prev => prev ? { ...prev, primaryContact: updatedPrimary } : null);
                 
                 // 2. Sync with Contacts Collection
-                // Check if this primary contact already exists in the contact list (by email or name fuzzy match)
-                // For simplicity, checking by email if available, otherwise skipping exact dup check for now
-                const existingContact = contacts?.find(c => c.companyId === id && (c.email === contactData.email || (contactData.emails && c.emails && c.emails.some(e => contactData.emails?.includes(e)))));
+                const existingContact = contacts?.find(c => c.companyId === id && (c.email === safeContactData.email || (safeContactData.emails && c.emails && c.emails.some(e => safeContactData.emails?.includes(e)))));
                 
                 if (existingContact) {
                     await api.updateDoc('contacts', existingContact.id, {
-                        ...contactData,
-                        id: undefined // Don't overwrite ID
+                        ...safeContactData,
+                        id: undefined // Don't overwrite Firestore ID
                     });
                 } else {
-                    await api.addDoc('contacts', contactData);
+                    await api.addDoc('contacts', safeContactData);
                 }
                 
                 showToast('success', 'Contacto principal actualizado y sincronizado.');
 
             } else {
                 // Adding a secondary contact directly to collection
-                await api.addDoc('contacts', contactData);
+                await api.addDoc('contacts', safeContactData);
                 showToast('success', 'Contacto añadido.');
             }
             
@@ -369,7 +431,7 @@ const ClientDetailPage: React.FC = () => {
             {/* Tabs Navigation */}
             <div className="border-b border-slate-200 dark:border-slate-700">
                 <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-                    {['Resumen', 'Perfil Comercial'].map((tab) => (
+                    {['Resumen', 'Perfil Comercial', 'Actividad'].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
@@ -536,8 +598,10 @@ const ClientDetailPage: React.FC = () => {
                             </InfoCard>
                         </div>
                     </div>
-                ) : (
+                ) : activeTab === 'Perfil Comercial' ? (
                     <ProfileView company={currentCompany} />
+                ) : (
+                    <ActivityFeed activities={companyActivities} usersMap={usersMap} />
                 )}
             </div>
 

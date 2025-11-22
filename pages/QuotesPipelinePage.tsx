@@ -1,9 +1,10 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { QUOTES_PIPELINE_COLUMNS } from '../constants';
-import { Quote, QuotePipelineStage, ActivityLog, User, QuoteStatus } from '../types';
+import { Quote, QuoteStatus, ActivityLog, User } from '../types';
 import QuoteCard from '../components/hubs/QuoteCard';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
@@ -14,7 +15,7 @@ import { api } from '../api/firebaseApi';
 import { useToast } from '../hooks/useToast';
 
 const PipelineColumn: React.FC<{
-  stage: QuotePipelineStage;
+  stage: QuoteStatus;
   objective: string;
   items: Quote[];
 }> = ({ stage, objective, items }) => {
@@ -118,19 +119,19 @@ const QuotesPipelinePage: React.FC = () => {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetStage: QuotePipelineStage) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetStage: QuoteStatus) => {
     e.preventDefault();
     const itemId = e.dataTransfer.getData('text/plain');
     if (!itemId || !currentUser) return;
 
     const originalQuote = quotes.find(q => q.id === itemId);
-    // FIX: Cast targetStage to 'QuoteStatus' to fix type comparison error. The enums have identical string values.
-    if (!originalQuote || originalQuote.status === (targetStage as QuoteStatus)) return;
+    // FIX: El casteo a 'QuoteStatus' ya no es necesario porque los tipos ahora coinciden.
+    if (!originalQuote || originalQuote.status === targetStage) return;
 
     // Optimistic update
     setQuotes(prevItems =>
       prevItems.map(p =>
-        p.id === itemId ? { ...p, status: (targetStage as any as QuoteStatus) } : p
+        p.id === itemId ? { ...p, status: targetStage } : p
       )
     );
 
@@ -180,6 +181,7 @@ const QuotesPipelinePage: React.FC = () => {
                         </div>
                         <div className="flex gap-4 h-full">
                             {groupedColumns[groupName].map(col => {
+                                // FIX: La comparación ahora funciona porque los tipos coinciden.
                                 const stageItems = quotes.filter(p => p.status === col.stage);
                                 return (
                                     <div key={col.stage} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, col.stage)} className="h-full">

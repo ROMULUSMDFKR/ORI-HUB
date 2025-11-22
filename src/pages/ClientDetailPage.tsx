@@ -97,7 +97,6 @@ const ActivityFeed: React.FC<{ activities: ActivityLog[], usersMap: Map<string, 
                                 <div className="flex flex-col">
                                     <p className="text-sm text-slate-800 dark:text-slate-200 font-medium">{activity.description}</p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                        {/* FIX: Use optional chaining to safely access 'name' property. */}
                                         {isSystem ? 'Sistema' : author?.name || 'Usuario desconocido'} &bull; {new Date(activity.createdAt).toLocaleString()}
                                     </p>
                                 </div>
@@ -253,7 +252,9 @@ const ClientDetailPage: React.FC = () => {
     const companyQuotes = useMemo(() => quotes?.filter(q => q.companyId === id) || [], [quotes, id]);
     const companySamples = useMemo(() => samples?.filter(s => s.companyId === id) || [], [samples, id]);
     const companySalesOrders = useMemo(() => salesOrders?.filter(so => so.companyId === id) || [], [salesOrders, id]);
-    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+    // FIX: Añado un tipo explícito a useMemo para asegurar la inferencia correcta de tipos para `usersMap`.
+    // Esto resuelve el error `Map<unknown, unknown>` y el error de acceso a `author.name`.
+    const usersMap = useMemo(() => new Map<string, User>(users?.map(u => [u.id, u])), [users]);
 
     const owner = useMemo(() => usersMap.get(currentCompany?.ownerId || ''), [usersMap, currentCompany]);
 
@@ -356,9 +357,10 @@ const ClientDetailPage: React.FC = () => {
 
         try {
             if (isEditingPrimary) {
-                // FIX: Construct a complete `Contact` object for `updatedPrimary` to ensure type compatibility.
+                // 1. Update Company Document - Primary Contact Embed
+                // FIX: Aseguro que `updatedPrimary` sea un objeto `Contact` completo para cumplir con la firma del tipo.
                 const updatedPrimary: Contact = {
-                    // Start with base properties to ensure all fields exist
+                    // Empiezo con propiedades base para asegurar que todos los campos existan
                     ...(currentCompany.primaryContact || { id: `contact-${Date.now()}`, role: 'Contacto Principal' }),
                     ...safeContactData,
                 };

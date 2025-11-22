@@ -1,5 +1,6 @@
 
-import { ProspectStage, SampleStatus, QuotePipelineStage, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role } from './types';
+
+import { ProspectStage, SampleStatus, QuoteStatus, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role } from './types';
 
 export const NAV_LINKS = [
   { name: 'Hoy', path: '/today', icon: 'home' },
@@ -214,42 +215,42 @@ export const SAMPLES_PIPELINE_COLUMNS = [
 
 export const QUOTES_PIPELINE_COLUMNS = [
     { 
-        stage: QuotePipelineStage.Borrador, 
+        stage: QuoteStatus.Borrador, 
         group: 'INTERNO', 
         objective: 'El vendedor está construyendo la cotización. Selección de productos, cálculo de fletes y márgenes preliminares.' 
     },
     { 
-        stage: QuotePipelineStage.EnAprobacionInterna, 
+        stage: QuoteStatus.EnAprobacionInterna, 
         group: 'INTERNO', 
         objective: 'Revisión por gerencia comercial o finanzas. Validar márgenes mínimos, condiciones de crédito y disponibilidad.' 
     },
     { 
-        stage: QuotePipelineStage.AjustesRequeridos, 
+        stage: QuoteStatus.AjustesRequeridos, 
         group: 'INTERNO', 
         objective: 'La cotización fue rechazada internamente y requiere correcciones por parte del vendedor antes de enviarse.' 
     },
     { 
-        stage: QuotePipelineStage.ListaParaEnviar, 
+        stage: QuoteStatus.ListaParaEnviar, 
         group: 'CLIENTE', 
         objective: 'Aprobada internamente. Lista para ser generada en PDF y enviada al cliente por el canal preferido.' 
     },
     { 
-        stage: QuotePipelineStage.EnviadaAlCliente, 
+        stage: QuoteStatus.EnviadaAlCliente, 
         group: 'CLIENTE', 
         objective: 'Cotización en manos del cliente. Realizar seguimiento activo para confirmar recepción y aclarar dudas iniciales.' 
     },
     { 
-        stage: QuotePipelineStage.EnNegociacion, 
+        stage: QuoteStatus.EnNegociacion, 
         group: 'CLIENTE', 
         objective: 'El cliente ha solicitado cambios en precios, volúmenes o términos. Versiones iterativas de la propuesta.' 
     },
     { 
-        stage: QuotePipelineStage.AprobadaPorCliente, 
+        stage: QuoteStatus.AprobadaPorCliente, 
         group: 'CIERRE', 
         objective: '¡Éxito! El cliente aceptó la propuesta formalmente. Proceder a convertir en Orden de Venta.' 
     },
     { 
-        stage: QuotePipelineStage.Rechazada, 
+        stage: QuoteStatus.Rechazada, 
         group: 'CIERRE', 
         objective: 'El cliente declinó la oferta. Registrar el motivo (Precio, Tiempo de entrega, Competencia) para análisis.' 
     },

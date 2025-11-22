@@ -355,17 +355,6 @@ export enum QuoteStatus {
     Rechazada = 'Rechazada'
 }
 
-export enum QuotePipelineStage {
-    Borrador = 'Borrador',
-    EnAprobacionInterna = 'En Aprobación Interna',
-    AjustesRequeridos = 'Ajustes Requeridos',
-    ListaParaEnviar = 'Lista Para Enviar',
-    EnviadaAlCliente = 'Enviada Al Cliente',
-    EnNegociacion = 'En Negociación',
-    AprobadaPorCliente = 'Aprobada Por Cliente',
-    Rechazada = 'Rechazada'
-}
-
 export interface QuoteItem {
     id: string;
     productId: string;

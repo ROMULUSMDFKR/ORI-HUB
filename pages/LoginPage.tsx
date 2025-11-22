@@ -15,22 +15,53 @@ const ALLOWED_DOMAINS = [
     '@robertoortega.me'
 ];
 
+const GREETINGS = [
+    "¡Qué bueno verte!",
+    "Bienvenido/a de nuevo.",
+    "¡Hola de nuevo!",
+    "Es un gusto tenerte aquí.",
+    "¡Adelante!",
+    "Listo/a para empezar.",
+    "¡Vamos a ello!",
+    "Te estábamos esperando.",
+    "¡Hola! ¿Listo/a para la acción?",
+    "Un placer verte por aquí.",
+    "¡Bienvenido/a!",
+    "Accediendo a tu espacio.",
+    "¡Qué alegría verte!",
+    "Tu día empieza ahora.",
+    "¡Hola! ¿En qué te ayudo hoy?",
+    "Es genial tenerte de vuelta.",
+    "Conectando...",
+    "¡Hola! Tu equipo te espera.",
+    "¡A conquistar el día!",
+    "Tu sesión está lista."
+];
+
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
-  const [email, setEmail] = useState(''); // Default email cleared
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  // State to control the expansion animation
+  // State to control animations
   const [isDomainValid, setIsDomainValid] = useState(false);
+  const [dynamicGreeting, setDynamicGreeting] = useState('Hola');
 
   // Check email domain in real-time
   useEffect(() => {
       const isValid = ALLOWED_DOMAINS.some(domain => email.trim().toLowerCase().endsWith(domain));
+      
+      // Trigger animations only when the validity changes
+      if (isValid && !isDomainValid) {
+          const randomIndex = Math.floor(Math.random() * GREETINGS.length);
+          setDynamicGreeting(GREETINGS[randomIndex]);
+      }
+      
       setIsDomainValid(isValid);
-  }, [email]);
+  }, [email, isDomainValid]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,9 +136,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         <div
           className="w-full max-w-xl rounded-2xl bg-black/60 backdrop-blur-lg border border-white/10 p-8 shadow-2xl shadow-black/20 animate-slide-in-up transition-all duration-500"
         >
-            <div className="mb-6">
-                <h2 className="text-2xl font-bold text-white">Hola</h2>
-                <p className="text-slate-200 font-medium">Ingresa tus credenciales corporativas.</p>
+            <div className="mb-6 relative h-14">
+                {/* Default Text */}
+                <div className={`absolute inset-0 transition-all duration-300 ease-in-out ${isDomainValid ? 'opacity-0 -translate-y-4' : 'opacity-100 translate-y-0'}`}>
+                    <h2 className="text-2xl font-bold text-white">Hola</h2>
+                    <p className="text-slate-200 font-medium">Ingresa tus credenciales corporativas.</p>
+                </div>
+                {/* Welcome Back Text */}
+                <div className={`absolute inset-0 transition-all duration-300 ease-in-out ${isDomainValid ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                    <h2 className="text-2xl font-bold text-white">{dynamicGreeting}</h2>
+                    <p className="text-slate-200 font-medium">Ingresa tu contraseña para continuar.</p>
+                </div>
             </div>
 
             <form onSubmit={handleLogin}>

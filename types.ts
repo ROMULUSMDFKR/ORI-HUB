@@ -745,7 +745,8 @@ export interface InvoiceItem {
     unitPrice: number;
     subtotal: number;
 }
-// FIX: Moved CommissionStatus enum definition before its usage in the Commission interface.
+
+// MOVED: Definition must be before usage in Commission
 export enum CommissionStatus {
     Pendiente = 'Pendiente',
     Pagada = 'Pagada',

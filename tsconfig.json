@@ -16,7 +16,21 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["."],
+  "include": [
+    "api", 
+    "components", 
+    "contexts", 
+    "data", 
+    "hooks", 
+    "pages", 
+    "utils", 
+    "App.tsx", 
+    "firebase.ts", 
+    "index.tsx", 
+    "types.ts", 
+    "constants.ts", 
+    "vite.config.ts"
+  ],
   "exclude": ["src", "node_modules"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

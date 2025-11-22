@@ -928,13 +928,22 @@ const NewQuotePage: React.FC = () => {
                             placeholder="Términos de pago, tiempos de entrega, etc..."
                         />
                     </SectionCard>
-                </div>
 
-                {/* RIGHT COLUMN (1/3) */}
-                <div className="lg:col-span-1 space-y-6">
-                     {/* Purchase Order Upload Card */}
-                     <SectionCard title="Documento Orden de Compra" icon="upload_file">
-                         <div className="p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-center hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                    {/* DOCUMENT UPLOAD - Compact Version */}
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                             <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg text-indigo-600 dark:text-indigo-400">
+                                <span className="material-symbols-outlined text-xl">upload_file</span>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">Orden de Compra</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[200px] truncate">
+                                    {poFile ? poFile.name : 'Opcional: Adjuntar archivo'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div>
                             <input 
                                 type="file" 
                                 id="po-upload" 
@@ -946,21 +955,28 @@ const NewQuotePage: React.FC = () => {
                                     }
                                 }}
                             />
-                            <label htmlFor="po-upload" className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
-                                <span className="material-symbols-outlined text-3xl text-slate-400 mb-2">cloud_upload</span>
-                                <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                                    {poFile ? poFile.name : 'Subir OC (PDF o Imagen)'}
-                                </span>
-                                <span className="text-xs text-slate-400 mt-1">Clic para seleccionar</span>
-                            </label>
-                         </div>
-                         {poFile && (
-                             <div className="flex justify-between items-center mt-2 text-xs text-slate-500">
-                                 <span>{(poFile.size / 1024).toFixed(1)} KB</span>
-                                 <button onClick={() => setPoFile(null)} className="text-red-500 hover:underline">Quitar</button>
-                             </div>
-                         )}
-                     </SectionCard>
+                            {poFile ? (
+                                <button 
+                                    onClick={() => setPoFile(null)}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-full transition-colors"
+                                    title="Eliminar archivo"
+                                >
+                                    <span className="material-symbols-outlined text-lg">close</span>
+                                </button>
+                            ) : (
+                                <label 
+                                    htmlFor="po-upload" 
+                                    className="cursor-pointer text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors border border-indigo-100 dark:border-indigo-800"
+                                >
+                                    Seleccionar
+                                </label>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* RIGHT COLUMN (1/3) */}
+                <div className="lg:col-span-1 space-y-6">
 
                     {/* Financial Summary */}
                     <div className="bg-indigo-900 text-white p-6 rounded-xl shadow-lg relative overflow-hidden sticky top-6">

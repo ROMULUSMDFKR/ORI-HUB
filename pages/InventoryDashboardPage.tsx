@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { Product, ProductLot, InventoryMove } from '../types';
+import { Product, ProductLot, InventoryMove, Location } from '../types';
 import Spinner from '../components/ui/Spinner';
 import { api } from '../api/firebaseApi';
 
@@ -24,19 +24,35 @@ const KpiCard: React.FC<{ title: string; value: string | number; icon: string; c
 const HeatMap: React.FC<{ data: { zone: string; value: number }[] }> = ({ data }) => {
     const maxValue = Math.max(...data.map(d => d.value), 1);
     
+    if (data.length === 0) {
+        return <p className="text-sm text-slate-500 text-center py-8">No hay suficientes datos de movimiento o ubicaciones registradas.</p>;
+    }
+
     return (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-4">
             {data.map((item, index) => {
                 const intensity = item.value / maxValue;
                 let bgColor = 'bg-slate-100 dark:bg-slate-700';
-                if (intensity > 0.7) bgColor = 'bg-red-500';
-                else if (intensity > 0.4) bgColor = 'bg-orange-400';
-                else if (intensity > 0.1) bgColor = 'bg-green-500';
+                let textColor = 'text-slate-600 dark:text-slate-300';
+                
+                if (intensity > 0.7) {
+                    bgColor = 'bg-red-500';
+                    textColor = 'text-white';
+                } else if (intensity > 0.4) {
+                    bgColor = 'bg-orange-400';
+                    textColor = 'text-white';
+                } else if (intensity > 0.1) {
+                    bgColor = 'bg-green-500';
+                    textColor = 'text-white';
+                } else if (item.value > 0) {
+                     bgColor = 'bg-blue-100 dark:bg-blue-900/30';
+                     textColor = 'text-blue-700 dark:text-blue-300';
+                }
                 
                 return (
-                    <div key={index} className={`p-4 rounded-lg ${bgColor} text-white text-center transition-all hover:scale-105`}>
-                        <p className="font-bold text-sm">{item.zone}</p>
-                        <p className="text-xs opacity-80">{item.value} movs.</p>
+                    <div key={index} className={`p-4 rounded-lg ${bgColor} ${textColor} text-center transition-all hover:scale-105 border border-transparent dark:border-slate-600/30`}>
+                        <p className="font-bold text-sm truncate" title={item.zone}>{item.zone}</p>
+                        <p className="text-xs opacity-90">{item.value} movs.</p>
                     </div>
                 );
             })}
@@ -48,11 +64,12 @@ const InventoryDashboardPage: React.FC = () => {
     const { data: products, loading: pLoading } = useCollection<Product>('products');
     const { data: lots, loading: lLoading } = useCollection<ProductLot>('lots');
     const { data: movements, loading: mLoading } = useCollection<InventoryMove>('inventoryMoves');
+    const { data: locations, loading: locLoading } = useCollection<Location>('locations');
 
-    const loading = pLoading || lLoading || mLoading;
+    const loading = pLoading || lLoading || mLoading || locLoading;
 
     const metrics = useMemo(() => {
-        if (!products || !lots || !movements) return null;
+        if (!products || !lots || !movements || !locations) return null;
 
         let totalValue = 0;
         let totalItems = 0;
@@ -75,12 +92,29 @@ const InventoryDashboardPage: React.FC = () => {
             if (p.reorderPoint && stock <= p.reorderPoint) lowStockCount++;
         });
 
-        // Mock Heatmap data from movements
-        const zones = ['Pasillo A', 'Pasillo B', 'Zona Carga', 'Refrigerado', 'Patio', 'Rack 1', 'Rack 2', 'Rack 3'];
-        const heatmapData = zones.map(z => ({
-            zone: z,
-            value: Math.floor(Math.random() * 50) // Simulated activity
-        }));
+        // Calculate Heatmap Data based on Real Movements and Locations
+        const locationActivity: Record<string, number> = {};
+        
+        // Initialize counts for all existing locations
+        locations.forEach(loc => {
+            locationActivity[loc.id] = 0;
+        });
+
+        // Count movements per location (both source and destination)
+        movements.forEach(move => {
+            if (move.fromLocationId && locationActivity[move.fromLocationId] !== undefined) {
+                locationActivity[move.fromLocationId]++;
+            }
+            if (move.toLocationId && locationActivity[move.toLocationId] !== undefined) {
+                locationActivity[move.toLocationId]++;
+            }
+        });
+
+        // Map to array and sort by activity (descending)
+        const heatmapData = locations.map(loc => ({
+            zone: loc.name, // Use the real location name
+            value: locationActivity[loc.id] || 0
+        })).sort((a, b) => b.value - a.value);
 
         return {
             totalValue,
@@ -89,7 +123,7 @@ const InventoryDashboardPage: React.FC = () => {
             expiringLotsCount,
             heatmapData
         };
-    }, [products, lots, movements]);
+    }, [products, lots, movements, locations]);
 
     if (loading || !metrics) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
 
@@ -137,8 +171,8 @@ const InventoryDashboardPage: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Actividad por Zona (Mapa de Calor)</h3>
-                    <p className="text-sm text-slate-500 mb-4">Intensidad de movimientos en los últimos 30 días.</p>
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Actividad por Ubicación (Mapa de Calor)</h3>
+                    <p className="text-sm text-slate-500 mb-4">Intensidad de movimientos (entradas y salidas) en tus ubicaciones reales.</p>
                     <HeatMap data={metrics.heatmapData} />
                 </div>
 

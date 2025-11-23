@@ -149,6 +149,7 @@ const EditUserPage = lazy(() => import('./pages/EditUserPage'));
 const TeamManagementPage = lazy(() => import('./pages/settings/TeamManagement'));
 const SecuritySettingsPage = lazy(() => import('./pages/settings/SecuritySettings'));
 const EmailSettingsPage = lazy(() => import('./pages/settings/EmailSettings'));
+const ManageUserEmailsPage = lazy(() => import('./pages/settings/ManageUserEmailsPage')); // NEW
 const IndustryManagementPage = lazy(() => import('./pages/settings/IndustryManagement'));
 const PipelineManagementPage = lazy(() => import('./pages/settings/PipelineManagement'));
 const AiAccessSettingsPage = lazy(() => import('./pages/settings/AiAccessSettings'));
@@ -379,6 +380,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/settings/internal-companies" element={<InternalCompaniesSettings />} />
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />
                             <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />
+                            <Route path="/settings/email-accounts/:userId" element={<ManageUserEmailsPage />} />
                             <Route path="/settings/industries" element={<IndustryManagementPage />} />
                             <Route path="/settings/pipelines" element={<PipelineManagementPage />} />
                             <Route path="/settings/ai-access" element={<AiAccessSettingsPage />} />

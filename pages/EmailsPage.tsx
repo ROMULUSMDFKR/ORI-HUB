@@ -244,6 +244,10 @@ const EmailsPage: React.FC = () => {
             setSelectedAccountEmail(userAccounts[0].email);
         }
     }, [userAccounts, selectedAccountEmail]);
+    
+    const currentAccount = useMemo(() => 
+        userAccounts.find(acc => acc.email === selectedAccountEmail), 
+    [userAccounts, selectedAccountEmail]);
 
     // Robust filtering logic
     const filteredEmails = useMemo(() => {
@@ -381,13 +385,16 @@ const EmailsPage: React.FC = () => {
         ];
 
         try {
+            // Simulate network delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
             const addedEmails: Email[] = [];
             for (const mock of mocks) {
                 const res = await api.addDoc('emails', mock);
                 addedEmails.push(res);
             }
             setAllEmailsState(prev => prev ? [...prev, ...addedEmails] : addedEmails);
-            alert(`Sincronización simulada completada para ${selectedAccountEmail}.`);
+            // No alert, just update UI
         } catch (error) {
             console.error("Sync error:", error);
             alert("Error al sincronizar correos.");
@@ -420,7 +427,10 @@ const EmailsPage: React.FC = () => {
                              <div className="flex flex-col items-center justify-center h-64 text-slate-400 p-6 text-center">
                                 <span className="material-symbols-outlined text-4xl mb-2">inbox</span>
                                 <p className="text-sm">Bandeja vacía</p>
-                                <button onClick={handleSimulateSync} className="mt-4 text-xs text-indigo-600 font-semibold hover:underline">Sincronizar ahora</button>
+                                <button onClick={handleSimulateSync} disabled={isSyncing} className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm hover:bg-indigo-700 flex items-center gap-2 transition-colors">
+                                     <span className={`material-symbols-outlined text-base ${isSyncing ? 'animate-spin' : ''}`}>sync</span>
+                                     {isSyncing ? 'Sincronizando...' : 'Sincronizar Ahora'}
+                                </button>
                              </div>
                         )}
                     </div>
@@ -524,22 +534,25 @@ const EmailsPage: React.FC = () => {
                 </div>
                 
                 <div className="px-4 mb-4">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="mb-2">
                          <CustomSelect
                             options={userAccounts.map(acc => ({ value: acc.email, name: acc.email }))}
                             value={selectedAccountEmail || ''}
                             onChange={(val) => setSelectedAccountEmail(val)}
                             placeholder="Cuenta..."
-                            buttonClassName="w-full text-xs py-1.5 px-2 border rounded bg-white dark:bg-slate-800 text-left"
+                            buttonClassName="w-full text-xs py-2 px-2 border rounded bg-white dark:bg-slate-800 text-left"
                         />
-                         <button 
-                            onClick={handleSimulateSync}
-                            disabled={isSyncing} 
-                            className="p-1.5 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-500 hover:text-indigo-600"
-                            title="Sincronizar"
-                        >
-                            <span className={`material-symbols-outlined text-lg ${isSyncing ? 'animate-spin' : ''}`}>sync</span>
-                        </button>
+                        {currentAccount && (
+                            <div className="mt-2 flex items-center gap-2 pl-1">
+                                <span className={`w-2 h-2 rounded-full ${currentAccount.status === 'Conectado' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                    {currentAccount.status === 'Conectado' ? 'Conectado' : 'Error de conexión'}
+                                </span>
+                                <button onClick={handleSimulateSync} disabled={isSyncing} className="ml-auto p-1 text-slate-400 hover:text-indigo-600 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700" title="Sincronizar">
+                                    <span className={`material-symbols-outlined text-base ${isSyncing ? 'animate-spin' : ''}`}>refresh</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 

@@ -291,6 +291,10 @@ export interface SalesOrder {
     currency?: Currency;
     taxRate?: number;
     createdAt: string;
+    customerPo?: string;
+    requestedDeliveryDate?: string;
+    paymentMethod?: string;
+    shippingMethod?: string;
 }
 
 export enum SalesOrderStatus {

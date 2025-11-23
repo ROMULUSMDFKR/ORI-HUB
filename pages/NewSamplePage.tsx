@@ -9,10 +9,13 @@ import { api } from '../api/firebaseApi';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../hooks/useAuth';
 
-// Moved outside
-const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
-        <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
+// --- Reusable Component (Matches Prospect/Quote Page Style) ---
+const SectionCard: React.FC<{ title: string; children: React.ReactNode; className?: string; icon?: string }> = ({ title, children, className = '', icon }) => (
+    <div className={`bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 ${className}`}>
+        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 flex items-center gap-2">
+            {icon && <span className="material-symbols-outlined text-indigo-500">{icon}</span>}
+            {title}
+        </h3>
         <div className="space-y-4">
             {children}
         </div>
@@ -166,9 +169,13 @@ const NewSamplePage: React.FC = () => {
     
     // Creator Name (Read-Only)
     const creatorName = currentUser?.name || 'Desconocido';
+    const inputClass = "w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-500";
+
+
+    if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
 
     return (
-        <div>
+        <div className="max-w-6xl mx-auto pb-20">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Nueva Muestra</h2>
                 <div className="flex space-x-2">
@@ -177,62 +184,130 @@ const NewSamplePage: React.FC = () => {
                     </button>
                     <button onClick={handleSubmit} disabled={isSaving} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
                         {isSaving && <span className="material-symbols-outlined animate-spin !text-sm">progress_activity</span>}
-                        Guardar y Asignar Tarea
+                        Guardar y Asignar
                     </button>
                 </div>
             </div>
 
-            {loading ? <Spinner /> : (
-                 <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
-                    <FormBlock title="Detalles de la Muestra">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre de la Muestra / Concepto *</label>
-                            <input type="text" value={sample.name || ''} onChange={(e) => handleChange('name', e.target.value)} className="mt-1 w-full" placeholder="Ej. Muestra UREA 1L para Lab" />
-                        </div>
-                        
-                        <CustomSelect label="Producto *" options={productOptions} value={sample.productId || ''} onChange={val => handleChange('productId', val)} />
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Destinatario *</label>
-                            <div className="flex border border-slate-300 dark:border-slate-600 rounded-lg p-1 bg-slate-100 dark:bg-slate-900 mt-1">
-                                <button type="button" onClick={() => handleRecipientTypeChange('prospect')} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${recipientType === 'prospect' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>Prospecto</button>
-                                <button type="button" onClick={() => handleRecipientTypeChange('company')} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${recipientType === 'company' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>Empresa</button>
+            <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* LEFT COLUMN (2/3) */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <SectionCard title="Detalles Principales" icon="science">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre de la Muestra / Concepto <span className="text-red-500">*</span></label>
+                                    <input 
+                                        type="text" 
+                                        value={sample.name || ''} 
+                                        onChange={(e) => handleChange('name', e.target.value)} 
+                                        className={inputClass}
+                                        placeholder="Ej. Muestra UREA 1L para Laboratorio" 
+                                    />
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <CustomSelect 
+                                        label="Producto *" 
+                                        options={productOptions} 
+                                        value={sample.productId || ''} 
+                                        onChange={val => handleChange('productId', val)} 
+                                        placeholder="Seleccionar producto..."
+                                        enableSearch
+                                    />
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha de Solicitud</label>
+                                        <input 
+                                            type="date" 
+                                            value={sample.requestDate || ''} 
+                                            onChange={(e) => handleChange('requestDate', e.target.value)} 
+                                            className={inputClass} 
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        </SectionCard>
 
-                        {recipientType === 'prospect' ? (
-                            <CustomSelect label="Seleccionar Prospecto" options={prospectOptions} value={sample.prospectId || ''} onChange={val => handleChange('prospectId', val)} />
-                        ) : (
-                            <CustomSelect label="Seleccionar Empresa" options={companyOptions} value={sample.companyId || ''} onChange={val => handleChange('companyId', val)} />
-                        )}
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Creado por</label>
-                                <input type="text" value={creatorName} disabled className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm text-slate-500 cursor-not-allowed" />
-                            </div>
-                            <CustomSelect label="Responsable (Se le asignará tarea)" options={userOptions} value={sample.ownerId || ''} onChange={val => handleChange('ownerId', val)} />
-                        </div>
-                        
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fecha de Solicitud</label>
-                            <input type="date" value={sample.requestDate || ''} onChange={(e) => handleChange('requestDate', e.target.value)} className="mt-1 w-full" />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Instrucciones Especiales / Notas</label>
+                        <SectionCard title="Instrucciones y Notas" icon="description">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Comentarios Adicionales</label>
                             <textarea 
                                 value={sample.notes || ''} 
                                 onChange={(e) => handleChange('notes', e.target.value)} 
                                 rows={4} 
-                                className="mt-1 w-full"
+                                className={inputClass}
                                 placeholder="Ej. Enviar con ficha técnica, atención a Juan Pérez... (Se guardará como nota)"
                             />
-                        </div>
+                        </SectionCard>
+                    </div>
 
-                    </FormBlock>
-                </form>
-            )}
+                    {/* RIGHT COLUMN (1/3) */}
+                    <div className="lg:col-span-1 space-y-6">
+                        <SectionCard title="Destinatario y Asignación" icon="person_pin">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Tipo de Destinatario</label>
+                                    <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => handleRecipientTypeChange('prospect')} 
+                                            className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all duration-200 ${recipientType === 'prospect' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                                        >
+                                            Prospecto
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => handleRecipientTypeChange('company')} 
+                                            className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all duration-200 ${recipientType === 'company' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                                        >
+                                            Cliente
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {recipientType === 'prospect' ? (
+                                    <CustomSelect 
+                                        label="Seleccionar Prospecto *" 
+                                        options={prospectOptions} 
+                                        value={sample.prospectId || ''} 
+                                        onChange={val => handleChange('prospectId', val)} 
+                                        placeholder="Buscar prospecto..."
+                                        enableSearch
+                                    />
+                                ) : (
+                                    <CustomSelect 
+                                        label="Seleccionar Empresa *" 
+                                        options={companyOptions} 
+                                        value={sample.companyId || ''} 
+                                        onChange={val => handleChange('companyId', val)} 
+                                        placeholder="Buscar cliente..."
+                                        enableSearch
+                                    />
+                                )}
+                                
+                                <div className="border-t border-slate-200 dark:border-slate-700 my-2"></div>
+
+                                <CustomSelect 
+                                    label="Responsable (Se le asignará tarea) *" 
+                                    options={userOptions} 
+                                    value={sample.ownerId || ''} 
+                                    onChange={val => handleChange('ownerId', val)} 
+                                />
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Creado por</label>
+                                    <input 
+                                        type="text" 
+                                        value={creatorName} 
+                                        disabled 
+                                        className="w-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm text-slate-500 cursor-not-allowed" 
+                                    />
+                                </div>
+                            </div>
+                        </SectionCard>
+                    </div>
+                </div>
+            </form>
         </div>
     );
 };

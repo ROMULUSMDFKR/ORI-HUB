@@ -138,6 +138,8 @@ const DashboardPage: React.FC<{ user: User }> = ({ user }) => {
     const { data: salesOrders, loading: sLoading } = useCollection<SalesOrder>('salesOrders');
     const { data: companies, loading: cLoading } = useCollection<Company>('companies');
 
+    // We don't return early on loading to prevent full page layout shift.
+    // Instead, individual widgets will handle their loading states.
     const loading = tLoading || pLoading || sLoading || cLoading;
 
     // Calculate Quick Stats
@@ -158,8 +160,6 @@ const DashboardPage: React.FC<{ user: User }> = ({ user }) => {
         return { sales: monthlySales, prospects: activeProspects, tasks: myPendingTasks };
     }, [salesOrders, prospects, tasks, user.id]);
 
-    if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
-
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
             <div className="mb-6">
@@ -172,25 +172,26 @@ const DashboardPage: React.FC<{ user: User }> = ({ user }) => {
                 tasks={tasks || []} 
                 prospects={prospects || []} 
                 salesOrders={salesOrders || []} 
+                isLoadingData={loading}
             />
 
             {/* Quick Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <KpiCard 
                     title="Ventas del Mes" 
-                    value={`$${stats.sales.toLocaleString()}`} 
+                    value={loading ? '...' : `$${stats.sales.toLocaleString()}`} 
                     icon="payments" 
                     color="bg-emerald-500" 
                 />
                 <KpiCard 
                     title="Prospectos Activos" 
-                    value={stats.prospects} 
+                    value={loading ? '...' : stats.prospects} 
                     icon="groups" 
                     color="bg-blue-500" 
                 />
                 <KpiCard 
                     title="Mis Tareas Pendientes" 
-                    value={stats.tasks} 
+                    value={loading ? '...' : stats.tasks} 
                     icon="assignment" 
                     color="bg-amber-500" 
                 />

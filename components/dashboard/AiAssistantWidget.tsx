@@ -10,6 +10,7 @@ interface AiAssistantWidgetProps {
     tasks: Task[];
     prospects: Prospect[];
     salesOrders: SalesOrder[];
+    isLoadingData?: boolean;
 }
 
 interface AiSummaryCard {
@@ -20,7 +21,7 @@ interface AiSummaryCard {
     details?: string[];
 }
 
-const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ tasks, prospects, salesOrders }) => {
+const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ tasks, prospects, salesOrders, isLoadingData = false }) => {
     const [summaryCards, setSummaryCards] = useState<AiSummaryCard[]>([]);
     const [closingStatement, setClosingStatement] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -131,10 +132,11 @@ const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ tasks, prospects,
     };
     
     useEffect(() => {
-        if(currentUser) {
+        // Only run generation when user is present AND data has finished loading
+        if(currentUser && !isLoadingData) {
             generateSummary();
         }
-    }, [currentUser]);
+    }, [currentUser, isLoadingData]);
 
     const cardTypeStyles = {
         info: {
@@ -166,13 +168,13 @@ const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ tasks, prospects,
                         </h3>
                          <p className="text-sm text-slate-500 dark:text-slate-400">Un vistazo rápido a tus prioridades, por Studio AI.</p>
                     </div>
-                     <button onClick={generateSummary} disabled={isLoading} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-wait">
+                     <button onClick={generateSummary} disabled={isLoading || isLoadingData} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-wait">
                         <span className={`material-symbols-outlined text-slate-500 dark:text-slate-400 ${isLoading ? 'animate-spin' : ''}`}>refresh</span>
                     </button>
                 </div>
                 
                 <div className="mt-4 min-h-[100px]">
-                    {isLoading ? (
+                    {(isLoading || isLoadingData) ? (
                          <div className="flex items-center justify-center p-4 h-full">
                             <Spinner />
                          </div>

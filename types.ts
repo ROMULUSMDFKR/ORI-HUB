@@ -339,6 +339,7 @@ export interface Quote {
         subtotal: number;
         tax: number;
         grandTotal: number;
+        totalQuotedQty?: number;
     };
     notes?: string;
     changeLog: any[];
@@ -746,7 +747,6 @@ export interface InvoiceItem {
     subtotal: number;
 }
 
-// MOVED: Definition must be before usage in Commission
 export enum CommissionStatus {
     Pendiente = 'Pendiente',
     Pagada = 'Pagada',

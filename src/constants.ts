@@ -1,6 +1,8 @@
 
 
 
+
+
 import { ProspectStage, SampleStatus, QuoteStatus, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role } from './types';
 
 export const NAV_LINKS = [
@@ -135,7 +137,6 @@ export const NAV_LINKS = [
       { name: 'Industrias', path: '/settings/industries', icon: 'factory' },
       { name: 'Etapas de Venta', path: '/settings/pipelines', icon: 'view_carousel' },
       { name: 'Acceso de IA', path: '/settings/ai-access', icon: 'neurology' },
-      { name: 'Apariencia de Email', path: '/settings/appearance/email', icon: 'palette' },
     ] 
   },
 ];
@@ -415,7 +416,6 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Industrias': ['view', 'create', 'edit', 'delete'],
         'Etapas de Venta': ['view', 'create', 'edit', 'delete'],
         'Acceso de IA': ['view', 'create', 'edit', 'delete'],
-        'Apariencia de Email': ['view', 'create', 'edit', 'delete'],
     }
 };
 

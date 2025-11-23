@@ -15,6 +15,7 @@ export interface User {
     fullName?: string;
     nickname?: string;
     phone?: string;
+    extension?: string; // Nueva: Extensión del conmutador (ej. 201)
     birthday?: string;
     interests?: string;
     country?: string;
@@ -47,6 +48,19 @@ export interface InternalCompany {
     website?: string;
     logoUrl?: string;
     isActive: boolean;
+    // Enriched Fields
+    phoneNumber?: string; // Nueva: Número principal (ej. 55 9752 8333)
+    switchboardExtension?: string; // Nueva: Extensión principal de la empresa (ej. 101)
+    legalRepresentative?: string;
+    fiscalRegime?: string;
+    bankInfo?: {
+        bankName: string;
+        accountNumber: string;
+        clabe: string;
+        currency: string;
+    };
+    brandColor?: string;
+    defaultCurrency?: 'MXN' | 'USD';
 }
 
 export interface Company {
@@ -67,6 +81,17 @@ export interface Company {
     primaryContact?: Contact;
     createdAt: string;
     healthScore?: { score: number; label: string };
+    // New Enriched Fields
+    logoUrl?: string;
+    tags?: string[];
+    companySize?: '1-10' | '11-50' | '51-200' | '201-500' | '500+';
+    billingEmail?: string;
+    regimenFiscal?: string;
+    socialProfiles?: {
+        linkedin?: string;
+        facebook?: string;
+        twitter?: string;
+    };
     profile?: {
         communication: {
             channel: string[];
@@ -123,6 +148,12 @@ export interface Contact {
     companyId?: string;
     ownerId: string;
     prospectId?: string;
+    // Enriched Fields
+    department?: string;
+    birthday?: string;
+    linkedin?: string;
+    notes?: string;
+    tags?: string[];
 }
 
 export interface Address {
@@ -202,6 +233,12 @@ export interface Task {
     createdAt: string;
     attachments?: Attachment[];
     links?: Record<string, string>; // e.g. { companyId: '123' }
+    // Enriched Fields
+    actualHours?: number;
+    completionPercentage?: number; // 0-100
+    impact?: 'Alto' | 'Medio' | 'Bajo';
+    isRecurring?: boolean;
+    recurrenceFrequency?: 'Diaria' | 'Semanal' | 'Mensual';
 }
 
 export enum TaskStatus {
@@ -244,6 +281,17 @@ export interface Product {
     pricing: { min: number };
     reorderPoint?: number;
     createdAt?: string;
+    // Enriched Fields
+    description?: string;
+    barcode?: string;
+    brand?: string;
+    imageUrl?: string;
+    tags?: string[];
+    weight?: number; // in kg
+    dimensions?: { length: number; width: number; height: number; unit: 'cm' | 'in' };
+    costPrice?: number;
+    minStock?: number;
+    maxStock?: number;
 }
 
 export interface ProductLot {
@@ -291,6 +339,10 @@ export interface SalesOrder {
     currency?: Currency;
     taxRate?: number;
     createdAt: string;
+    customerPo?: string;
+    requestedDeliveryDate?: string;
+    paymentMethod?: string;
+    shippingMethod?: string;
 }
 
 export enum SalesOrderStatus {
@@ -338,6 +390,7 @@ export interface Quote {
         subtotal: number;
         tax: number;
         grandTotal: number;
+        totalQuotedQty?: number;
     };
     notes?: string;
     changeLog: any[];
@@ -445,6 +498,13 @@ export interface PurchaseOrder {
     tax: number;
     total: number;
     paidAmount: number;
+    // Enriched Fields
+    incoterm?: string;
+    paymentTerms?: string;
+    shippingMethod?: string;
+    warehouseDestinationId?: string;
+    priority?: 'Baja' | 'Media' | 'Alta';
+    documents?: Attachment[];
 }
 
 export interface PurchaseOrderItem {
@@ -466,6 +526,15 @@ export interface Supplier {
     address?: Address;
     contactPerson?: { name: string; email: string; phone: string };
     bankInfo?: { bankName: string; accountNumber: string; clabe: string };
+    // Enriched Fields
+    supplierType?: 'Fabricante' | 'Distribuidor' | 'Servicios' | 'Mayorista';
+    creditLimit?: number;
+    creditDays?: number;
+    balance?: number; // Cuentas por pagar
+    logoUrl?: string;
+    leadTimeDays?: number;
+    taxId?: string; // RFC/Tax ID
+    certifications?: string[];
 }
 
 export enum SupplierRating {
@@ -710,6 +779,12 @@ export interface AuditLog {
     action: string;
     by: string;
     at: any; // Firestore Timestamp
+    // Enriched fields
+    details?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    changes?: Record<string, { old: any, new: any }>;
+    severity?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 export interface Invoice {
@@ -744,7 +819,7 @@ export interface InvoiceItem {
     unitPrice: number;
     subtotal: number;
 }
-// FIX: Moved CommissionStatus enum definition before its usage in the Commission interface.
+
 export enum CommissionStatus {
     Pendiente = 'Pendiente',
     Pagada = 'Pagada',
@@ -830,6 +905,20 @@ export interface FreightPricingRule {
     active: boolean;
 }
 
+export interface Location {
+    id: string;
+    name: string;
+    description?: string;
+    type?: 'Estantería' | 'Piso' | 'Refrigerado' | 'Muelle' | 'Cuarentena';
+    capacity?: number; // Max capacity (e.g. max pallets or kg)
+    currentUsage?: number; // Percentage or absolute value
+    // Enriched Fields
+    dimensions?: { width: number; height: number; depth: number; unit: 'm' | 'cm' };
+    zone?: string; // e.g., "Pasillo A", "Zona Carga"
+    temperatureControl?: 'Ambiente' | 'Refrigerado' | 'Congelado';
+    isRestricted?: boolean;
+}
+
 export type RejectionReason = 'No interesado' | 'No califica' | 'Competencia' | 'Otro';
 export type BlacklistReason = 'Mal historial' | 'Fraude' | 'Solicitud del cliente';
 export type PreferredDays = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado';
@@ -856,6 +945,13 @@ export interface InventoryMove {
     fromLocationId?: string;
     toLocationId?: string;
     note?: string;
+    reference?: string; // PO number, Sales Order number
+    batchCode?: string;
     userId: string;
     createdAt: string;
+    // Enriched Fields
+    reasonCode?: string; // e.g., "Merma", "Venta", "Compra", "Muestra"
+    operatorId?: string; // User ID of who performed the physical move
+    urgency?: 'Baja' | 'Media' | 'Alta';
+    attachments?: Attachment[];
 }

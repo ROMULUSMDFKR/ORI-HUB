@@ -149,7 +149,7 @@ const EditUserPage = lazy(() => import('./pages/EditUserPage'));
 const TeamManagementPage = lazy(() => import('./pages/settings/TeamManagement'));
 const SecuritySettingsPage = lazy(() => import('./pages/settings/SecuritySettings'));
 const EmailSettingsPage = lazy(() => import('./pages/settings/EmailSettings'));
-const ManageUserEmailsPage = lazy(() => import('./pages/settings/ManageUserEmailsPage')); // NEW
+const ManageUserEmailsPage = lazy(() => import('./pages/settings/ManageUserEmailsPage')); 
 const IndustryManagementPage = lazy(() => import('./pages/settings/IndustryManagement'));
 const PipelineManagementPage = lazy(() => import('./pages/settings/PipelineManagement'));
 const AiAccessSettingsPage = lazy(() => import('./pages/settings/AiAccessSettings'));
@@ -157,6 +157,7 @@ const EmailAppearancePage = lazy(() => import('./pages/settings/EmailAppearanceP
 const RoleManagementPage = lazy(() => import('./pages/settings/RoleManagementPage'));
 const EditRolePage = lazy(() => import('./pages/settings/EditRolePage'));
 const InternalCompaniesSettings = lazy(() => import('./pages/settings/InternalCompaniesSettings'));
+const EditInternalCompanyPage = lazy(() => import('./pages/settings/EditInternalCompanyPage')); // NEW
 
 // Auth & Onboarding
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -378,6 +379,8 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/settings/roles/:id/edit" element={<EditRolePage />} />
                             <Route path="/settings/teams" element={<TeamManagementPage />} />
                             <Route path="/settings/internal-companies" element={<InternalCompaniesSettings />} />
+                            <Route path="/settings/internal-companies/new" element={<EditInternalCompanyPage />} />
+                            <Route path="/settings/internal-companies/:id/edit" element={<EditInternalCompanyPage />} />
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />
                             <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />
                             <Route path="/settings/email-accounts/:userId" element={<ManageUserEmailsPage />} />

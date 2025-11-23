@@ -7,13 +7,12 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { api } from '../../api/firebaseApi';
 import Badge from '../../components/ui/Badge';
-import InternalCompanyDrawer from '../../components/settings/InternalCompanyDrawer';
+import { useNavigate } from 'react-router-dom';
 
 const InternalCompaniesSettings: React.FC = () => {
     const { data: initialCompanies, loading, error } = useCollection<InternalCompany>('internalCompanies');
     const [companies, setCompanies] = useState<InternalCompany[] | null>(initialCompanies);
-    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    const [editingCompany, setEditingCompany] = useState<InternalCompany | null>(null);
+    const navigate = useNavigate();
 
     React.useEffect(() => {
         if (initialCompanies) {
@@ -21,22 +20,6 @@ const InternalCompaniesSettings: React.FC = () => {
         }
     }, [initialCompanies]);
 
-    const handleSave = async (companyData: Omit<InternalCompany, 'id'>) => {
-        try {
-            if (editingCompany) {
-                await api.updateDoc('internalCompanies', editingCompany.id, companyData);
-                setCompanies(prev => prev!.map(c => c.id === editingCompany.id ? { ...c, ...companyData } : c));
-            } else {
-                const newCompany = await api.addDoc('internalCompanies', companyData);
-                setCompanies(prev => [...(prev || []), newCompany]);
-            }
-            setIsDrawerOpen(false);
-            setEditingCompany(null);
-        } catch (error) {
-            console.error("Error saving company:", error);
-            alert("Hubo un error al guardar la empresa.");
-        }
-    };
 
     const handleDelete = async (company: InternalCompany) => {
         if (window.confirm(`¿Estás seguro de eliminar "${company.name}"? Esta acción no se puede deshacer.`)) {
@@ -51,13 +34,11 @@ const InternalCompaniesSettings: React.FC = () => {
     };
 
     const handleEdit = (company: InternalCompany) => {
-        setEditingCompany(company);
-        setIsDrawerOpen(true);
+        navigate(`/settings/internal-companies/${company.id}/edit`);
     };
     
     const handleCreate = () => {
-        setEditingCompany(null);
-        setIsDrawerOpen(true);
+        navigate(`/settings/internal-companies/new`);
     };
 
     const columns = [
@@ -120,13 +101,6 @@ const InternalCompaniesSettings: React.FC = () => {
             ) : (
                 <Table columns={columns} data={companies} />
             )}
-            
-            <InternalCompanyDrawer
-                isOpen={isDrawerOpen}
-                onClose={() => setIsDrawerOpen(false)}
-                onSave={handleSave}
-                company={editingCompany}
-            />
         </div>
     );
 };

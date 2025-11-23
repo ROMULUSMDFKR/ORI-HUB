@@ -235,8 +235,9 @@ const NewQuotePage: React.FC = () => {
     // Validation Stats for Delivery
     const deliveryStats = useMemo(() => {
         const totalScheduledQty = deliveries.reduce((sum, d) => sum + d.qty, 0);
-        const remainingQty = totals.totalQuotedQty - totalScheduledQty;
-        const progress = totals.totalQuotedQty > 0 ? Math.min((totalScheduledQty / totals.totalQuotedQty) * 100, 100) : 0;
+        // FIX: Ensure totalQuotedQty is treated as a number
+        const remainingQty = (totals.totalQuotedQty || 0) - totalScheduledQty;
+        const progress = (totals.totalQuotedQty || 0) > 0 ? Math.min((totalScheduledQty / (totals.totalQuotedQty || 1)) * 100, 100) : 0;
         const primaryUnit = items.length > 0 ? items[0].unit : 'unidades';
         
         let statusColor = 'bg-yellow-500';
@@ -835,7 +836,7 @@ const NewQuotePage: React.FC = () => {
                                 ></div>
                             </div>
                             <p className="text-[10px] text-right text-slate-400 mt-1">
-                                {/* FIX: Use totals.totalQuotedQty instead of deliveryStats.totalQuotedQty */}
+                                {/* FIX: Use totals.totalQuotedQty safely */}
                                 Programado: {(deliveryStats.totalScheduledQty || 0).toLocaleString()} / Cotizado: {(totals.totalQuotedQty || 0).toLocaleString()} {deliveryStats.primaryUnit}
                             </p>
                         </div>

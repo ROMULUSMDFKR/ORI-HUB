@@ -45,20 +45,48 @@ const SuppliersPage: React.FC = () => {
 
     const columns = [
         { 
-            header: 'Nombre', 
+            header: 'Proveedor', 
             accessor: (supplier: Supplier) => (
-                <Link to={`/purchase/suppliers/${supplier.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
-                    {supplier.name}
-                </Link>
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-md bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 uppercase">
+                         {supplier.logoUrl ? <img src={supplier.logoUrl} alt="" className="w-full h-full object-cover rounded-md" /> : supplier.name.substring(0,2)}
+                    </div>
+                    <div>
+                        <Link to={`/purchase/suppliers/${supplier.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline block">
+                            {supplier.name}
+                        </Link>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{supplier.supplierType || 'Proveedor'}</span>
+                    </div>
+                </div>
             )
         },
         { header: 'Industria', accessor: (supplier: Supplier) => supplier.industry || '-' },
         { 
-            header: 'Rating', 
+            header: 'Crédito', 
             accessor: (supplier: Supplier) => (
-                supplier.rating ? <Badge text={supplier.rating} color={getRatingColor(supplier.rating)} /> : '-'
+                <div className="text-xs">
+                    <p>{supplier.creditDays ? `${supplier.creditDays} días` : 'Contado'}</p>
+                    {supplier.creditLimit && supplier.creditLimit > 0 && <p className="text-slate-400">Límite: ${supplier.creditLimit.toLocaleString()}</p>}
+                </div>
             )
         },
+        { 
+            header: 'Rating', 
+            accessor: (supplier: Supplier) => (
+                supplier.rating ? <Badge text={supplier.rating} color={getRatingColor(supplier.rating)} /> : <span className="text-slate-400 text-xs">N/A</span>
+            )
+        },
+        {
+            header: 'Acciones',
+            accessor: (supplier: Supplier) => (
+                <div className="flex justify-end gap-2">
+                     <button onClick={() => navigate(`/purchase/suppliers/${supplier.id}/edit`)} className="text-slate-400 hover:text-indigo-600 p-1">
+                        <span className="material-symbols-outlined text-lg">edit</span>
+                     </button>
+                </div>
+            ),
+            className: 'text-right'
+        }
     ];
 
     const industryOptions = useMemo(() => {
@@ -92,40 +120,44 @@ const SuppliersPage: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700 w-full">
-                    <div className="flex items-center w-80 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
-                        <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">
-                            search
-                        </span>
-                        <input
-                            id="supplier-search"
-                            type="text"
-                            placeholder="Buscar por nombre..."
-                            value={filter}
-                            onChange={e => setFilter(e.target.value)}
-                            className="w-full bg-transparent pr-4 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none search-input-field"
-                        />
-                    </div>
-                    <FilterButton
-                        label="Industria"
-                        options={industryOptions}
-                        selectedValue={industryFilter}
-                        onSelect={setIndustryFilter}
-                        allLabel="Todas"
-                    />
-                    <FilterButton
-                        label="Rating"
-                        options={ratingOptions}
-                        selectedValue={ratingFilter}
-                        onSelect={setRatingFilter}
-                        allLabel="Todos"
-                    />
-                     <div className="flex-grow"></div>
-                    <Link to="/purchase/suppliers/new" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-                        <span className="material-symbols-outlined mr-2">add</span>
-                        Nuevo Proveedor
-                    </Link>
+                 <div>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Directorio de Proveedores</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona tus relaciones comerciales y condiciones de compra.</p>
                 </div>
+                <Link to="/purchase/suppliers/new" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
+                    <span className="material-symbols-outlined mr-2">add</span>
+                    Nuevo Proveedor
+                </Link>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700 w-full">
+                <div className="flex items-center w-80 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
+                    <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">
+                        search
+                    </span>
+                    <input
+                        id="supplier-search"
+                        type="text"
+                        placeholder="Buscar por nombre..."
+                        value={filter}
+                        onChange={e => setFilter(e.target.value)}
+                        className="w-full bg-transparent pr-4 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none search-input-field"
+                    />
+                </div>
+                <FilterButton
+                    label="Industria"
+                    options={industryOptions}
+                    selectedValue={industryFilter}
+                    onSelect={setIndustryFilter}
+                    allLabel="Todas"
+                />
+                <FilterButton
+                    label="Rating"
+                    options={ratingOptions}
+                    selectedValue={ratingFilter}
+                    onSelect={setRatingFilter}
+                    allLabel="Todos"
+                />
             </div>
             
             {renderContent()}

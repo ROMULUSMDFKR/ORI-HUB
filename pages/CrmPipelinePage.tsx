@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -103,8 +102,8 @@ const CrmPipelinePage: React.FC = () => {
   }, [prospects, activities]);
   
   const usersMap = useMemo(() => {
-      if (!users) return new Map();
-      return new Map(users.map(u => [u.id, u]));
+      if (!users) return new Map<string, User>();
+      return new Map<string, User>(users.map(u => [u.id, u] as [string, User]));
   }, [users]);
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {

@@ -89,7 +89,7 @@ const ContactDetailPage: React.FC = () => {
     const { data: users, loading: uLoading } = useCollection<User>('users');
     
     const loading = cLoading || comLoading || aLoading || nLoading || uLoading;
-    const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+    const usersMap = useMemo(() => new Map<string, User>(users?.map(u => [u.id, u] as [string, User])), [users]);
 
     const activities = useMemo(() => {
         if (!allActivities || !id) return [];

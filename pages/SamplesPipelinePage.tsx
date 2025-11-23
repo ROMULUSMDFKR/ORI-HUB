@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -102,7 +101,7 @@ const SamplesPipelinePage: React.FC = () => {
   }, [activitiesData]);
 
   const loading = sLoading || aLoading || uLoading;
-  const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+  const usersMap = useMemo(() => new Map<string, User>(users?.map(u => [u.id, u] as [string, User])), [users]);
 
   const groupedColumns = useMemo(() => {
     return SAMPLES_PIPELINE_COLUMNS.reduce((acc, column) => {

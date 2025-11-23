@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { SALES_ORDERS_PIPELINE_COLUMNS } from '../constants';
@@ -84,7 +83,7 @@ const SalesOrdersPipelinePage: React.FC = () => {
   }, [activitiesData]);
   
   const loading = soLoading || delLoading || actLoading || uLoading;
-  const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
+  const usersMap = useMemo(() => new Map<string, User>(users?.map(u => [u.id, u] as [string, User])), [users]);
 
   const deliveriesBySalesOrderId = useMemo(() => {
     if (!deliveries) return new Map<string, Delivery[]>();

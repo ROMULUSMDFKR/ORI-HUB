@@ -35,14 +35,14 @@ const Squares: React.FC<SquaresProps> = ({
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
 
+      // Set the internal buffer size to match physical pixels
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
       
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
-
+      // Scale the context so drawing operations use CSS pixels logic
       ctx.scale(dpr, dpr);
 
+      // Calculate number of squares needed based on CSS dimensions (rect.width/height)
       numSquaresX.current = Math.ceil(rect.width / squareSize) + 1;
       numSquaresY.current = Math.ceil(rect.height / squareSize) + 1;
     };
@@ -51,12 +51,14 @@ const Squares: React.FC<SquaresProps> = ({
     resizeCanvas();
 
     const drawGrid = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Clear using the scaled size (which effectively clears the whole buffer)
+      // We can use canvas.width/dpr to get the CSS width in the current transform
+      const dpr = window.devicePixelRatio || 1;
+      const width = canvas.width / dpr;
+      const height = canvas.height / dpr;
       
-      // Use logic dimensions (CSS pixels) for drawing calculations
-      const width = parseFloat(canvas.style.width);
-      const height = parseFloat(canvas.style.height);
-
+      ctx.clearRect(0, 0, width, height);
+      
       const startX = Math.floor(gridOffset.current.x / squareSize) * squareSize;
       const startY = Math.floor(gridOffset.current.y / squareSize) * squareSize;
 
@@ -79,7 +81,7 @@ const Squares: React.FC<SquaresProps> = ({
         }
       }
 
-      // Optional: Radial gradient to fade edges to black
+      // Radial gradient to fade edges to black
       const gradient = ctx.createRadialGradient(
         width / 2,
         height / 2,
@@ -89,7 +91,7 @@ const Squares: React.FC<SquaresProps> = ({
         Math.sqrt(width ** 2 + height ** 2) / 2
       );
       gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-      gradient.addColorStop(1, '#000'); // Match background color
+      gradient.addColorStop(1, '#000'); 
 
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);

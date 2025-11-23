@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import React from 'react';
 import { NavLink, useLocation, Link } from 'react-router-dom';
 import { NAV_LINKS } from '../../constants';
@@ -83,7 +78,7 @@ const PrimarySidebar: React.FC<PrimarySidebarProps> = ({ user }) => {
   return (
     <div className="w-20 bg-indigo-950 flex-shrink-0 flex flex-col items-center py-4 relative z-50">
       <Link to="/" className="mb-6 flex-shrink-0">
-        <img src="https://firebasestorage.googleapis.com/v0/b/ori-405da.firebasestorage.app/o/Logo%2FIMG_1043.png?alt=media&token=28b3c9f6-ebbc-4681-b604-3eae6dfa6bbc" alt="ORI Logo" className="w-8 h-auto" />
+        <img src="https://firebasestorage.googleapis.com/v0/b/ori-405da.firebasestorage.app/o/Logo%2FLOGO%20BLANCO.png?alt=media&token=88ceaa56-56c5-4270-80b4-25c0b398da84" alt="ORI Logo" className="w-6 h-auto" />
       </Link>
       <nav className="flex-1 flex flex-col items-center space-y-2 w-full px-2">
         {primaryNavLinks.map((link) => {

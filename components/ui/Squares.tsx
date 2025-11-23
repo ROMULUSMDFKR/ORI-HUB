@@ -32,10 +32,19 @@ const Squares: React.FC<SquaresProps> = ({
     if (!ctx) return;
 
     const resizeCanvas = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-      numSquaresX.current = Math.ceil(canvas.width / squareSize) + 1;
-      numSquaresY.current = Math.ceil(canvas.height / squareSize) + 1;
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+
+      ctx.scale(dpr, dpr);
+
+      numSquaresX.current = Math.ceil(rect.width / squareSize) + 1;
+      numSquaresY.current = Math.ceil(rect.height / squareSize) + 1;
     };
 
     window.addEventListener('resize', resizeCanvas);
@@ -43,12 +52,16 @@ const Squares: React.FC<SquaresProps> = ({
 
     const drawGrid = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Use logic dimensions (CSS pixels) for drawing calculations
+      const width = parseFloat(canvas.style.width);
+      const height = parseFloat(canvas.style.height);
 
       const startX = Math.floor(gridOffset.current.x / squareSize) * squareSize;
       const startY = Math.floor(gridOffset.current.y / squareSize) * squareSize;
 
-      for (let x = startX; x < canvas.width + squareSize; x += squareSize) {
-        for (let y = startY; y < canvas.height + squareSize; y += squareSize) {
+      for (let x = startX; x < width + squareSize; x += squareSize) {
+        for (let y = startY; y < height + squareSize; y += squareSize) {
           const squareX = x - (gridOffset.current.x % squareSize);
           const squareY = y - (gridOffset.current.y % squareSize);
 
@@ -68,18 +81,18 @@ const Squares: React.FC<SquaresProps> = ({
 
       // Optional: Radial gradient to fade edges to black
       const gradient = ctx.createRadialGradient(
-        canvas.width / 2,
-        canvas.height / 2,
+        width / 2,
+        height / 2,
         0,
-        canvas.width / 2,
-        canvas.height / 2,
-        Math.sqrt(canvas.width ** 2 + canvas.height ** 2) / 2
+        width / 2,
+        height / 2,
+        Math.sqrt(width ** 2 + height ** 2) / 2
       );
       gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
       gradient.addColorStop(1, '#000'); // Match background color
 
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, width, height);
     };
 
     const updateAnimation = () => {

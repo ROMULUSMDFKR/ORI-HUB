@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -141,6 +142,7 @@ const EditUserPage = lazy(() => import('./pages/EditUserPage'));
 const TeamManagementPage = lazy(() => import('./pages/settings/TeamManagement'));
 const SecuritySettingsPage = lazy(() => import('./pages/settings/SecuritySettings'));
 const EmailSettingsPage = lazy(() => import('./pages/settings/EmailSettings'));
+const EmailAppearancePage = lazy(() => import('./pages/settings/EmailAppearancePage'));
 const IndustryManagementPage = lazy(() => import('./pages/settings/IndustryManagement'));
 const PipelineManagementPage = lazy(() => import('./pages/settings/PipelineManagement'));
 const AiAccessSettingsPage = lazy(() => import('./pages/settings/AiAccessSettings'));
@@ -361,6 +363,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/settings/internal-companies" element={<InternalCompaniesSettings />} />
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />
                             <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />
+                            <Route path="/settings/email-appearance" element={<EmailAppearancePage />} />
                             <Route path="/settings/industries" element={<IndustryManagementPage />} />
                             <Route path="/settings/pipelines" element={<PipelineManagementPage />} />
                             <Route path="/settings/ai-access" element={<AiAccessSettingsPage />} />

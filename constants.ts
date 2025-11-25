@@ -1,6 +1,7 @@
 
 
 
+
 import { ProspectStage, SampleStatus, QuoteStatus, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role } from './types';
 
 export const NAV_LINKS = [
@@ -130,6 +131,7 @@ export const NAV_LINKS = [
       { name: 'Mis Empresas', path: '/settings/internal-companies', icon: 'domain' },
       { name: 'Seguridad', path: '/settings/security', icon: 'security' },
       { name: 'Cuentas de Correo', path: '/settings/email-accounts', icon: 'alternate_email' },
+      { name: 'Apariencia de Email', path: '/settings/email-appearance', icon: 'format_paint' },
       { name: 'Industrias', path: '/settings/industries', icon: 'factory' },
       { name: 'Etapas de Venta', path: '/settings/pipelines', icon: 'view_carousel' },
       { name: 'Acceso de IA', path: '/settings/ai-access', icon: 'neurology' },
@@ -326,7 +328,7 @@ export const TAX_RATE = 0.16; // 16% IVA
 
 export const COMMUNICATION_CHANNELS: CommunicationChannel[] = ['Email', 'Teléfono', 'WhatsApp', 'Teams', 'Zoom', 'Telegram', 'Otro'];
 export const PREFERRED_DAYS_OPTIONS: PreferredDays[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-export const TONE_OPTIONS: Tone[] = ['Amigable', 'Formal', 'Directo', 'Técnico'];
+export const TONE_OPTIONS: Tone[] = ['Amigable', 'Formal', 'Directo' | 'Técnico'];
 export const FORMALITY_OPTIONS: Formality[] = ['Casual', 'Profesional', 'Estricto'];
 export const SLA_OPTIONS: SLA[] = ['Mismo día hábil', '24 horas', '48 horas', 'Sin compromiso'];
 export const QUOTE_FORMAT_OPTIONS: QuoteFormat[] = ['PDF', 'Link', 'Email', 'WhatsApp'];
@@ -407,6 +409,7 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Mis Empresas': ['view', 'create', 'edit', 'delete'],
         'Seguridad': ['view', 'create', 'edit', 'delete'],
         'Cuentas de Correo': ['view', 'create', 'edit', 'delete'],
+        'Apariencia de Email': ['view', 'create', 'edit', 'delete'],
         'Industrias': ['view', 'create', 'edit', 'delete'],
         'Etapas de Venta': ['view', 'create', 'edit', 'delete'],
         'Acceso de IA': ['view', 'create', 'edit', 'delete'],

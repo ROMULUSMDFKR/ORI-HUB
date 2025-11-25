@@ -21,7 +21,6 @@ const defaultHtmlTemplate = `
 `;
 
 const EmailAppearancePage: React.FC = () => {
-    // Use standard signatureTemplates collection instead of legacy emailFooters
     const { data: templates, loading } = useCollection<SignatureTemplate>('signatureTemplates');
     
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -42,35 +41,33 @@ const EmailAppearancePage: React.FC = () => {
         if (selected) {
             setName(selected.name);
             setHtmlContent(selected.htmlContent || '');
-        } else {
-            setName('');
-            setHtmlContent('');
+        } else if (selectedTemplateId === 'new') {
+            setName('Nueva Plantilla');
+            setHtmlContent(defaultHtmlTemplate);
         }
     }, [selectedTemplateId, templates]);
 
-    const handleCreate = async () => {
-        const newTemplate = {
-            name: 'Nueva Plantilla',
-            htmlContent: defaultHtmlTemplate
-        };
-        try {
-            const doc = await api.addDoc('signatureTemplates', newTemplate);
-            setSelectedTemplateId(doc.id);
-        } catch (e) {
-            console.error(e);
-            alert('Error al crear la plantilla.');
-        }
+    const handleCreate = () => {
+        setSelectedTemplateId('new');
     };
 
     const handleSave = async () => {
-        if (!selectedTemplateId) return;
         if (!name.trim()) {
             alert('El nombre de la plantilla es obligatorio.');
             return;
         }
         setIsSaving(true);
         try {
-            await api.updateDoc('signatureTemplates', selectedTemplateId, { name, htmlContent });
+            if (selectedTemplateId === 'new') {
+                 const newTemplate = {
+                    name,
+                    htmlContent
+                };
+                const doc = await api.addDoc('signatureTemplates', newTemplate);
+                setSelectedTemplateId(doc.id);
+            } else if (selectedTemplateId) {
+                await api.updateDoc('signatureTemplates', selectedTemplateId, { name, htmlContent });
+            }
             alert('Plantilla guardada correctamente.');
         } catch (error) {
             console.error("Error saving template:", error);
@@ -81,12 +78,15 @@ const EmailAppearancePage: React.FC = () => {
     };
 
     const handleDelete = async () => {
-        if (!selectedTemplateId) return;
+        if (!selectedTemplateId || selectedTemplateId === 'new') {
+             setSelectedTemplateId(null);
+             return;
+        }
         if (!confirm('¿Estás seguro de eliminar esta plantilla? Esta acción no se puede deshacer.')) return;
         
         try {
             await api.deleteDoc('signatureTemplates', selectedTemplateId);
-            setSelectedTemplateId(null); // Reset selection
+            setSelectedTemplateId(null); 
         } catch (error) {
             console.error("Error deleting template:", error);
             alert("No se pudo eliminar la plantilla.");
@@ -105,8 +105,8 @@ const EmailAppearancePage: React.FC = () => {
     }
 
     return (
-        <div className="h-full flex flex-col">
-            <div className="flex justify-between items-center mb-6 flex-shrink-0">
+        <div className="h-full flex flex-col space-y-6">
+            <div className="flex justify-between items-center flex-shrink-0">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Plantillas de Firma</h2>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
@@ -151,6 +151,13 @@ const EmailAppearancePage: React.FC = () => {
                                 No hay plantillas. Crea una para empezar.
                             </div>
                         )}
+                        {selectedTemplateId === 'new' && (
+                             <button
+                                className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-between group bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                            >
+                                <span className="truncate italic">Nueva Plantilla...</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -167,7 +174,7 @@ const EmailAppearancePage: React.FC = () => {
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
                                         className="w-full bg-transparent text-lg font-bold text-slate-800 dark:text-slate-200 border-none focus:ring-0 p-0 placeholder-slate-400"
-                                        placeholder="Ej. Firma Corporativa 2024"
+                                        placeholder="Ej: Firma Corporativa"
                                     />
                                 </div>
                                 <div className="flex gap-2">
@@ -175,7 +182,7 @@ const EmailAppearancePage: React.FC = () => {
                                         onClick={handleDelete}
                                         className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
                                     >
-                                        Eliminar
+                                        {selectedTemplateId === 'new' ? 'Cancelar' : 'Eliminar'}
                                     </button>
                                     <button 
                                         onClick={handleSave}
@@ -235,7 +242,7 @@ const EmailAppearancePage: React.FC = () => {
                             <EmptyState 
                                 icon="edit_document" 
                                 title="Selecciona una plantilla" 
-                                message="Elige una plantilla de la lista para editarla o crea una nueva." 
+                                message="Elige una plantilla de la lista para editarla o crea una nueva para personalizar las firmas de tu equipo." 
                                 actionText="Crear Plantilla"
                                 onAction={handleCreate}
                             />

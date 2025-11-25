@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -37,53 +36,68 @@ const TaskCard: React.FC<{ task: Task; onClick: () => void; usersMap: Map<string
   const assignees = task.assignees.map(id => usersMap.get(id)).filter(Boolean) as User[];
   const { isOverdue, overdueText } = getOverdueStatus(task.dueAt, task.status);
   
-  // Visual Progress Calculation (use manual % or checklist calculation)
-  const checklistCompleted = task.subtasks?.filter(st => st.isCompleted).length || 0;
-  const checklistTotal = task.subtasks?.length || 0;
-  const checklistPct = checklistTotal > 0 ? (checklistCompleted / checklistTotal) * 100 : 0;
-  const displayProgress = task.completionPercentage !== undefined ? task.completionPercentage : checklistPct;
+  const completedSubtasks = task.subtasks?.filter(st => st.isCompleted).length || 0;
+  const totalSubtasks = task.subtasks?.length || 0;
 
   return (
     <div
       onClick={onClick}
       className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing mb-4 group transition-shadow hover:shadow-md"
     >
-      <div className="flex justify-between items-start mb-2">
-           <h4 className="font-semibold text-sm text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 line-clamp-2">{task.title}</h4>
-           {task.priority === Priority.Alta && <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 mt-1.5 ml-2" title="Alta Prioridad"></span>}
-      </div>
+      <h4 className="font-semibold text-sm text-slate-800 dark:text-slate-200 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{task.title}</h4>
       
       <div className="flex flex-wrap gap-1 mb-3">
-         {task.impact && <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 rounded text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">{task.impact} Impacto</span>}
-         {task.isRecurring && <span className="material-symbols-outlined text-slate-400 text-sm" title="Recurrente">update</span>}
+        {task.priority && <Badge text={task.priority} color={getPriorityBadgeColor(task.priority)} />}
+        {task.projectId && <Badge text="Proyecto" color="blue" />}
       </div>
-      
-      {/* Progress Bar */}
-      <div className="mb-3">
-          <div className="flex justify-between text-[10px] text-slate-500 mb-1">
-              <span>Progreso</span>
-              <span>{displayProgress.toFixed(0)}%</span>
+
+      {totalSubtasks > 0 && (
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+              <span className="material-symbols-outlined !text-base">check_box</span>
+              <span>{completedSubtasks} de {totalSubtasks}</span>
+              <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-1">
+                  <div className="bg-indigo-500 h-1 rounded-full" style={{ width: `${(completedSubtasks / totalSubtasks) * 100}%` }}></div>
+              </div>
           </div>
-          <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-               <div className={`h-1.5 rounded-full ${displayProgress === 100 ? 'bg-green-500' : 'bg-indigo-500'}`} style={{ width: `${displayProgress}%` }}></div>
-          </div>
-      </div>
+      )}
 
       <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-700 pt-2">
         <div className="flex -space-x-2">
           {assignees.map(user => (
-            user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-800 object-cover" /> : null
+            user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-800" /> : null
           ))}
         </div>
         {task.dueAt && (
             <span className={`text-xs font-medium flex items-center ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
                 <span className="material-symbols-outlined !text-sm mr-1">event</span>
-                {new Date(task.dueAt).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
+                {overdueText}
             </span>
         )}
       </div>
     </div>
   );
+};
+
+const TaskSummary: React.FC<{ counts: Partial<Record<TaskStatus, number>> }> = ({ counts }) => {
+    const summaryItems = [
+        { label: 'No Iniciadas', status: TaskStatus.PorHacer, icon: 'radio_button_unchecked', color: 'text-slate-500 dark:text-slate-400' },
+        { label: 'En Progreso', status: TaskStatus.EnProgreso, icon: 'hourglass_top', color: 'text-blue-500 dark:text-blue-400' },
+        { label: 'Terminadas', status: TaskStatus.Hecho, icon: 'check_circle', color: 'text-green-500 dark:text-green-400' },
+    ];
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {summaryItems.map(item => (
+                <div key={item.status} className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 flex items-center">
+                    <span className={`material-symbols-outlined text-3xl mr-4 ${item.color}`}>{item.icon}</span>
+                    <div>
+                        <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">{counts[item.status] || 0}</p>
+                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{item.label}</p>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
 };
 
 interface TaskBoardViewProps {
@@ -189,7 +203,6 @@ const TasksPage: React.FC = () => {
     const [projectFilter, setProjectFilter] = useState('all');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [assigneeFilter, setAssigneeFilter] = useState('all');
-    const [showCompleted, setShowCompleted] = useState(false); // New toggle
 
     useEffect(() => {
         if (initialTasks) {
@@ -202,15 +215,13 @@ const TasksPage: React.FC = () => {
         setTasks(prevTasks => {
             if (!prevTasks) return null;
             return prevTasks.map(t =>
-                t.id === taskId ? { ...t, status: newStatus, completionPercentage: newStatus === TaskStatus.Hecho ? 100 : t.completionPercentage } : t
+                t.id === taskId ? { ...t, status: newStatus } : t
             );
         });
 
         // API Update
         try {
-            const updates: Partial<Task> = { status: newStatus };
-            if (newStatus === TaskStatus.Hecho) updates.completionPercentage = 100;
-            await api.updateDoc('tasks', taskId, updates);
+            await api.updateDoc('tasks', taskId, { status: newStatus });
         } catch (error) {
             console.error("Error updating task status:", error);
             alert("No se pudo actualizar el estado de la tarea.");
@@ -236,63 +247,43 @@ const TasksPage: React.FC = () => {
         if (assigneeFilter !== 'all') {
             result = result.filter(t => t.assignees.includes(assigneeFilter));
         }
-        
-        // Filter completed unless toggled or in Board View (where columns handle status)
-        if (activeView !== 'board' && !showCompleted) {
-            result = result.filter(t => t.status !== TaskStatus.Hecho);
-        }
 
         return result;
-    }, [tasks, activeView, currentUser, projectFilter, priorityFilter, assigneeFilter, showCompleted]);
+    }, [tasks, activeView, currentUser, projectFilter, priorityFilter, assigneeFilter]);
     
+    const statusCounts = useMemo(() => {
+        if (!filteredTasks) return { [TaskStatus.PorHacer]: 0, [TaskStatus.EnProgreso]: 0, [TaskStatus.Hecho]: 0 };
+        return filteredTasks.reduce((acc, task) => {
+            acc[task.status] = (acc[task.status] || 0) + 1;
+            return acc;
+        }, {} as Record<TaskStatus, number>);
+    }, [filteredTasks]);
+
     const projectOptions = useMemo(() => (projects || []).map(p => ({ value: p.id, label: p.name })), [projects]);
     const priorityOptions = useMemo(() => Object.values(Priority).map(p => ({ value: p, label: p })), []);
     const assigneeOptions = useMemo(() => (users || []).map((u: User) => ({ value: u.id, label: u.name })), [users]);
 
     const columns = useMemo(() => [
         { header: 'Título', accessor: (t: Task) => <Link to={`/tasks/${t.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{t.title}</Link> },
-        { 
-            header: 'Progreso', 
-            accessor: (t: Task) => (
-                 <div className="w-24">
-                     <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
-                         <span>{t.status}</span>
-                         <span>{t.completionPercentage || 0}%</span>
-                     </div>
-                     <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-1.5 overflow-hidden">
-                        <div className={`h-1.5 rounded-full ${t.status === TaskStatus.Hecho ? 'bg-green-500' : 'bg-indigo-500'}`} style={{ width: `${t.completionPercentage || 0}%` }}></div>
-                     </div>
-                 </div>
-            )
-        },
+        { header: 'Estado', accessor: (t: Task) => <Badge text={t.status} color={t.status === TaskStatus.Hecho ? 'green' : 'blue'} /> },
         { header: 'Prioridad', accessor: (t: Task) => t.priority ? <Badge text={t.priority} color={getPriorityBadgeColor(t.priority)} /> : '-' },
         { 
             header: 'Vencimiento', 
             accessor: (t: Task) => {
                 const { isOverdue, overdueText: text } = getOverdueStatus(t.dueAt, t.status);
-                return <span className={isOverdue ? 'text-red-600 font-bold' : 'text-slate-600 dark:text-slate-300'}>{text || (t.dueAt ? new Date(t.dueAt).toLocaleDateString() : '-')}</span>;
+                return <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>{text || (t.dueAt ? new Date(t.dueAt).toLocaleDateString() : '-')}</span>;
             }
-        },
-        { 
-            header: 'Estimado / Real', 
-            accessor: (t: Task) => (
-                 <span className="text-xs font-mono text-slate-500">
-                     {t.estimationHours || 0}h / <span className={(t.actualHours || 0) > (t.estimationHours || 0) ? 'text-red-500 font-bold' : ''}>{t.actualHours || 0}h</span>
-                 </span>
-            ),
-            className: 'text-right'
         },
         { 
             header: 'Asignados', 
             accessor: (t: Task) => (
-                <div className="flex -space-x-2 justify-end">
+                <div className="flex -space-x-2">
                     {t.assignees.map(userId => {
                         const user = usersMap.get(userId);
-                        return user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-7 h-7 rounded-full border-2 border-white dark:border-slate-800 object-cover" /> : null;
+                        return user ? <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="w-7 h-7 rounded-full border-2 border-white dark:border-slate-800" /> : null;
                     })}
                 </div>
-            ),
-            className: 'text-right'
+            )
         },
     ], [usersMap]);
 
@@ -328,9 +319,8 @@ const TasksPage: React.FC = () => {
     return (
         <div className="space-y-6 h-full flex flex-col">
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Tablero de Control Operativo</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Gestiona y supervisa la ejecución de tareas.</p>
+                <div className="flex-1">
+                    {/* Title is now in the main header */}
                 </div>
                 <div className="flex items-center gap-4">
                     <ViewSwitcher 
@@ -347,21 +337,13 @@ const TasksPage: React.FC = () => {
                 </div>
             </div>
             
+            <TaskSummary counts={statusCounts} />
+
             {activeView !== 'board' && (
                  <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
                     <FilterButton label="Proyecto" options={projectOptions} selectedValue={projectFilter} onSelect={setProjectFilter} />
                     <FilterButton label="Prioridad" options={priorityOptions} selectedValue={priorityFilter} onSelect={setPriorityFilter} />
                     {activeView === 'all' && <FilterButton label="Asignado a" options={assigneeOptions} selectedValue={assigneeFilter} onSelect={setAssigneeFilter} />}
-                    
-                    <div className="flex-grow"></div>
-                    
-                    <button 
-                        onClick={() => setShowCompleted(!showCompleted)}
-                        className={`text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${showCompleted ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                    >
-                        <span className="material-symbols-outlined text-lg">{showCompleted ? 'check_box' : 'check_box_outline_blank'}</span>
-                        Mostrar Completadas
-                    </button>
                 </div>
             )}
            

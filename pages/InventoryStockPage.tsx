@@ -12,20 +12,7 @@ interface StockInfo {
     id: string;
     product: Product;
     totalStock: number;
-    inventoryValue: number;
 }
-
-const KpiCard: React.FC<{ title: string; value: string | number; icon: string; color: string }> = ({ title, value, icon, color }) => (
-    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-4 flex-1">
-        <div className={`p-3 rounded-lg ${color} bg-opacity-10 text-opacity-100`}>
-             <span className={`material-symbols-outlined text-2xl ${color.replace('bg-', 'text-')}`}>{icon}</span>
-        </div>
-        <div>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">{title}</p>
-            <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{value}</p>
-        </div>
-    </div>
-);
 
 const InventoryStockPage: React.FC = () => {
     const { data: products, loading: pLoading } = useCollection<Product>('products');
@@ -35,33 +22,20 @@ const InventoryStockPage: React.FC = () => {
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [filter, setFilter] = useState('');
 
-    const { stockData, totalValue, totalItems, lowStockCount } = useMemo(() => {
-        if (!products || !lotsData) return { stockData: [], totalValue: 0, totalItems: 0, lowStockCount: 0 };
+    const stockData = useMemo<StockInfo[]>(() => {
+        if (!products || !lotsData) return [];
 
         const allLots = lotsData;
-        let valueAccumulator = 0;
-        let lowStockAccumulator = 0;
         
-        const data = products.map(product => {
+        return products.map(product => {
             const productLots = allLots.filter(lot => lot.productId === product.id);
             
             const totalStock = productLots.reduce((sum, lot) => {
                 return sum + lot.stock.reduce((lotSum, s) => lotSum + s.qty, 0);
             }, 0);
 
-            // Calculate value based on lot costs
-            const productValue = productLots.reduce((val, lot) => {
-                 const lotQty = lot.stock.reduce((s, stock) => s + stock.qty, 0);
-                 return val + (lotQty * lot.unitCost);
-            }, 0);
-
-            valueAccumulator += productValue;
-            if (product.reorderPoint && totalStock <= product.reorderPoint) lowStockAccumulator++;
-
-            return { id: product.id, product, totalStock, inventoryValue: productValue };
+            return { id: product.id, product, totalStock };
         });
-
-        return { stockData: data, totalValue: valueAccumulator, totalItems: products.length, lowStockCount: lowStockAccumulator };
     }, [products, lotsData]);
     
     const categoryOptions = useMemo(() => (categories || []).map(c => ({ value: c.id, label: c.name })), [categories]);
@@ -84,80 +58,31 @@ const InventoryStockPage: React.FC = () => {
     };
 
     const columns = [
-        { 
-            header: 'Producto', 
+        { header: 'SKU', accessor: (item: StockInfo) => <span className="font-mono text-xs">{item.product.sku}</span> },
+        {
+            header: 'Producto',
             accessor: (item: StockInfo) => (
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-600">
-                        {item.product.imageUrl ? (
-                            <img src={item.product.imageUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                            <span className="material-symbols-outlined text-slate-400">image</span>
-                        )}
-                    </div>
-                    <div>
-                        <Link to={`/products/${item.product.id}`} className="font-bold text-sm text-indigo-600 dark:text-indigo-400 hover:underline block">
-                            {item.product.name}
-                        </Link>
-                        <span className="text-xs text-slate-500 font-mono">{item.product.sku}</span>
-                    </div>
-                </div>
-            ) 
+                <Link to={`/products/${item.product.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                    {item.product.name}
+                </Link>
+            )
         },
         {
-            header: 'Nivel de Stock',
-            accessor: (item: StockInfo) => {
-                const max = item.product.maxStock || item.totalStock * 2 || 100;
-                const percent = Math.min((item.totalStock / max) * 100, 100);
-                const isLow = item.product.reorderPoint && item.totalStock <= item.product.reorderPoint;
-                
-                return (
-                    <div className="w-32">
-                        <div className="flex justify-between text-xs mb-1">
-                            <span className="font-bold dark:text-slate-200">{item.totalStock.toLocaleString()} {item.product.unitDefault}</span>
-                            {item.product.reorderPoint && <span className="text-[10px] text-slate-400">Mín: {item.product.reorderPoint}</span>}
-                        </div>
-                         <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                            <div 
-                                className={`h-full rounded-full ${isLow ? 'bg-red-500' : 'bg-green-500'}`} 
-                                style={{ width: `${percent}%` }}
-                            ></div>
-                        </div>
-                    </div>
-                );
-            }
-        },
-        {
-            header: 'Valor (Costo)',
-            accessor: (item: StockInfo) => <span className="font-medium text-slate-700 dark:text-slate-300">${item.inventoryValue.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>,
+            header: 'Stock Total',
+            accessor: (item: StockInfo) => <span className="font-bold">{`${item.totalStock.toLocaleString()} ${item.product.unitDefault}`}</span>,
             className: 'text-right'
         },
         {
-            header: 'Días Inventario',
-            accessor: (item: StockInfo) => <span className="text-xs text-slate-500">~30 días</span>, // Mock calculation
-            className: 'text-center'
+            header: 'Punto de Reorden',
+            accessor: (item: StockInfo) => item.product.reorderPoint ? `${item.product.reorderPoint.toLocaleString()} ${item.product.unitDefault}` : '-',
+            className: 'text-right'
         },
         {
             header: 'Estado',
             accessor: (item: StockInfo) => {
                 const status = getStatus(item);
                 return <Badge text={status.text} color={status.color as any} />;
-            },
-            className: 'text-center'
-        },
-        {
-            header: 'Acciones',
-            accessor: (item: StockInfo) => (
-                 <div className="flex justify-end gap-2">
-                     <Link to="/inventory/movements" className="p-1 text-slate-400 hover:text-indigo-600" title="Ajustar Stock">
-                        <span className="material-symbols-outlined text-lg">tune</span>
-                     </Link>
-                     <Link to={`/products/${item.product.id}`} className="p-1 text-slate-400 hover:text-indigo-600" title="Ver Kardex">
-                        <span className="material-symbols-outlined text-lg">history</span>
-                     </Link>
-                </div>
-            ),
-            className: 'text-right'
+            }
         }
     ];
 
@@ -165,16 +90,9 @@ const InventoryStockPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            {/* KPI Header */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <KpiCard title="Valor Total Inventario" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon="monetization_on" color="bg-emerald-500" />
-                <KpiCard title="Productos Bajo Stock" value={lowStockCount} icon="warning" color="bg-amber-500" />
-                <KpiCard title="Total SKUs" value={totalItems} icon="inventory_2" color="bg-blue-500" />
-            </div>
-
             <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center justify-between gap-4 border border-slate-200 dark:border-slate-700">
-                <div className="flex items-center gap-4 flex-wrap flex-grow">
-                    <div className="flex items-center flex-grow max-w-md bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
+                <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center flex-grow bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
                         <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">search</span>
                         <input
                             type="text"
@@ -187,7 +105,7 @@ const InventoryStockPage: React.FC = () => {
                     <FilterButton label="Categoría" options={categoryOptions} selectedValue={categoryFilter} onSelect={setCategoryFilter} allLabel="Todas" />
                 </div>
                 <Link to="/inventory/movements" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-                    <span className="material-symbols-outlined mr-2">swap_horiz</span>
+                    <span className="material-symbols-outlined mr-2">add</span>
                     Nuevo Movimiento
                 </Link>
             </div>

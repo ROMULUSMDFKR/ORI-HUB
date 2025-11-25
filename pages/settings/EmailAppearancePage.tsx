@@ -1,152 +1,246 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { api } from '../../api/firebaseApi';
 import { SignatureTemplate } from '../../types';
 import Spinner from '../../components/ui/Spinner';
+import EmptyState from '../../components/ui/EmptyState';
 
-const companies = [
-  { id: 'puredef', name: 'Puredef' },
-  { id: 'tradeaitirik', name: 'Trade Aitirik' },
-  { id: 'santzer', name: 'Santzer' },
-];
-
-const initialHtmlTemplate = (year: number, companyName: string) => `
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
-    <tbody>
-      <tr>
-        <td align="center" style="font-family: Arial, sans-serif; font-size: 12px; color: #64748b; line-height: 1.5;">
-          <p style="margin: 0 0 8px 0;"><strong>${companyName}</strong></p>
-          <p style="margin: 0;">123 Business Rd, Suite 456, Mexico City, 01000</p>
-          <p style="margin: 16px 0;">
-            <a href="#" style="color: #4f46e5; text-decoration: none;">Darse de baja</a>
-            &nbsp;&nbsp;·&nbsp;&nbsp;
-            <a href="#" style="color: #4f46e5; text-decoration: none;">Términos y Condiciones</a>
-            &nbsp;&nbsp;·&nbsp;&nbsp;
-            <a href="#" style="color: #4f46e5; text-decoration: none;">Política de Privacidad</a>
-          </p>
-          <p style="margin: 0;">
-            © ${year} ${companyName}. Todos los derechos reservados.
-          </p>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+const defaultHtmlTemplate = `
+<div style="font-family: Arial, sans-serif; color: #333; margin-top: 20px;">
+  <p>Saludos cordiales,</p>
+  <p><strong>{{name}}</strong><br>
+  <span style="color: #666;">{{role}}</span><br>
+  <a href="mailto:{{email}}" style="color: #4f46e5; text-decoration: none;">{{email}}</a>
+  </p>
+  <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+  <p style="font-size: 12px; color: #999;">
+    Este mensaje es confidencial. Si usted no es el destinatario, por favor notifíquelo y elimínelo.
+  </p>
+</div>
 `;
 
 const EmailAppearancePage: React.FC = () => {
-    const { data: fetchedTemplates, loading } = useCollection<SignatureTemplate>('emailFooters');
-    const [templates, setTemplates] = useState<SignatureTemplate[]>([]);
-    const [activeTab, setActiveTab] = useState(companies[0].id);
+    // Use standard signatureTemplates collection instead of legacy emailFooters
+    const { data: templates, loading } = useCollection<SignatureTemplate>('signatureTemplates');
+    
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+    const [name, setName] = useState('');
+    const [htmlContent, setHtmlContent] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
+    // Select first template on load if none selected
     useEffect(() => {
-        const runSeed = async () => {
-            console.log("No email footers found, seeding initial data...");
-            const seedData = companies.map(company => ({
-                id: company.id,
-                name: company.name,
-                htmlContent: initialHtmlTemplate(new Date().getFullYear(), company.name).trim()
-            }));
-            try {
-                for (const template of seedData) {
-                    await api.setDoc('emailFooters', template.id, template);
-                }
-                setTemplates(seedData);
-            } catch (e) {
-                console.error("Failed to seed email footers", e);
-            }
-        };
-
-        if (!loading) {
-            if (fetchedTemplates && fetchedTemplates.length > 0) {
-                setTemplates(fetchedTemplates);
-            } else {
-                runSeed();
-            }
+        if (!loading && templates && templates.length > 0 && !selectedTemplateId) {
+            setSelectedTemplateId(templates[0].id);
         }
-    }, [fetchedTemplates, loading]);
+    }, [templates, loading, selectedTemplateId]);
 
-    const activeTemplate = templates.find(t => t.id === activeTab);
+    // Sync local state when selection changes
+    useEffect(() => {
+        const selected = templates?.find(t => t.id === selectedTemplateId);
+        if (selected) {
+            setName(selected.name);
+            setHtmlContent(selected.htmlContent || '');
+        } else {
+            setName('');
+            setHtmlContent('');
+        }
+    }, [selectedTemplateId, templates]);
 
-    const handleContentChange = (newHtml: string) => {
-        setTemplates(prevTemplates => 
-            prevTemplates.map(t => t.id === activeTab ? { ...t, htmlContent: newHtml } : t)
-        );
+    const handleCreate = async () => {
+        const newTemplate = {
+            name: 'Nueva Plantilla',
+            htmlContent: defaultHtmlTemplate
+        };
+        try {
+            const doc = await api.addDoc('signatureTemplates', newTemplate);
+            setSelectedTemplateId(doc.id);
+        } catch (e) {
+            console.error(e);
+            alert('Error al crear la plantilla.');
+        }
     };
 
     const handleSave = async () => {
-        if (!activeTemplate) return;
+        if (!selectedTemplateId) return;
+        if (!name.trim()) {
+            alert('El nombre de la plantilla es obligatorio.');
+            return;
+        }
+        setIsSaving(true);
         try {
-            const templateToSave = templates.find(t => t.id === activeTemplate.id);
-            if (!templateToSave) return;
-            
-            await api.setDoc('emailFooters', templateToSave.id, templateToSave);
-            alert(`Pie de correo para ${templateToSave.name} guardado con éxito.`);
+            await api.updateDoc('signatureTemplates', selectedTemplateId, { name, htmlContent });
+            alert('Plantilla guardada correctamente.');
         } catch (error) {
-            console.error("Error saving email footer:", error);
-            alert("No se pudo guardar el pie de correo.");
+            console.error("Error saving template:", error);
+            alert("No se pudo guardar la plantilla.");
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    if (loading && templates.length === 0) {
+    const handleDelete = async () => {
+        if (!selectedTemplateId) return;
+        if (!confirm('¿Estás seguro de eliminar esta plantilla? Esta acción no se puede deshacer.')) return;
+        
+        try {
+            await api.deleteDoc('signatureTemplates', selectedTemplateId);
+            setSelectedTemplateId(null); // Reset selection
+        } catch (error) {
+            console.error("Error deleting template:", error);
+            alert("No se pudo eliminar la plantilla.");
+        }
+    };
+
+    // Generate preview with dummy data
+    const previewHtml = htmlContent
+        .replace(/{{name}}/g, 'Roberto Ortega')
+        .replace(/{{role}}/g, 'Gerente de Ventas')
+        .replace(/{{email}}/g, 'roberto@ejemplo.com')
+        .replace(/{{phone}}/g, '+52 55 1234 5678');
+
+    if (loading) {
         return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-end items-center">
+        <div className="h-full flex flex-col">
+            <div className="flex justify-between items-center mb-6 flex-shrink-0">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Plantillas de Firma</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">
+                        Diseña plantillas HTML para las firmas de correo de tu equipo.
+                    </p>
+                </div>
                 <button
-                    onClick={handleSave}
+                    onClick={handleCreate}
                     className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700 transition-colors"
                 >
-                    <span className="material-symbols-outlined mr-2">save</span>
-                    Guardar Cambios
+                    <span className="material-symbols-outlined mr-2">add</span>
+                    Nueva Plantilla
                 </button>
             </div>
 
-            {/* Tabs */}
-            <div className="border-b border-slate-200 dark:border-slate-700">
-                <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-                    {companies.map(company => (
-                        <button
-                            key={company.id}
-                            onClick={() => setActiveTab(company.id)}
-                            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                                activeTab === company.id
-                                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
-                            }`}
-                        >
-                            {company.name}
-                        </button>
-                    ))}
-                </nav>
-            </div>
-
-            {/* Editor and Preview */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6" style={{ height: 'calc(100vh - 16rem)' }}>
-                {/* Editor */}
-                <div className="flex flex-col bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">Editor HTML</h3>
-                    <textarea
-                        value={activeTemplate?.htmlContent || ''}
-                        onChange={(e) => handleContentChange(e.target.value)}
-                        className="w-full flex-1 font-mono text-sm border-slate-300 dark:border-slate-600 rounded-lg p-3 resize-none bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-indigo-500 focus:border-indigo-500"
-                        spellCheck="false"
-                    />
+            <div className="flex flex-1 gap-6 min-h-0 overflow-hidden">
+                {/* Sidebar List */}
+                <div className="w-64 flex-shrink-0 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden">
+                    <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+                        <h3 className="font-semibold text-slate-700 dark:text-slate-300 text-sm uppercase tracking-wider">Mis Plantillas</h3>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                        {templates && templates.length > 0 ? (
+                            templates.map(template => (
+                                <button
+                                    key={template.id}
+                                    onClick={() => setSelectedTemplateId(template.id)}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-between group ${
+                                        selectedTemplateId === template.id
+                                            ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                    }`}
+                                >
+                                    <span className="truncate">{template.name}</span>
+                                    {selectedTemplateId === template.id && (
+                                        <span className="material-symbols-outlined text-base">chevron_right</span>
+                                    )}
+                                </button>
+                            ))
+                        ) : (
+                            <div className="p-4 text-center text-sm text-slate-500">
+                                No hay plantillas. Crea una para empezar.
+                            </div>
+                        )}
+                    </div>
                 </div>
-                {/* Preview */}
-                <div className="flex flex-col bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
-                     <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">Vista Previa</h3>
-                     <div className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900">
-                        <iframe
-                            srcDoc={`<html><body style="font-family: sans-serif; background-color: #f1f5f9; padding: 20px;">${activeTemplate?.htmlContent || ''}</body></html>`}
-                            title="Vista previa del pie de correo"
-                            className="w-full h-full border-0"
-                            sandbox="allow-same-origin"
-                        />
-                     </div>
+
+                {/* Main Editor Area */}
+                <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
+                    {selectedTemplateId ? (
+                        <>
+                            {/* Name Input & Actions */}
+                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center flex-shrink-0">
+                                <div className="flex-1 mr-4">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre de la Plantilla</label>
+                                    <input 
+                                        type="text" 
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className="w-full bg-transparent text-lg font-bold text-slate-800 dark:text-slate-200 border-none focus:ring-0 p-0 placeholder-slate-400"
+                                        placeholder="Ej. Firma Corporativa 2024"
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={handleDelete}
+                                        className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                                    >
+                                        Eliminar
+                                    </button>
+                                    <button 
+                                        onClick={handleSave}
+                                        disabled={isSaving}
+                                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                                    >
+                                        {isSaving ? <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span> : <span className="material-symbols-outlined text-sm">save</span>}
+                                        Guardar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
+                                {/* Code Editor */}
+                                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                    <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center">
+                                        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Editor HTML</h3>
+                                        <div className="text-xs text-slate-500 flex gap-2">
+                                            <span title="Nombre del usuario" className="cursor-help bg-slate-200 dark:bg-slate-700 px-1 rounded">{'{{name}}'}</span>
+                                            <span title="Rol / Puesto" className="cursor-help bg-slate-200 dark:bg-slate-700 px-1 rounded">{'{{role}}'}</span>
+                                            <span title="Email" className="cursor-help bg-slate-200 dark:bg-slate-700 px-1 rounded">{'{{email}}'}</span>
+                                            <span title="Teléfono" className="cursor-help bg-slate-200 dark:bg-slate-700 px-1 rounded">{'{{phone}}'}</span>
+                                        </div>
+                                    </div>
+                                    <textarea
+                                        value={htmlContent}
+                                        onChange={(e) => setHtmlContent(e.target.value)}
+                                        className="flex-1 w-full p-4 font-mono text-xs leading-relaxed bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-300 resize-none focus:outline-none"
+                                        placeholder="<div>Tu código HTML aquí...</div>"
+                                        spellCheck="false"
+                                    />
+                                </div>
+
+                                {/* Preview */}
+                                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                    <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                                        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Vista Previa</h3>
+                                    </div>
+                                    <div className="flex-1 p-4 bg-white overflow-auto">
+                                         <iframe
+                                            srcDoc={`
+                                                <html>
+                                                    <head><style>body { margin: 0; font-family: sans-serif; }</style></head>
+                                                    <body>${previewHtml}</body>
+                                                </html>
+                                            `}
+                                            title="Vista previa"
+                                            className="w-full h-full border-0 pointer-events-none"
+                                            sandbox="allow-same-origin"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex-1 flex items-center justify-center">
+                            <EmptyState 
+                                icon="edit_document" 
+                                title="Selecciona una plantilla" 
+                                message="Elige una plantilla de la lista para editarla o crea una nueva." 
+                                actionText="Crear Plantilla"
+                                onAction={handleCreate}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

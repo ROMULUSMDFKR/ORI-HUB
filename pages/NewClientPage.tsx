@@ -23,7 +23,7 @@ import {
     EQUIPMENT_OPTIONS
 } from '../constants';
 
-// Initial state with full nested structure
+// Initial state with full nested structure to ensure dropdowns work immediately
 const initialClientState: Partial<Company> = {
     name: '',
     shortName: '',
@@ -37,13 +37,6 @@ const initialClientState: Partial<Company> = {
     productsOfInterest: [],
     deliveryAddresses: [],
     fiscalAddress: { street: '', city: '', state: '', zip: '' },
-    // New Enriched Defaults
-    tags: [],
-    companySize: '11-50',
-    billingEmail: '',
-    regimenFiscal: '',
-    socialProfiles: { linkedin: '', facebook: '', twitter: '' },
-    // End Enriched
     primaryContact: { 
         id: '', 
         name: '', 
@@ -107,14 +100,11 @@ const INCOTERM_DESCRIPTIONS: Record<string, string> = {
     'DDP': 'Delivered Duty Paid: El vendedor asume todos los costos y riesgos, incluidos los impuestos, hasta la entrega.'
 };
 
-// --- REUSABLE UI COMPONENTS ---
+// --- REUSABLE UI COMPONENTS (Moved OUTSIDE the main component) ---
 
-const FormBlock: React.FC<{ title: string; children: React.ReactNode; className?: string; icon?: string }> = ({ title, children, className, icon }) => (
+const FormBlock: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className }) => (
     <div className={`bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 ${className}`}>
-        <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-            {icon && <span className="material-symbols-outlined text-indigo-500">{icon}</span>}
-            {title}
-        </h3>
+        <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4">{title}</h3>
         <div className="space-y-6">{children}</div>
     </div>
 );
@@ -126,10 +116,9 @@ const Section: React.FC<{ title: string; children: React.ReactNode; }> = ({ titl
     </div>
 );
 
-const Input: React.FC<{ label: string; value: string | number; onChange: (val: any) => void; type?: string, required?: boolean, tooltip?: string, placeholder?: string, icon?: string }> = ({ label, value, onChange, type = 'text', required=false, tooltip, placeholder, icon }) => (
+const Input: React.FC<{ label: string; value: string | number; onChange: (val: any) => void; type?: string, required?: boolean, tooltip?: string, placeholder?: string }> = ({ label, value, onChange, type = 'text', required=false, tooltip, placeholder }) => (
     <div>
         <label className="flex items-center text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-            {icon && <span className="material-symbols-outlined text-sm mr-1 text-slate-400">{icon}</span>}
             {label}
             {required && <span className="text-red-500 ml-1">*</span>}
             {tooltip && (
@@ -146,7 +135,7 @@ const Input: React.FC<{ label: string; value: string | number; onChange: (val: a
             value={value} 
             onChange={e => onChange(e.target.value)} 
             placeholder={placeholder}
-            className="block w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors" 
+            className="block w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500" 
         />
     </div>
 );
@@ -210,17 +199,6 @@ const MultiSelectPills: React.FC<{
     );
 };
 
-// --- NEW ENRICHMENT COMPONENTS ---
-
-const LogoPlaceholder: React.FC<{ name: string }> = ({ name }) => (
-    <div className="w-full flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-700/30 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors cursor-pointer group">
-        <div className="w-24 h-24 bg-white dark:bg-slate-600 rounded-full shadow-sm flex items-center justify-center text-3xl font-bold text-indigo-600 dark:text-indigo-300 border border-slate-200 dark:border-slate-500 mb-3 group-hover:scale-105 transition-transform">
-            {name ? name.substring(0, 2).toUpperCase() : <span className="material-symbols-outlined text-4xl">add_photo_alternate</span>}
-        </div>
-        <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">Subir Logo</span>
-    </div>
-);
-
 // --- MAIN COMPONENT ---
 
 const NewClientPage: React.FC = () => {
@@ -231,12 +209,15 @@ const NewClientPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'General' | 'Perfil'>('General');
     const [searchTerm, setSearchTerm] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-    const [tagInput, setTagInput] = useState('');
+
+    // State for new delivery address input
+    const [newDeliveryAddress, setNewDeliveryAddress] = useState<Address>({ label: '', street: '', city: '', state: '', zip: '' });
 
     const { data: companies } = useCollection<Company>('companies');
     const { data: users } = useCollection<User>('users');
     
     // Helper to update deep nested state safely
+    // FIXED: Correctly returns object structure instead of just value at leaf
     const setNestedState = (obj: any, path: string[], value: any): any => {
         const [head, ...tail] = path;
         if (tail.length === 0) {
@@ -255,28 +236,12 @@ const NewClientPage: React.FC = () => {
                 if (field === 'name') setSearchTerm(value);
                 return { ...prev, [field]: value };
             }
+            // Use the recursive helper to update nested state properly
             const newState = setNestedState({ ...prev }, path, value);
             return newState;
         });
     }, []);
     
-    // Tag Handler
-    const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && tagInput.trim()) {
-            e.preventDefault();
-            if (!client.tags?.includes(tagInput.trim())) {
-                setClient(prev => ({ ...prev, tags: [...(prev.tags || []), tagInput.trim()] }));
-            }
-            setTagInput('');
-        }
-    };
-    
-    const removeTag = (tag: string) => {
-        setClient(prev => ({ ...prev, tags: prev.tags?.filter(t => t !== tag) }));
-    };
-
-    // Delivery Address Handler
-    const [newDeliveryAddress, setNewDeliveryAddress] = useState<Address>({ label: '', street: '', city: '', state: '', zip: '' });
     const handleAddDeliveryAddress = () => {
         if(!newDeliveryAddress.street || !newDeliveryAddress.city || !newDeliveryAddress.state) {
             showToast('warning', 'Calle, Ciudad y Estado son obligatorios para la dirección.');
@@ -315,16 +280,17 @@ const NewClientPage: React.FC = () => {
 
             const docRef = await api.addDoc('companies', newClientData);
 
+            // Automatically create the contact in the contacts collection
             if (client.primaryContact && client.primaryContact.name) {
                 const contactData: Contact = {
                     id: `contact-${Date.now()}`,
                     name: client.primaryContact.name,
                     email: client.primaryContact.email || '',
                     phone: client.primaryContact.phone || '',
-                    role: client.primaryContact.role || 'Contacto Principal',
+                    role: client.primaryContact.role || 'Contacto Principal', // Default role if empty
                     emails: client.primaryContact.email ? [client.primaryContact.email] : [],
                     phones: client.primaryContact.phone ? [client.primaryContact.phone] : [],
-                    companyId: docRef.id,
+                    companyId: docRef.id, // Link to the newly created company
                     ownerId: newClientData.ownerId,
                 };
                 await api.addDoc('contacts', contactData);
@@ -349,121 +315,56 @@ const NewClientPage: React.FC = () => {
 
     const renderGeneralTab = () => (
         <div className="space-y-6">
-            {/* Split Identity and Classification */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Left Column: Identity (4 cols) */}
-                <div className="lg:col-span-4 space-y-6">
-                    <FormBlock title="Identidad Corporativa" icon="verified">
-                        <LogoPlaceholder name={client.name || ''} />
-                        
-                        <div className="space-y-3">
-                            <Input label="Nombre Comercial / Alias" value={client.shortName || ''} onChange={(val) => handleChange('shortName', val)} placeholder="Ej. Grupo Industrial Alpha" />
-                            <Input label="Sitio Web" value={client.website || ''} onChange={(val) => handleChange('website', val)} placeholder="www.empresa.com" icon="language" />
-                        </div>
-                    </FormBlock>
-
-                    <FormBlock title="Presencia Digital" icon="share">
-                        <div className="space-y-3">
-                             <Input label="LinkedIn" value={client.socialProfiles?.linkedin || ''} onChange={(val) => handleChange('socialProfiles.linkedin', val)} placeholder="/company/..." icon="work" />
-                             <Input label="Facebook" value={client.socialProfiles?.facebook || ''} onChange={(val) => handleChange('socialProfiles.facebook', val)} placeholder="/empresa" icon="thumb_up" />
-                             <Input label="Twitter / X" value={client.socialProfiles?.twitter || ''} onChange={(val) => handleChange('socialProfiles.twitter', val)} placeholder="@empresa" icon="alternate_email" />
-                        </div>
-                    </FormBlock>
-                </div>
-
-                {/* Right Column: Data (8 cols) */}
-                <div className="lg:col-span-8 space-y-6">
-                    <FormBlock title="Datos de Clasificación" icon="business">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="relative md:col-span-2">
-                                <Input label="Razón Social *" value={client.name || ''} onChange={(val) => handleChange('name', val)} required placeholder="Nombre legal completo" />
-                                <DuplicateChecker searchTerm={searchTerm} existingProspects={[]} existingCompanies={companies || []} />
-                            </div>
-                            
-                            <Input label="RFC" value={client.rfc || ''} onChange={(val) => handleChange('rfc', val)} placeholder="XAXX010101000" icon="badge" />
-                            <Select label="Industria" value={client.industry || ''} onChange={(val) => handleChange('industry', val)} options={['Industrial', 'Agricultura', 'Transporte', 'Construcción', 'Alimentos', 'Química']} />
-                            
-                            <CustomSelect 
-                                label="Tamaño de Empresa"
-                                options={[{value: '1-10', name: '1-10 Empleados'}, {value: '11-50', name: '11-50 Empleados'}, {value: '51-200', name: '51-200 Empleados'}, {value: '201-500', name: '201-500 Empleados'}, {value: '500+', name: '500+ Empleados'}]}
-                                value={client.companySize || ''}
-                                onChange={(val) => handleChange('companySize', val)}
-                            />
-                            
-                            <Select label="Prioridad" value={client.priority || ''} onChange={(val) => handleChange('priority', val)} options={['Alta', 'Media', 'Baja']} />
-                            
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Etiquetas (Tags)</label>
-                                <div className="flex flex-wrap gap-2 p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700/50 min-h-[42px]">
-                                    {client.tags?.map(tag => (
-                                        <span key={tag} className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-2 py-1 rounded text-xs flex items-center gap-1">
-                                            {tag} <button onClick={() => removeTag(tag)} className="hover:text-indigo-900">&times;</button>
-                                        </span>
-                                    ))}
-                                    <input 
-                                        type="text" 
-                                        value={tagInput} 
-                                        onChange={e => setTagInput(e.target.value)} 
-                                        onKeyDown={handleAddTag}
-                                        className="bg-transparent outline-none text-sm flex-grow min-w-[100px]"
-                                        placeholder="Escribe y presiona Enter..."
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="md:col-span-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex gap-4">
-                                 <div className="flex-1">
-                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Responsable de Cuenta</label>
-                                     <CustomSelect 
-                                        options={(users || []).map(u => ({ value: u.id, name: u.name }))} 
-                                        value={client.ownerId || ''} 
-                                        onChange={(val) => handleChange('ownerId', val)} 
-                                    />
-                                </div>
-                                <div className="flex-1">
-                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Etapa Inicial</label>
-                                     <CustomSelect 
-                                        options={Object.values(CompanyPipelineStage).map(s => ({ value: s, name: s }))}
-                                        value={client.stage || ''} 
-                                        onChange={(val) => handleChange('stage', val)}
-                                     />
-                                </div>
-                            </div>
-                        </div>
-                    </FormBlock>
-
-                    <FormBlock title="Información Fiscal" icon="receipt_long">
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2">
-                                <Input label="Dirección Fiscal (Calle y Número)" value={client.fiscalAddress?.street || ''} onChange={(val) => handleChange('fiscalAddress.street', val)} placeholder="Av. Reforma 123, Col. Centro" icon="location_on" />
-                            </div>
-                            <Input label="Ciudad / Municipio" value={client.fiscalAddress?.city || ''} onChange={(val) => handleChange('fiscalAddress.city', val)} placeholder="Ciudad de México" />
-                            <Input label="Estado" value={client.fiscalAddress?.state || ''} onChange={(val) => handleChange('fiscalAddress.state', val)} placeholder="CDMX" />
-                            <Input label="Código Postal" value={client.fiscalAddress?.zip || ''} onChange={(val) => handleChange('fiscalAddress.zip', val)} placeholder="06000" icon="markunread_mailbox" />
-                            
-                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
-                                 <Input label="Régimen Fiscal" value={client.regimenFiscal || ''} onChange={(val) => handleChange('regimenFiscal', val)} placeholder="Ej. 601 - General de Ley PM" />
-                                 <Input label="Correo para Facturación" value={client.billingEmail || ''} onChange={(val) => handleChange('billingEmail', val)} placeholder="facturacion@cliente.com" type="email" icon="mail" />
-                            </div>
-                        </div>
-                    </FormBlock>
+            <FormBlock title="Información General">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="relative">
+                        <Input label="Nombre / Razón Social" value={client.name || ''} onChange={(val) => handleChange('name', val)} required />
+                        <DuplicateChecker searchTerm={searchTerm} existingProspects={[]} existingCompanies={companies || []} />
+                    </div>
+                    <Input label="Nombre corto (alias)" value={client.shortName || ''} onChange={(val) => handleChange('shortName', val)} />
+                    <Input label="RFC" value={client.rfc || ''} onChange={(val) => handleChange('rfc', val)} />
+                    <Select label="Industria" value={client.industry || ''} onChange={(val) => handleChange('industry', val)} options={['Industrial', 'Agricultura', 'Transporte', 'Construcción']} />
                     
-                    <FormBlock title="Contacto Principal" icon="person">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Input label="Nombre Completo" value={client.primaryContact?.name || ''} onChange={(val) => handleChange('primaryContact.name', val)} />
-                            <Input label="Cargo / Puesto" value={client.primaryContact?.role || ''} onChange={(val) => handleChange('primaryContact.role', val)} />
-                            <Input label="Email Directo" value={client.primaryContact?.email || ''} onChange={(val) => handleChange('primaryContact.email', val)} type="email" icon="mail" />
-                            <Input label="Teléfono / Celular" value={client.primaryContact?.phone || ''} onChange={(val) => handleChange('primaryContact.phone', val)} type="tel" icon="call" />
-                        </div>
-                    </FormBlock>
+                    <div>
+                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Responsable Principal</label>
+                         <CustomSelect 
+                            options={(users || []).map(u => ({ value: u.id, name: u.name }))} 
+                            value={client.ownerId || ''} 
+                            onChange={(val) => handleChange('ownerId', val)} 
+                        />
+                    </div>
+                    
+                    <Select label="Prioridad" value={client.priority || ''} onChange={(val) => handleChange('priority', val)} options={['Alta', 'Media', 'Baja']} />
+                    <Select label="Etapa del Cliente" value={client.stage || ''} onChange={(val) => handleChange('stage', val)} options={Object.values(CompanyPipelineStage)} />
+                    <Input label="Sitio Web" value={client.website || ''} onChange={(val) => handleChange('website', val)} />
                 </div>
-            </div>
+            </FormBlock>
+
+            <FormBlock title="Dirección Fiscal">
+                <p className="text-xs text-slate-500 mb-4">Dirección registrada ante el SAT.</p>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                        <Input label="Calle y Número" value={client.fiscalAddress?.street || ''} onChange={(val) => handleChange('fiscalAddress.street', val)} placeholder="Av. Reforma 123, Col. Centro" />
+                    </div>
+                    <Input label="Ciudad / Municipio" value={client.fiscalAddress?.city || ''} onChange={(val) => handleChange('fiscalAddress.city', val)} placeholder="Ciudad de México" />
+                    <Input label="Estado" value={client.fiscalAddress?.state || ''} onChange={(val) => handleChange('fiscalAddress.state', val)} placeholder="CDMX" />
+                    <Input label="Código Postal" value={client.fiscalAddress?.zip || ''} onChange={(val) => handleChange('fiscalAddress.zip', val)} placeholder="06000" />
+                </div>
+            </FormBlock>
+            
+            <FormBlock title="Contacto Principal">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input label="Nombre" value={client.primaryContact?.name || ''} onChange={(val) => handleChange('primaryContact.name', val)} />
+                    <Input label="Email" value={client.primaryContact?.email || ''} onChange={(val) => handleChange('primaryContact.email', val)} type="email"/>
+                    <Input label="Teléfono" value={client.primaryContact?.phone || ''} onChange={(val) => handleChange('primaryContact.phone', val)} type="tel"/>
+                </div>
+            </FormBlock>
         </div>
     );
     
     const renderProfileTab = () => (
          <div className="space-y-6">
-            <FormBlock title="Logística y Direcciones de Entrega" icon="local_shipping">
+            <FormBlock title="Logística y Direcciones de Entrega">
                  <Section title="Direcciones de Entrega">
                     <div className="col-span-2 space-y-4">
                          {/* List Existing Delivery Addresses */}
@@ -516,7 +417,7 @@ const NewClientPage: React.FC = () => {
                 </Section>
             </FormBlock>
 
-            <FormBlock title="Preferencias de Comunicación" icon="forum">
+            <FormBlock title="Preferencias de Comunicación">
                 <Section title="">
                     <MultiSelectPills 
                         label="Canal(es) Preferido(s)"
@@ -541,7 +442,7 @@ const NewClientPage: React.FC = () => {
                 </Section>
             </FormBlock>
 
-            <FormBlock title="Proceso de Compra" icon="paid">
+            <FormBlock title="Proceso de Compra">
                 <Section title="Requisitos">
                     <Toggle label="Requiere OC" enabled={client.profile?.purchaseProcess?.requiresOC ?? false} onToggle={(val) => handleChange('profile.purchaseProcess.requiresOC', val)} />
                     <Toggle label="Registro Proveedor" enabled={client.profile?.purchaseProcess?.requiresSupplierRegistry ?? false} onToggle={(val) => handleChange('profile.purchaseProcess.requiresSupplierRegistry', val)} />
@@ -576,7 +477,7 @@ const NewClientPage: React.FC = () => {
                 </Section>
             </FormBlock>
 
-            <FormBlock title="Caso de uso y Especificaciones" icon="engineering">
+            <FormBlock title="Caso de uso y Especificaciones">
                  <Section title="">
                     <div className="col-span-2">
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Aplicación</label>
@@ -599,7 +500,7 @@ const NewClientPage: React.FC = () => {
                 </Section>
             </FormBlock>
             
-             <FormBlock title="Logística Operativa" icon="warehouse">
+             <FormBlock title="Logística Operativa">
                  <Section title="">
                     <div className="col-span-2">
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Punto(s) de Entrega (Notas Generales)</label>

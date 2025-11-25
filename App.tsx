@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -70,7 +69,6 @@ const ClientDetailPage = lazy(() => import('./pages/ClientDetailPage'));
 const EditClientPage = lazy(() => import('./pages/EditClientPage'));
 const NewClientPage = lazy(() => import('./pages/NewClientPage'));
 const CrmContactsListPage = lazy(() => import('./pages/CrmContactsListPage'));
-const NewContactPage = lazy(() => import('./pages/NewContactPage'));
 const ContactDetailPage = lazy(() => import('./pages/ContactDetailPage'));
 
 // Products
@@ -80,7 +78,6 @@ const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'));
 const EditProductPage = lazy(() => import('./pages/EditProductPage'));
 const NewProductPage = lazy(() => import('./pages/NewProductPage'));
 const ProductCategoriesPage = lazy(() => import('./pages/ProductCategoriesPage'));
-const NewCategoryPage = lazy(() => import('./pages/NewCategoryPage')); // NEW PAGE
 
 // Purchases
 const PurchasesDashboardPage = lazy(() => import('./pages/purchase/PurchasesDashboardPage'));
@@ -93,14 +90,10 @@ const SupplierDetailPage = lazy(() => import('./pages/SupplierDetailPage'));
 const EditSupplierPage = lazy(() => import('./pages/EditSupplierPage'));
 
 // Inventory
-const InventoryDashboardPage = lazy(() => import('./pages/InventoryDashboardPage'));
 const InventoryStockPage = lazy(() => import('./pages/InventoryStockPage'));
 const InventoryMovementsPage = lazy(() => import('./pages/InventoryMovementsPage'));
-const NewMovementPage = lazy(() => import('./pages/NewMovementPage'));
 const InventoryAlertsPage = lazy(() => import('./pages/InventoryAlertsPage'));
 const InventoryLocationsPage = lazy(() => import('./pages/InventoryLocationsPage'));
-const NewLocationPage = lazy(() => import('./pages/NewLocationPage'));
-
 
 // Logistics
 const LogisticsDashboardPage = lazy(() => import('./pages/LogisticsDashboardPage'));
@@ -109,7 +102,6 @@ const LogisticsProvidersPage = lazy(() => import('./pages/LogisticsProvidersPage
 const LogisticsPricingPage = lazy(() => import('./pages/LogisticsPricingPage'));
 
 // Productivity
-const TasksDashboardPage = lazy(() => import('./pages/TasksDashboardPage')); // NEW
 const TasksPage = lazy(() => import('./pages/TasksPage'));
 const NewTaskPage = lazy(() => import('./pages/NewTaskPage'));
 const TaskDetailPage = lazy(() => import('./pages/TaskDetailPage'));
@@ -149,15 +141,12 @@ const EditUserPage = lazy(() => import('./pages/EditUserPage'));
 const TeamManagementPage = lazy(() => import('./pages/settings/TeamManagement'));
 const SecuritySettingsPage = lazy(() => import('./pages/settings/SecuritySettings'));
 const EmailSettingsPage = lazy(() => import('./pages/settings/EmailSettings'));
-const ManageUserEmailsPage = lazy(() => import('./pages/settings/ManageUserEmailsPage')); 
 const IndustryManagementPage = lazy(() => import('./pages/settings/IndustryManagement'));
 const PipelineManagementPage = lazy(() => import('./pages/settings/PipelineManagement'));
 const AiAccessSettingsPage = lazy(() => import('./pages/settings/AiAccessSettings'));
-const EmailAppearancePage = lazy(() => import('./pages/settings/EmailAppearancePage'));
 const RoleManagementPage = lazy(() => import('./pages/settings/RoleManagementPage'));
 const EditRolePage = lazy(() => import('./pages/settings/EditRolePage'));
 const InternalCompaniesSettings = lazy(() => import('./pages/settings/InternalCompaniesSettings'));
-const EditInternalCompanyPage = lazy(() => import('./pages/settings/EditInternalCompanyPage')); // NEW
 
 // Auth & Onboarding
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -296,9 +285,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/crm/clients/new" element={<NewClientPage />} />
                             <Route path="/crm/clients/:id" element={<ClientDetailPage />} />
                             <Route path="/crm/clients/:id/edit" element={<EditClientPage />} />
-                            
                             <Route path="/crm/contacts/list" element={<CrmContactsListPage />} />
-                            <Route path="/crm/contacts/new" element={<NewContactPage />} />
                             <Route path="/crm/contacts/:id" element={<ContactDetailPage />} />
                             
                             {/* Products */}
@@ -308,8 +295,6 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/products/:id" element={<ProductDetailPage />} />
                             <Route path="/products/:id/edit" element={<EditProductPage />} />
                             <Route path="/products/categories" element={<ProductCategoriesPage />} />
-                            <Route path="/products/categories/new" element={<NewCategoryPage />} />
-                            <Route path="/products/categories/:id/edit" element={<NewCategoryPage />} />
 
                             {/* Purchases */}
                             <Route path="/purchase/dashboard" element={<PurchasesDashboardPage />} />
@@ -322,14 +307,10 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/purchase/suppliers/:id/edit" element={<EditSupplierPage />} />
 
                             {/* Inventory */}
-                            <Route path="/inventory/dashboard" element={<InventoryDashboardPage />} />
                             <Route path="/inventory/stock" element={<InventoryStockPage />} />
                             <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
-                            <Route path="/inventory/movements/new" element={<NewMovementPage />} />
                             <Route path="/inventory/alerts" element={<InventoryAlertsPage />} />
                             <Route path="/inventory/locations" element={<InventoryLocationsPage />} />
-                            <Route path="/inventory/locations/new" element={<NewLocationPage />} />
-                            <Route path="/inventory/locations/:id/edit" element={<NewLocationPage />} />
                             
                             {/* Logistics */}
                             <Route path="/logistics/dashboard" element={<LogisticsDashboardPage />} />
@@ -338,7 +319,6 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/logistics/pricing" element={<LogisticsPricingPage />} />
 
                             {/* Productivity */}
-                            <Route path="/tasks/dashboard" element={<TasksDashboardPage />} />
                             <Route path="/tasks" element={<TasksPage />} />
                             <Route path="/tasks/new" element={<NewTaskPage />} />
                             <Route path="/tasks/:id" element={<TaskDetailPage />} />
@@ -379,15 +359,11 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/settings/roles/:id/edit" element={<EditRolePage />} />
                             <Route path="/settings/teams" element={<TeamManagementPage />} />
                             <Route path="/settings/internal-companies" element={<InternalCompaniesSettings />} />
-                            <Route path="/settings/internal-companies/new" element={<EditInternalCompanyPage />} />
-                            <Route path="/settings/internal-companies/:id/edit" element={<EditInternalCompanyPage />} />
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />
                             <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />
-                            <Route path="/settings/email-accounts/:userId" element={<ManageUserEmailsPage />} />
                             <Route path="/settings/industries" element={<IndustryManagementPage />} />
                             <Route path="/settings/pipelines" element={<PipelineManagementPage />} />
                             <Route path="/settings/ai-access" element={<AiAccessSettingsPage />} />
-                            <Route path="/settings/appearance/email" element={<EmailAppearancePage />} />
 
                             <Route path="*" element={<div className="p-10 text-center">Página no encontrada</div>} />
                         </Routes>

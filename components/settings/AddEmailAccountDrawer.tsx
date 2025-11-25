@@ -16,7 +16,7 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
     const [email, setEmail] = useState('roberto@tradeaitirik.com.mx');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [step, setStep] = useState(1); // 1: Credentials, 2: Server Config
+    const [showAdvanced, setShowAdvanced] = useState(true);
 
     // Pre-fill with user's provided data
     const [incomingServer, setIncomingServer] = useState('mail.tradeaitirik.com.mx');
@@ -36,7 +36,6 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
             setIsConnecting(false);
             setConnectionStatus('idle');
             setStatusMessage('');
-            setStep(1);
         }
     }, [isOpen]);
 
@@ -51,7 +50,7 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
 
         await new Promise(resolve => setTimeout(resolve, 2500));
 
-        if (email.includes('@') && password.length > 0) {
+        if (email === 'roberto@tradeaitirik.com.mx' && password.length > 0) {
             setConnectionStatus('success');
             setStatusMessage('¡Conexión exitosa! Guardando configuración...');
             await new Promise(resolve => setTimeout(resolve, 1500));
@@ -74,154 +73,72 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
         setIsConnecting(false);
     };
 
-    const InputWithIcon = ({ icon, label, type = 'text', value, onChange, placeholder }: any) => (
-        <div>
-            <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{label}</label>
-            <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="material-symbols-outlined text-slate-400 text-lg">{icon}</span>
-                </div>
-                <input 
-                    type={type} 
-                    value={value} 
-                    onChange={onChange} 
-                    placeholder={placeholder}
-                    className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl text-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                />
-            </div>
-        </div>
-    );
-
     return (
-        <Drawer isOpen={isOpen} onClose={onClose} title="Conectar Nueva Cuenta" size="md">
-            <div className="flex flex-col h-full">
-                {/* Stepper */}
-                <div className="flex items-center gap-2 mb-8 px-1">
-                    <div className={`flex-1 h-2 rounded-full ${step >= 1 ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
-                    <div className={`flex-1 h-2 rounded-full ${step >= 2 ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
+        <Drawer isOpen={isOpen} onClose={onClose} title="Conectar Nueva Cuenta de Correo">
+            <div className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Dirección de correo</label>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} />
                 </div>
-
-                <div className="flex-1 overflow-y-auto space-y-6 p-1">
-                    
-                    {step === 1 && (
-                        <div className="space-y-6 animate-fade-in">
-                            <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/50 flex items-start gap-3">
-                                <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-2xl mt-0.5">lock</span>
-                                <div>
-                                    <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-300">Credenciales Seguras</h4>
-                                    <p className="text-xs text-indigo-700 dark:text-indigo-400 mt-1">Tus datos se almacenan encriptados y se usan solo para sincronizar correos.</p>
-                                </div>
-                            </div>
-
-                            <InputWithIcon 
-                                label="Dirección de Correo" 
-                                icon="mail" 
-                                value={email} 
-                                onChange={(e: any) => setEmail(e.target.value)} 
-                                placeholder="usuario@empresa.com"
-                            />
-                            
-                            <div>
-                                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1.5 ml-1">Contraseña</label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <span className="material-symbols-outlined text-slate-400 text-lg">key</span>
-                                    </div>
-                                    <input 
-                                        type={showPassword ? "text" : "password"} 
-                                        value={password} 
-                                        onChange={e => setPassword(e.target.value)} 
-                                        className="block w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl text-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                                    />
-                                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600">
-                                        <span className="material-symbols-outlined text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 2 && (
-                        <div className="space-y-8 animate-fade-in">
-                            {/* IMAP Section */}
-                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100 dark:border-slate-700">
-                                    <span className="material-symbols-outlined text-indigo-500">download</span>
-                                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Servidor Entrante (IMAP)</h4>
-                                </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="col-span-2">
-                                        <InputWithIcon label="Host" icon="dns" value={incomingServer} onChange={(e: any) => setIncomingServer(e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <InputWithIcon label="Puerto" icon="numbers" value={imapPort} onChange={(e: any) => setImapPort(e.target.value)} />
-                                    </div>
-                                </div>
-                                <div className="flex items-center justify-between mt-4 bg-slate-50 dark:bg-slate-700/50 p-2 rounded-lg">
-                                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300 ml-1">Usar SSL/TLS</span>
-                                    <ToggleSwitch enabled={useSslImap} onToggle={() => setUseSslImap(prev => !prev)} />
-                                </div>
-                            </div>
-
-                            {/* SMTP Section */}
-                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100 dark:border-slate-700">
-                                    <span className="material-symbols-outlined text-indigo-500">upload</span>
-                                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Servidor Saliente (SMTP)</h4>
-                                </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="col-span-2">
-                                        <InputWithIcon label="Host" icon="dns" value={outgoingServer} onChange={(e: any) => setOutgoingServer(e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <InputWithIcon label="Puerto" icon="numbers" value={smtpPort} onChange={(e: any) => setSmtpPort(e.target.value)} />
-                                    </div>
-                                </div>
-                                <div className="flex items-center justify-between mt-4 bg-slate-50 dark:bg-slate-700/50 p-2 rounded-lg">
-                                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300 ml-1">Usar SSL/TLS</span>
-                                    <ToggleSwitch enabled={useSslSmtp} onToggle={() => setUseSslSmtp(prev => !prev)} />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer Actions */}
-                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 flex flex-col gap-3">
-                    {step === 1 ? (
-                        <button 
-                            onClick={() => setStep(2)} 
-                            className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 transition-transform active:scale-95"
-                        >
-                            Continuar <span className="material-symbols-outlined">arrow_forward</span>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Contraseña</label>
+                    <div className="relative">
+                        <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600">
+                            <span className="material-symbols-outlined !text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
                         </button>
-                    ) : (
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={() => setStep(1)} 
-                                className="flex-1 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-3 px-4 rounded-xl border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
-                                disabled={isConnecting}
-                            >
-                                Atrás
-                            </button>
-                            <button 
-                                onClick={handleConnect} 
-                                disabled={isConnecting} 
-                                className="flex-[2] bg-green-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:opacity-70 transition-transform active:scale-95"
-                            >
-                                {isConnecting ? <Spinner /> : <span className="material-symbols-outlined">check_circle</span>}
-                                {isConnecting ? 'Conectando...' : 'Verificar y Guardar'}
-                            </button>
-                        </div>
-                    )}
-                    
-                    {statusMessage && (
-                        <div className={`mt-2 p-3 rounded-lg text-xs font-medium text-center flex items-center justify-center gap-2 ${connectionStatus === 'error' ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300'}`}>
-                            <span className="material-symbols-outlined text-sm">{connectionStatus === 'error' ? 'error' : 'info'}</span>
-                            {statusMessage}
-                        </div>
-                    )}
+                    </div>
                 </div>
+
+                <div className="pt-4">
+                    <button onClick={() => setShowAdvanced(!showAdvanced)} className="flex justify-between items-center w-full text-left font-semibold text-slate-600 dark:text-slate-300">
+                        Configuración Avanzada
+                        <span className="material-symbols-outlined transition-transform" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)'}}>expand_more</span>
+                    </button>
+                </div>
+
+                {showAdvanced && (
+                    <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <h4 className="font-semibold text-slate-800 dark:text-slate-200">Servidor Entrante (IMAP)</h4>
+                        <div className="grid grid-cols-3 gap-3 items-end">
+                            <div className="col-span-2">
+                                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Servidor</label>
+                                <input type="text" value={incomingServer} onChange={e => setIncomingServer(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Puerto</label>
+                                <input type="text" value={imapPort} onChange={e => setImapPort(e.target.value)} />
+                            </div>
+                        </div>
+                         {/* FIX: Wrap state setter in an anonymous function to match the expected '() => void' type for onToggle. */}
+                         <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span><ToggleSwitch enabled={useSslImap} onToggle={() => setUseSslImap(prev => !prev)} /></div>
+
+                        <h4 className="font-semibold pt-4 border-t border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200">Servidor Saliente (SMTP)</h4>
+                         <div className="grid grid-cols-3 gap-3 items-end">
+                            <div className="col-span-2">
+                                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Servidor</label>
+                                <input type="text" value={outgoingServer} onChange={e => setOutgoingServer(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Puerto</label>
+                                <input type="text" value={smtpPort} onChange={e => setSmtpPort(e.target.value)} />
+                            </div>
+                        </div>
+                        {/* FIX: Wrap state setter in an anonymous function to match the expected '() => void' type for onToggle. */}
+                        <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span><ToggleSwitch enabled={useSslSmtp} onToggle={() => setUseSslSmtp(prev => !prev)} /></div>
+                    </div>
+                )}
+            </div>
+             <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <button onClick={handleConnect} disabled={isConnecting} className="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 flex items-center justify-center gap-2 disabled:opacity-70">
+                    {isConnecting ? <Spinner /> : <span className="material-symbols-outlined">sync</span>}
+                    {isConnecting ? 'Probando...' : 'Probar Conexión y Guardar'}
+                </button>
+                {statusMessage && (
+                     <p className={`text-sm text-center mt-2 ${connectionStatus === 'error' ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                        {statusMessage}
+                    </p>
+                )}
             </div>
         </Drawer>
     );

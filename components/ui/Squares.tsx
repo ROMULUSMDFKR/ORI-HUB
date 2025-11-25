@@ -32,38 +32,23 @@ const Squares: React.FC<SquaresProps> = ({
     if (!ctx) return;
 
     const resizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
-
-      // Set the internal buffer size to match physical pixels
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      
-      // Scale the context so drawing operations use CSS pixels logic
-      ctx.scale(dpr, dpr);
-
-      // Calculate number of squares needed based on CSS dimensions (rect.width/height)
-      numSquaresX.current = Math.ceil(rect.width / squareSize) + 1;
-      numSquaresY.current = Math.ceil(rect.height / squareSize) + 1;
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      numSquaresX.current = Math.ceil(canvas.width / squareSize) + 1;
+      numSquaresY.current = Math.ceil(canvas.height / squareSize) + 1;
     };
 
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
     const drawGrid = () => {
-      // Clear using the scaled size (which effectively clears the whole buffer)
-      // We can use canvas.width/dpr to get the CSS width in the current transform
-      const dpr = window.devicePixelRatio || 1;
-      const width = canvas.width / dpr;
-      const height = canvas.height / dpr;
-      
-      ctx.clearRect(0, 0, width, height);
-      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
       const startX = Math.floor(gridOffset.current.x / squareSize) * squareSize;
       const startY = Math.floor(gridOffset.current.y / squareSize) * squareSize;
 
-      for (let x = startX; x < width + squareSize; x += squareSize) {
-        for (let y = startY; y < height + squareSize; y += squareSize) {
+      for (let x = startX; x < canvas.width + squareSize; x += squareSize) {
+        for (let y = startY; y < canvas.height + squareSize; y += squareSize) {
           const squareX = x - (gridOffset.current.x % squareSize);
           const squareY = y - (gridOffset.current.y % squareSize);
 
@@ -81,20 +66,20 @@ const Squares: React.FC<SquaresProps> = ({
         }
       }
 
-      // Radial gradient to fade edges to black
+      // Optional: Radial gradient to fade edges to black
       const gradient = ctx.createRadialGradient(
-        width / 2,
-        height / 2,
+        canvas.width / 2,
+        canvas.height / 2,
         0,
-        width / 2,
-        height / 2,
-        Math.sqrt(width ** 2 + height ** 2) / 2
+        canvas.width / 2,
+        canvas.height / 2,
+        Math.sqrt(canvas.width ** 2 + canvas.height ** 2) / 2
       );
       gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-      gradient.addColorStop(1, '#000'); 
+      gradient.addColorStop(1, '#000'); // Match background color
 
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     };
 
     const updateAnimation = () => {

@@ -1,7 +1,6 @@
 
 
 
-
 import { ProspectStage, SampleStatus, QuoteStatus, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role } from './types';
 
 export const NAV_LINKS = [
@@ -62,7 +61,6 @@ export const NAV_LINKS = [
     name: 'Inventario', 
     icon: 'warehouse',
     sublinks: [
-        { name: 'Dashboard', path: '/inventory/dashboard', icon: 'dashboard' },
         { name: 'Stock Actual', path: '/inventory/stock', icon: 'inventory' },
         { name: 'Movimientos', path: '/inventory/movements', icon: 'multiple_stop' },
         { name: 'Alertas', path: '/inventory/alerts', icon: 'notification_important' },
@@ -86,7 +84,6 @@ export const NAV_LINKS = [
     name: 'Tareas', 
     icon: 'task_alt',
     sublinks: [
-      { name: 'Centro de Comando', path: '/tasks/dashboard', icon: 'dashboard' },
       { name: 'Mis Tareas', path: '/tasks?view=mine', icon: 'person' },
       { name: 'Tablero', path: '/tasks?view=board', icon: 'view_kanban' },
       { name: 'Todas las Tareas', path: '/tasks?view=all', icon: 'list' },
@@ -136,7 +133,6 @@ export const NAV_LINKS = [
       { name: 'Industrias', path: '/settings/industries', icon: 'factory' },
       { name: 'Etapas de Venta', path: '/settings/pipelines', icon: 'view_carousel' },
       { name: 'Acceso de IA', path: '/settings/ai-access', icon: 'neurology' },
-      { name: 'Apariencia de Email', path: '/settings/appearance/email', icon: 'palette' },
     ] 
   },
 ];
@@ -375,7 +371,6 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Proveedores': ['view', 'create', 'edit', 'delete'] 
     },
     'Inventario': { 
-        'Dashboard': ['view'],
         'Stock Actual': ['view', 'create', 'edit', 'delete'], 
         'Movimientos': ['view', 'create', 'edit', 'delete'], 
         'Alertas': ['view', 'create', 'edit', 'delete'], 
@@ -388,7 +383,6 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Precios de Flete': ['view', 'create', 'edit', 'delete'] 
     },
     'Productividad': { 
-        'Centro de Comando': ['view'],
         'Tareas': ['view', 'create', 'edit', 'delete'], 
         'Proyectos': ['view', 'create', 'edit', 'delete'], 
         'Calendario': ['view', 'create', 'edit', 'delete'] 
@@ -416,7 +410,6 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Industrias': ['view', 'create', 'edit', 'delete'],
         'Etapas de Venta': ['view', 'create', 'edit', 'delete'],
         'Acceso de IA': ['view', 'create', 'edit', 'delete'],
-        'Apariencia de Email': ['view', 'create', 'edit', 'delete'],
     }
 };
 

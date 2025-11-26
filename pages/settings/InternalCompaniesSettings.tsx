@@ -62,18 +62,42 @@ const InternalCompaniesSettings: React.FC = () => {
 
     const columns = [
         { 
-            header: 'Nombre / Razón Social', 
+            header: 'Empresa', 
             accessor: (c: InternalCompany) => (
-                <div className="flex items-center gap-3">
-                    {c.logoUrl ? <img src={c.logoUrl} alt={c.name} className="w-8 h-8 object-contain rounded" /> : <div className="w-8 h-8 bg-slate-200 dark:bg-slate-700 rounded flex items-center justify-center text-xs font-bold">{c.name.substring(0, 2).toUpperCase()}</div>}
+                <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 overflow-hidden">
+                        {c.logoUrl ? (
+                            <img src={c.logoUrl} alt={c.name} className="h-full w-full object-contain" />
+                        ) : (
+                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{c.name.substring(0, 2).toUpperCase()}</span>
+                        )}
+                    </div>
                     <div>
-                        <p className="font-semibold text-slate-800 dark:text-slate-200">{c.name}</p>
-                        {c.website && <a href={c.website} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">{c.website}</a>}
+                        <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">{c.name}</p>
+                        {c.website && (
+                            <a 
+                                href={c.website} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                            >
+                                {c.website.replace(/^https?:\/\//, '')}
+                                <span className="material-symbols-outlined !text-[10px]">open_in_new</span>
+                            </a>
+                        )}
                     </div>
                 </div>
             )
         },
-        { header: 'RFC', accessor: (c: InternalCompany) => c.rfc || '-' },
+        { 
+            header: 'RFC', 
+            accessor: (c: InternalCompany) => (
+                <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-slate-400 text-base">badge</span>
+                    <span className="text-sm text-slate-600 dark:text-slate-300 font-mono">{c.rfc || 'N/A'}</span>
+                </div>
+            )
+        },
         { 
             header: 'Estado', 
             accessor: (c: InternalCompany) => <Badge text={c.isActive ? 'Activa' : 'Inactiva'} color={c.isActive ? 'green' : 'gray'} />
@@ -82,11 +106,11 @@ const InternalCompaniesSettings: React.FC = () => {
             header: 'Acciones',
             accessor: (c: InternalCompany) => (
                 <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => handleEdit(c)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400">
-                        <span className="material-symbols-outlined text-base">edit</span>
+                    <button onClick={() => handleEdit(c)} className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors" title="Editar">
+                        <span className="material-symbols-outlined text-lg">edit_square</span>
                     </button>
-                    <button onClick={() => handleDelete(c)} className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500 hover:text-red-600 dark:text-slate-400">
-                        <span className="material-symbols-outlined text-base">delete</span>
+                    <button onClick={() => handleDelete(c)} className="p-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors" title="Eliminar">
+                        <span className="material-symbols-outlined text-lg">delete</span>
                     </button>
                 </div>
             ),
@@ -95,14 +119,17 @@ const InternalCompaniesSettings: React.FC = () => {
     ];
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="space-y-8 max-w-6xl mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Mis Empresas</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Configura las entidades de tu grupo (ej. Santzer, Puredef) que emitirán cotizaciones.</p>
+                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Mis Empresas</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Configura las entidades legales de tu grupo para la emisión de documentos.</p>
                 </div>
-                <button onClick={handleCreate} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-                    <span className="material-symbols-outlined mr-2">add</span>
+                <button 
+                    onClick={handleCreate} 
+                    className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 font-semibold"
+                >
+                    <span className="material-symbols-outlined">add_business</span>
                     Nueva Empresa
                 </button>
             </div>
@@ -118,7 +145,9 @@ const InternalCompaniesSettings: React.FC = () => {
                     onAction={handleCreate}
                 />
             ) : (
-                <Table columns={columns} data={companies} />
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <Table columns={columns} data={companies} />
+                </div>
             )}
             
             <InternalCompanyDrawer

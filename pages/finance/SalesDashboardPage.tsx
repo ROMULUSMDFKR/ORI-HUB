@@ -1,14 +1,15 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
 import { Prospect, SalesOrder, User, ActivityLog, ProspectStage } from '../../types';
 import Spinner from '../../components/ui/Spinner';
+import FilterButton from '../../components/ui/FilterButton';
 
 // --- Reusable Card Components ---
 
 const KpiCard: React.FC<{ title: string; value: string; change?: string; icon: string; colorClass: string }> = ({ title, value, change, icon, colorClass }) => (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-start justify-between transition-all hover:shadow-md">
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-start justify-between transition-all hover:shadow-md">
         <div>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</p>
             <h3 className="text-3xl font-bold text-slate-800 dark:text-slate-200 mt-2">{value}</h3>
@@ -19,17 +20,23 @@ const KpiCard: React.FC<{ title: string; value: string; change?: string; icon: s
                 </div>
             )}
         </div>
-        <div className={`h-12 w-12 rounded-lg ${colorClass} bg-opacity-10 dark:bg-opacity-20 shrink-0 flex items-center justify-center`}>
-            <span className={`material-symbols-outlined text-2xl ${colorClass.replace('bg-', 'text-')}`}>{icon}</span>
+        {/* App Icon Pattern */}
+        <div className={`flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center ${colorClass.replace('text-', 'bg-').replace('600', '100')} bg-opacity-100 dark:bg-opacity-20`}>
+            <span className={`material-symbols-outlined text-2xl ${colorClass.split(' ')[1] || 'text-current'}`}>{icon}</span>
         </div>
     </div>
 );
 
 const Card: React.FC<{ title: string; children: React.ReactNode; link?: { to: string; text: string; }; className?: string; icon?: string }> = ({ title, children, link, className, icon }) => (
-    <div className={`bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col ${className}`}>
+    <div className={`bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col ${className}`}>
         <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                {icon && <span className="material-symbols-outlined text-slate-400 dark:text-slate-500 shrink-0">{icon}</span>}
+            <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 flex items-center gap-3">
+                {/* Small Icon for Section Headers */}
+                {icon && (
+                    <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400">
+                        <span className="material-symbols-outlined text-lg">{icon}</span>
+                    </div>
+                )}
                 {title}
             </h3>
             {link && (
@@ -109,10 +116,10 @@ const PerformanceBySeller: React.FC<{ salesOrders: SalesOrder[], users: User[] }
         salesOrders.forEach(order => {
             const orderDate = new Date(order.createdAt);
             if (orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear) {
-                 const companyOwnerId = 'user-2'; // Mocking this for now as SO doesn't have owner directly accessible without join
-                if (companyOwnerId) {
-                    salesByUser[companyOwnerId] = (salesByUser[companyOwnerId] || 0) + order.total;
-                }
+                 // In a real scenario, we would aggregate by salespersonId. 
+                 // For mock purposes, assume 'user-2' (Logistica) or 'user-1' (Admin) makes sales
+                 const sellerId = order.salespersonId || 'user-1';
+                 salesByUser[sellerId] = (salesByUser[sellerId] || 0) + order.total;
             }
         });
         
@@ -120,7 +127,7 @@ const PerformanceBySeller: React.FC<{ salesOrders: SalesOrder[], users: User[] }
             .filter(u => u.role === 'Ventas' || u.role === 'Admin')
             .map(user => ({
                 user,
-                total: salesByUser[user.id] || 0 // Ensure 0 if no sales
+                total: salesByUser[user.id] || 0 
             }))
             .sort((a, b) => b.total - a.total)
             .slice(0, 5); // Top 5
@@ -133,22 +140,24 @@ const PerformanceBySeller: React.FC<{ salesOrders: SalesOrder[], users: User[] }
             {salesData.map(({ user, total }, index) => (
                 <li key={user.id} className="group">
                     <div className="flex items-center justify-between text-sm mb-2">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono text-slate-400 w-4 shrink-0">#{index + 1}</span>
+                        <div className="flex items-center gap-3">
+                            <span className={`text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center ${index === 0 ? 'bg-yellow-100 text-yellow-700' : 'text-slate-400 bg-slate-100 dark:bg-slate-700'}`}>
+                                {index + 1}
+                            </span>
                             <img 
                                 src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.name}&background=random`} 
                                 alt={user.name} 
-                                className="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-200" 
+                                className="w-8 h-8 rounded-lg object-cover shrink-0 bg-slate-200" 
                             />
                             <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[120px]">{user.name}</span>
                         </div>
-                        <span className="font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-xs">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-700/50 px-2 py-1 rounded-lg text-xs border border-slate-200 dark:border-slate-600">
                             ${(total || 0).toLocaleString()}
                         </span>
                     </div>
-                    <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                    <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
                         <div 
-                            className="bg-indigo-500 h-1.5 rounded-full transition-all duration-1000" 
+                            className="bg-indigo-500 h-2 rounded-full transition-all duration-1000" 
                             style={{ width: `${(total / maxSales) * 100}%` }}
                         ></div>
                     </div>
@@ -175,13 +184,13 @@ const DealsToClose: React.FC<{ prospects: Prospect[], users: User[] }> = ({ pros
         <ul className="space-y-3">
             {deals.length > 0 ? deals.map(deal => (
                 <li key={deal.id}>
-                    <Link to={`/hubs/prospects/${deal.id}`} className="block p-3 rounded-lg bg-slate-50 dark:bg-slate-700/30 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition-all group">
+                    <Link to={`/hubs/prospects/${deal.id}`} className="block p-3 rounded-xl bg-slate-50 dark:bg-slate-700/30 hover:bg-white dark:hover:bg-slate-700 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-sm transition-all group">
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="font-semibold text-sm text-slate-800 dark:text-slate-200 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">{deal.name}</p>
                                 <div className="flex items-center gap-1 mt-1">
                                     <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[10px] shrink-0">person</span>
+                                        <span className="material-symbols-outlined text-[12px] shrink-0">person</span>
                                         {usersMap.get(deal.ownerId)?.name || 'N/A'}
                                     </span>
                                 </div>
@@ -189,7 +198,7 @@ const DealsToClose: React.FC<{ prospects: Prospect[], users: User[] }> = ({ pros
                             <div className="text-right">
                                 <p className="font-bold text-sm text-emerald-600 dark:text-emerald-400">${(deal.estValue || 0).toLocaleString()}</p>
                                 {deal.nextAction?.dueDate && (
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${new Date(deal.nextAction.dueDate) < new Date() ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-600'}`}>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${new Date(deal.nextAction.dueDate) < new Date() ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-300'}`}>
                                         {new Date(deal.nextAction.dueDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
                                     </span>
                                 )}
@@ -199,7 +208,7 @@ const DealsToClose: React.FC<{ prospects: Prospect[], users: User[] }> = ({ pros
                 </li>
             )) : (
                 <div className="text-center py-8">
-                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center mx-auto mb-2 shrink-0">
+                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-2 shrink-0">
                         <span className="material-symbols-outlined text-slate-400">handshake</span>
                     </div>
                     <p className="text-sm text-slate-500">No hay negocios en negociación.</p>
@@ -231,10 +240,10 @@ const RecentActivity: React.FC<{ activities: ActivityLog[], users: User[] }> = (
                             <img 
                                 src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.name}&background=random`} 
                                 alt={user?.name || ''} 
-                                className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200 dark:border-slate-600" 
+                                className="w-8 h-8 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-slate-600" 
                             />
                             <div>
-                                <p className="text-sm text-slate-800 dark:text-slate-200 leading-tight">{activity.description}</p>
+                                <p className="text-sm text-slate-800 dark:text-slate-200 leading-tight font-medium">{activity.description}</p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{new Date(activity.createdAt).toLocaleString()}</p>
                             </div>
                         </div>
@@ -255,6 +264,8 @@ const SalesDashboardPage: React.FC = () => {
     const { data: salesOrders, loading: sLoading } = useCollection<SalesOrder>('salesOrders');
     const { data: users, loading: uLoading } = useCollection<User>('users');
     const { data: activities, loading: aLoading } = useCollection<ActivityLog>('activities');
+    
+    const [period, setPeriod] = useState('this_month');
 
     const loading = pLoading || sLoading || uLoading || aLoading;
 
@@ -309,39 +320,61 @@ const SalesDashboardPage: React.FC = () => {
     if (loading || !kpiData) {
         return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     }
+    
+    const periodOptions = [
+        { value: 'this_month', label: 'Este Mes' },
+        { value: 'last_month', label: 'Mes Pasado' },
+        { value: 'this_quarter', label: 'Este Trimestre' },
+        { value: 'this_year', label: 'Este Año' },
+    ];
 
     return (
-        <div className="space-y-6 pb-12">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Panel de Ventas</h2>
-                <p className="text-slate-500 dark:text-slate-400 mt-1">Visión general del rendimiento comercial y oportunidades.</p>
+        <div className="space-y-8 pb-12">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-200">Panel de Ventas</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Visión general del rendimiento comercial y oportunidades.</p>
+                </div>
+                <div className="bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 flex">
+                    {periodOptions.map(opt => (
+                        <button
+                            key={opt.value}
+                            onClick={() => setPeriod(opt.value)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${period === opt.value ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
+            {/* KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <KpiCard 
                     title="Ingresos del Mes" 
                     value={kpiData.revenue} 
                     change={kpiData.revenueChange} 
                     icon="payments" 
-                    colorClass="bg-emerald-500 text-emerald-600"
+                    colorClass="bg-emerald-100 text-emerald-600"
                 />
                 <KpiCard 
                     title="Tasa de Conversión" 
                     value={kpiData.conversionRate} 
                     icon="pie_chart" 
-                    colorClass="bg-blue-500 text-blue-600"
+                    colorClass="bg-blue-100 text-blue-600"
                 />
                 <KpiCard 
                     title="Valor Promedio (Ticket)" 
                     value={kpiData.avgDealSize} 
                     icon="monetization_on" 
-                    colorClass="bg-amber-500 text-amber-600"
+                    colorClass="bg-amber-100 text-amber-600"
                 />
                 <KpiCard 
                     title="Ciclo de Venta" 
                     value={kpiData.avgSalesCycle} 
                     icon="timelapse" 
-                    colorClass="bg-indigo-500 text-indigo-600"
+                    colorClass="bg-indigo-100 text-indigo-600"
                 />
             </div>
 
@@ -355,7 +388,7 @@ const SalesDashboardPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card title="Rendimiento por Vendedor (Mes)" className="lg:col-span-2" icon="leaderboard">
+                <Card title="Rendimiento por Vendedor" className="lg:col-span-2" icon="leaderboard">
                     <PerformanceBySeller salesOrders={salesOrders || []} users={users || []} />
                 </Card>
                 <Card title="Actividad Reciente" icon="notifications_active">

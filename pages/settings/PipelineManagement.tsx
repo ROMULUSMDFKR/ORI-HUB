@@ -25,6 +25,7 @@ const PipelineStageList: React.FC<{ initialStages: Stage[] }> = ({ initialStages
     // Refs for drag and drop
     const dragItem = useRef<number | null>(null);
     const dragOverItem = useRef<number | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     // Update state if the selected pipeline changes
     useEffect(() => {
@@ -51,92 +52,118 @@ const PipelineStageList: React.FC<{ initialStages: Stage[] }> = ({ initialStages
         setEditedObjective('');
     };
     
-    const handleDragSort = () => {
-        if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) {
-            return;
-        }
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+        dragItem.current = index;
+        setIsDragging(true);
+        e.dataTransfer.effectAllowed = 'move';
+        // Optional: Make the drag ghost cleaner if needed, browsers default is usually okay for cards
+    };
 
-        setStages(prevStages => {
-            const newStages = [...prevStages];
-            const [draggedItemContent] = newStages.splice(dragItem.current!, 1);
-            newStages.splice(dragOverItem.current!, 0, draggedItemContent);
-            return newStages;
-        });
+    const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+        e.preventDefault(); // Necessary to allow dropping
+        if (dragItem.current === null || dragItem.current === index) return;
 
-        // Reset refs
+        // Reorder immediately for visual feedback
+        const newStages = [...stages];
+        const draggedItemContent = newStages[dragItem.current];
+        newStages.splice(dragItem.current, 1);
+        newStages.splice(index, 0, draggedItemContent);
+
+        setStages(newStages);
+        dragItem.current = index; // Update current to new index
+    };
+
+    const handleDragEnd = () => {
         dragItem.current = null;
         dragOverItem.current = null;
+        setIsDragging(false);
+        // Here you would typically trigger a save to backend
     };
 
     return (
         <div className="space-y-3">
-            {stages.map((stage, index) => (
-                <div 
-                    key={stage.stage} 
-                    draggable
-                    onDragStart={() => dragItem.current = index}
-                    onDragEnter={() => dragOverItem.current = index}
-                    onDragEnd={handleDragSort}
-                    onDragOver={(e) => e.preventDefault()}
-                    className="flex items-start gap-4 p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group"
-                >
-                    {/* App Icon Pattern */}
-                    <div className="flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/40 transition-colors">
-                        <span className="material-symbols-outlined text-xl">drag_indicator</span>
-                    </div>
+            {stages.map((stage, index) => {
+                const isBeingEdited = editingStage?.stage === stage.stage;
+                const isBeingDragged = isDragging && dragItem.current === index;
 
-                    <div className="flex-1 pt-1">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h4 className="text-base font-bold text-slate-800 dark:text-slate-200">{stage.stage}</h4>
-                                <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
-                                    {stage.group}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button 
-                                    onClick={() => handleEditClick(stage)} 
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
-                                    title="Editar objetivo"
-                                >
-                                    <span className="material-symbols-outlined text-lg">edit</span>
-                                </button>
-                            </div>
+                return (
+                    <div 
+                        key={stage.stage} 
+                        draggable={!isBeingEdited} // Disable drag while editing
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        onDragEnter={(e) => handleDragEnter(e, index)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={(e) => e.preventDefault()}
+                        className={`flex items-start gap-4 p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm transition-all group 
+                            ${isBeingDragged 
+                                ? 'border-indigo-500 border-dashed bg-indigo-50 dark:bg-indigo-900/20 opacity-60 scale-[0.98]' 
+                                : 'border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-500'
+                            }
+                            ${isBeingEdited ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}
+                        `}
+                    >
+                        {/* App Icon Pattern - Drag Handle */}
+                        <div className={`flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center transition-colors
+                            ${isBeingDragged ? 'bg-indigo-200 text-indigo-700' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/40'}
+                        `}>
+                            <span className="material-symbols-outlined text-xl">drag_indicator</span>
                         </div>
 
-                        {editingStage?.stage === stage.stage ? (
-                            <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                                {/* Input Safe Pattern */}
-                                <div className="relative mb-3">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <span className="material-symbols-outlined h-5 w-5 text-gray-400">flag</span>
+                        <div className="flex-1 pt-1">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h4 className="text-base font-bold text-slate-800 dark:text-slate-200">{stage.stage}</h4>
+                                    <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                                        {stage.group}
+                                    </span>
+                                </div>
+                                {!isBeingDragged && (
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button 
+                                            onClick={() => handleEditClick(stage)} 
+                                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                                            title="Editar objetivo"
+                                        >
+                                            <span className="material-symbols-outlined text-lg">edit</span>
+                                        </button>
                                     </div>
-                                    <input
-                                        type="text"
-                                        value={editedObjective}
-                                        onChange={(e) => setEditedObjective(e.target.value)}
-                                        className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                                        placeholder="Define el objetivo de esta etapa..."
-                                        autoFocus
-                                    />
-                                </div>
-                                <div className="flex justify-end gap-2">
-                                    <button onClick={handleCancelEdit} className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors">
-                                        Cancelar
-                                    </button>
-                                    <button onClick={handleSaveEdit} className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
-                                        Guardar
-                                    </button>
-                                </div>
+                                )}
                             </div>
-                        ) : (
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                                {stage.objective || <span className="italic opacity-50">Sin objetivo definido</span>}
-                            </p>
-                        )}
+
+                            {isBeingEdited ? (
+                                <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 animate-fade-in">
+                                    {/* Input Safe Pattern */}
+                                    <div className="relative mb-3">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span className="material-symbols-outlined h-5 w-5 text-gray-400">flag</span>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={editedObjective}
+                                            onChange={(e) => setEditedObjective(e.target.value)}
+                                            className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm"
+                                            placeholder="Define el objetivo de esta etapa..."
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <div className="flex justify-end gap-2">
+                                        <button onClick={handleCancelEdit} className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                                            Cancelar
+                                        </button>
+                                        <button onClick={handleSaveEdit} className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                                            Guardar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                                    {stage.objective || <span className="italic opacity-50">Sin objetivo definido</span>}
+                                </p>
+                            )}
+                        </div>
                     </div>
-                </div>
-            ))}
+                );
+            })}
         </div>
     );
 };

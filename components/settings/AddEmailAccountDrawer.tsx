@@ -75,69 +75,137 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
 
     return (
         <Drawer isOpen={isOpen} onClose={onClose} title="Conectar Nueva Cuenta de Correo">
-            <div className="space-y-4">
+            <div className="space-y-6">
+                
+                {/* Email Input - Safe Pattern */}
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Dirección de correo</label>
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Contraseña</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Dirección de correo</label>
                     <div className="relative">
-                        <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600">
-                            <span className="material-symbols-outlined !text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span className="material-symbols-outlined h-5 w-5 text-gray-400">email</span>
+                        </div>
+                        <input 
+                            type="email" 
+                            value={email} 
+                            onChange={e => setEmail(e.target.value)} 
+                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                            placeholder="ejemplo@empresa.com"
+                        />
+                    </div>
+                </div>
+
+                {/* Password Input - Safe Pattern */}
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Contraseña</label>
+                    <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span className="material-symbols-outlined h-5 w-5 text-gray-400">lock</span>
+                        </div>
+                        <input 
+                            type={showPassword ? "text" : "password"} 
+                            value={password} 
+                            onChange={e => setPassword(e.target.value)} 
+                            className="block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                        />
+                        <button 
+                            type="button" 
+                            onClick={() => setShowPassword(!showPassword)} 
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                            <span className="material-symbols-outlined h-5 w-5">{showPassword ? 'visibility_off' : 'visibility'}</span>
                         </button>
                     </div>
                 </div>
 
-                <div className="pt-4">
-                    <button onClick={() => setShowAdvanced(!showAdvanced)} className="flex justify-between items-center w-full text-left font-semibold text-slate-600 dark:text-slate-300">
+                <div className="pt-2">
+                    <button onClick={() => setShowAdvanced(!showAdvanced)} className="flex justify-between items-center w-full text-left font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
                         Configuración Avanzada
                         <span className="material-symbols-outlined transition-transform" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)'}}>expand_more</span>
                     </button>
                 </div>
 
                 {showAdvanced && (
-                    <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <h4 className="font-semibold text-slate-800 dark:text-slate-200">Servidor Entrante (IMAP)</h4>
-                        <div className="grid grid-cols-3 gap-3 items-end">
-                            <div className="col-span-2">
-                                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Servidor</label>
-                                <input type="text" value={incomingServer} onChange={e => setIncomingServer(e.target.value)} />
+                    <div className="space-y-6 p-5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                        
+                        {/* Incoming Server */}
+                        <div>
+                            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Servidor Entrante (IMAP)</h4>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Host</label>
+                                    <div className="relative">
+                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span className="material-symbols-outlined h-4 w-4 text-gray-400 text-xs">dns</span>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            value={incomingServer} 
+                                            onChange={e => setIncomingServer(e.target.value)} 
+                                            className="block w-full pl-8 pr-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-700"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Puerto</label>
+                                    <input 
+                                        type="text" 
+                                        value={imapPort} 
+                                        onChange={e => setImapPort(e.target.value)} 
+                                        className="block w-full px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-700"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Puerto</label>
-                                <input type="text" value={imapPort} onChange={e => setImapPort(e.target.value)} />
+                            <div className="flex items-center justify-between mt-3">
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span>
+                                <ToggleSwitch enabled={useSslImap} onToggle={() => setUseSslImap(prev => !prev)} />
                             </div>
                         </div>
-                         {/* FIX: Wrap state setter in an anonymous function to match the expected '() => void' type for onToggle. */}
-                         <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span><ToggleSwitch enabled={useSslImap} onToggle={() => setUseSslImap(prev => !prev)} /></div>
 
-                        <h4 className="font-semibold pt-4 border-t border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200">Servidor Saliente (SMTP)</h4>
-                         <div className="grid grid-cols-3 gap-3 items-end">
-                            <div className="col-span-2">
-                                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Servidor</label>
-                                <input type="text" value={outgoingServer} onChange={e => setOutgoingServer(e.target.value)} />
+                        {/* Outgoing Server */}
+                        <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+                            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Servidor Saliente (SMTP)</h4>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Host</label>
+                                     <div className="relative">
+                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span className="material-symbols-outlined h-4 w-4 text-gray-400 text-xs">dns</span>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            value={outgoingServer} 
+                                            onChange={e => setOutgoingServer(e.target.value)} 
+                                            className="block w-full pl-8 pr-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-700"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Puerto</label>
+                                    <input 
+                                        type="text" 
+                                        value={smtpPort} 
+                                        onChange={e => setSmtpPort(e.target.value)} 
+                                        className="block w-full px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-700"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Puerto</label>
-                                <input type="text" value={smtpPort} onChange={e => setSmtpPort(e.target.value)} />
+                            <div className="flex items-center justify-between mt-3">
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span>
+                                <ToggleSwitch enabled={useSslSmtp} onToggle={() => setUseSslSmtp(prev => !prev)} />
                             </div>
                         </div>
-                        {/* FIX: Wrap state setter in an anonymous function to match the expected '() => void' type for onToggle. */}
-                        <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span><ToggleSwitch enabled={useSslSmtp} onToggle={() => setUseSslSmtp(prev => !prev)} /></div>
                     </div>
                 )}
             </div>
-             <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-                <button onClick={handleConnect} disabled={isConnecting} className="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 flex items-center justify-center gap-2 disabled:opacity-70">
+             <div className="mt-8 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <button onClick={handleConnect} disabled={isConnecting} className="w-full bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:bg-indigo-700 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait transition-all">
                     {isConnecting ? <Spinner /> : <span className="material-symbols-outlined">sync</span>}
                     {isConnecting ? 'Probando...' : 'Probar Conexión y Guardar'}
                 </button>
                 {statusMessage && (
-                     <p className={`text-sm text-center mt-2 ${connectionStatus === 'error' ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                     <div className={`mt-3 p-3 rounded-lg text-sm font-medium text-center ${connectionStatus === 'error' ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'}`}>
                         {statusMessage}
-                    </p>
+                    </div>
                 )}
             </div>
         </Drawer>

@@ -104,140 +104,170 @@ const EmailAppearancePage: React.FC = () => {
     }
 
     return (
-        <div className="h-full flex flex-col space-y-6">
+        <div className="h-full flex flex-col space-y-6 max-w-7xl mx-auto">
             <div className="flex justify-between items-center flex-shrink-0">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Plantillas de Firma</h2>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Apariencia de Email</h2>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
-                        Diseña plantillas HTML para las firmas de correo de tu equipo.
+                        Diseña y estandariza las firmas de correo para todo tu equipo.
                     </p>
                 </div>
-                <button
-                    onClick={handleCreate}
-                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:bg-indigo-700 transition-colors"
-                >
-                    <span className="material-symbols-outlined mr-2">add</span>
-                    Nueva Plantilla
-                </button>
             </div>
 
-            <div className="flex flex-1 gap-6 min-h-0 overflow-hidden">
+            <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0 overflow-hidden">
                 {/* Sidebar List */}
-                <div className="w-64 flex-shrink-0 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                        <h3 className="font-semibold text-slate-700 dark:text-slate-300 text-sm uppercase tracking-wider">Mis Plantillas</h3>
+                <div className="w-full lg:w-80 flex-shrink-0 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden shadow-sm">
+                    <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                        <h3 className="font-bold text-slate-700 dark:text-slate-300 text-sm">Mis Plantillas</h3>
+                        <button
+                            onClick={handleCreate}
+                            className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors"
+                            title="Nueva Plantilla"
+                        >
+                            <span className="material-symbols-outlined text-lg">add</span>
+                        </button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2">
                         {templates && templates.length > 0 ? (
                             templates.map(template => (
                                 <button
                                     key={template.id}
                                     onClick={() => setSelectedTemplateId(template.id)}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-between group ${
+                                    className={`w-full text-left p-3 rounded-xl text-sm font-medium transition-all border ${
                                         selectedTemplateId === template.id
-                                            ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                            ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 ring-1 ring-indigo-500/20'
+                                            : 'bg-white dark:bg-slate-700/50 border-transparent hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-200 dark:hover:border-slate-600'
                                     }`}
                                 >
-                                    <span className="truncate">{template.name}</span>
-                                    {selectedTemplateId === template.id && (
-                                        <span className="material-symbols-outlined text-base">chevron_right</span>
-                                    )}
+                                    <div className="flex items-center gap-3">
+                                        {/* App Icon Pattern */}
+                                        <div className={`flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center ${selectedTemplateId === template.id ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500 dark:bg-slate-600 dark:text-slate-300'}`}>
+                                            <span className="material-symbols-outlined text-xl">wysiwyg</span>
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className={`truncate font-semibold ${selectedTemplateId === template.id ? 'text-indigo-900 dark:text-indigo-100' : 'text-slate-700 dark:text-slate-200'}`}>{template.name}</p>
+                                            <p className="text-xs text-slate-400 truncate">HTML Personalizado</p>
+                                        </div>
+                                        {selectedTemplateId === template.id && (
+                                            <span className="material-symbols-outlined text-indigo-500 text-lg">chevron_right</span>
+                                        )}
+                                    </div>
                                 </button>
                             ))
                         ) : (
-                            <div className="p-4 text-center text-sm text-slate-500">
-                                No hay plantillas. Crea una para empezar.
+                            <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                                <span className="material-symbols-outlined text-3xl mb-2">draft</span>
+                                <p className="text-sm">No hay plantillas.</p>
                             </div>
                         )}
                         {selectedTemplateId === 'new' && (
                              <button
-                                className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-between group bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                                className="w-full text-left p-3 rounded-xl text-sm font-medium transition-all border bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 ring-1 ring-indigo-500/20"
                             >
-                                <span className="truncate italic">Nueva Plantilla...</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center bg-indigo-100 text-indigo-600">
+                                        <span className="material-symbols-outlined text-xl">edit_square</span>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="truncate font-semibold text-indigo-900 dark:text-indigo-100">Nueva Plantilla...</p>
+                                        <p className="text-xs text-indigo-400 truncate">Editando</p>
+                                    </div>
+                                </div>
                             </button>
                         )}
                     </div>
                 </div>
 
                 {/* Main Editor Area */}
-                <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
+                <div className="flex-1 flex flex-col gap-6 min-h-0 overflow-hidden">
                     {selectedTemplateId ? (
-                        <>
-                            {/* Name Input & Actions */}
-                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center flex-shrink-0">
-                                <div className="flex-1 mr-4">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre de la Plantilla</label>
-                                    <input 
-                                        type="text" 
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        className="w-full bg-transparent text-lg font-bold text-slate-800 dark:text-slate-200 border-none focus:ring-0 p-0 placeholder-slate-400"
-                                        placeholder="Ej: Firma Corporativa"
-                                    />
-                                </div>
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={handleDelete}
-                                        className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                                    >
-                                        {selectedTemplateId === 'new' ? 'Cancelar' : 'Eliminar'}
-                                    </button>
-                                    <button 
-                                        onClick={handleSave}
-                                        disabled={isSaving}
-                                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-                                    >
-                                        {isSaving ? <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span> : <span className="material-symbols-outlined text-sm">save</span>}
-                                        Guardar
-                                    </button>
+                        <div className="flex flex-col h-full gap-6 overflow-y-auto pr-2">
+                            
+                            {/* Config Panel */}
+                            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex-shrink-0">
+                                <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+                                    <div className="flex-1 w-full">
+                                        {/* Input Safe Pattern */}
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre de la Plantilla</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <span className="material-symbols-outlined h-5 w-5 text-gray-400">badge</span>
+                                            </div>
+                                            <input 
+                                                type="text" 
+                                                value={name}
+                                                onChange={(e) => setName(e.target.value)}
+                                                className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
+                                                placeholder="Ej: Firma Corporativa 2024"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3 w-full md:w-auto">
+                                        <button 
+                                            onClick={handleDelete}
+                                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-lg">delete</span>
+                                            <span className="hidden sm:inline">{selectedTemplateId === 'new' ? 'Cancelar' : 'Eliminar'}</span>
+                                        </button>
+                                        <button 
+                                            onClick={handleSave}
+                                            disabled={isSaving}
+                                            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                                        >
+                                            {isSaving ? <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span> : <span className="material-symbols-outlined text-lg">save</span>}
+                                            Guardar
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-[500px]">
                                 {/* Code Editor */}
-                                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                                    <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center">
-                                        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Editor HTML</h3>
-                                        <div className="text-xs text-slate-500 flex gap-2">
-                                            <span title="Nombre del usuario" className="cursor-help bg-slate-200 dark:bg-slate-700 px-1 rounded">{'{{name}}'}</span>
-                                            <span title="Rol / Puesto" className="cursor-help bg-slate-200 dark:bg-slate-700 px-1 rounded">{'{{role}}'}</span>
-                                            <span title="Email" className="cursor-help bg-slate-200 dark:bg-slate-700 px-1 rounded">{'{{email}}'}</span>
-                                            <span title="Teléfono" className="cursor-help bg-slate-200 dark:bg-slate-700 px-1 rounded">{'{{phone}}'}</span>
+                                <div className="flex flex-col bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden shadow-sm">
+                                    <div className="p-3 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
+                                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Código HTML</h3>
+                                        <div className="flex gap-2">
+                                            <span title="Nombre" className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700 cursor-help">{'{{name}}'}</span>
+                                            <span title="Rol" className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700 cursor-help">{'{{role}}'}</span>
+                                            <span title="Email" className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700 cursor-help">{'{{email}}'}</span>
                                         </div>
                                     </div>
                                     <textarea
                                         value={htmlContent}
                                         onChange={(e) => setHtmlContent(e.target.value)}
-                                        className="flex-1 w-full p-4 font-mono text-xs leading-relaxed bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-300 resize-none focus:outline-none"
+                                        className="flex-1 w-full p-4 font-mono text-xs leading-relaxed bg-slate-900 text-green-400 resize-none focus:outline-none"
                                         placeholder="<div>Tu código HTML aquí...</div>"
                                         spellCheck="false"
                                     />
                                 </div>
 
                                 {/* Preview */}
-                                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                                    <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-                                        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Vista Previa</h3>
+                                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                                    <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 flex items-center justify-between">
+                                        <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Vista Previa</h3>
+                                        <span className="material-symbols-outlined text-slate-400 text-lg">visibility</span>
                                     </div>
-                                    <div className="flex-1 p-4 bg-white overflow-auto">
-                                         <iframe
-                                            srcDoc={`
-                                                <html>
-                                                    <head><style>body { margin: 0; font-family: sans-serif; }</style></head>
-                                                    <body>${previewHtml}</body>
-                                                </html>
-                                            `}
-                                            title="Vista previa"
-                                            className="w-full h-full border-0 pointer-events-none"
-                                            sandbox="allow-same-origin"
-                                        />
+                                    <div className="flex-1 p-6 bg-white overflow-auto flex items-center justify-center">
+                                         <div className="w-full border border-dashed border-slate-200 rounded p-4">
+                                             <iframe
+                                                srcDoc={`
+                                                    <html>
+                                                        <head><style>body { margin: 0; font-family: sans-serif; color: #334155; }</style></head>
+                                                        <body>${previewHtml}</body>
+                                                    </html>
+                                                `}
+                                                title="Vista previa"
+                                                className="w-full h-full min-h-[300px] border-0 pointer-events-none"
+                                                sandbox="allow-same-origin"
+                                            />
+                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </>
+                        </div>
                     ) : (
-                        <div className="flex-1 flex items-center justify-center">
+                        <div className="flex-1 flex items-center justify-center h-full bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                             <EmptyState 
                                 icon="edit_document" 
                                 title="Selecciona una plantilla" 

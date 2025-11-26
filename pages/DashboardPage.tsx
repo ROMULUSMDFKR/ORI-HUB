@@ -229,24 +229,44 @@ const SalesDashboardWidgets: React.FC<{
     goals: SalesGoalSettings | null 
 }> = ({ user, prospects, salesOrders, companies, tasks, loading, goals }) => {
     
+    const companiesMap = useMemo(() => new Map(companies.map(c => [c.id, c])), [companies]);
+
     const stats = useMemo(() => {
         const now = new Date();
         const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
         
-        // Filter sales based on role: Admin sees all, Sales sees own
+        // Filter orders to include created by user OR where user is responsible for the client
+        // This logic MUST match VolumeGoalWidget to be consistent
         const relevantOrders = user.role === 'Admin' 
             ? salesOrders 
-            : salesOrders.filter(o => o.salespersonId === user.id);
+            : salesOrders.filter(o => {
+                // 1. Is direct salesperson?
+                if (o.salespersonId === user.id) return true;
+                
+                // 2. Is company owner or collaborator?
+                const company = companiesMap.get(o.companyId);
+                if (company) {
+                     if (company.ownerId === user.id) return true;
+                     if (company.additionalOwnerIds && company.additionalOwnerIds.includes(user.id)) return true;
+                }
+                return false;
+            });
 
         const monthlySales = relevantOrders
-            .filter(o => new Date(o.createdAt).getMonth() === currentMonth)
+            .filter(o => {
+                const d = new Date(o.createdAt);
+                return d.getMonth() === currentMonth && 
+                       d.getFullYear() === currentYear &&
+                       o.status !== SalesOrderStatus.Cancelada
+            })
             .reduce((sum, o) => sum + o.total, 0);
 
         const activeProspects = prospects.filter(p => p.ownerId === user.id && p.stage !== 'Perdido' && p.stage !== 'Ganado').length;
         const myPendingTasks = tasks.filter(t => t.assignees.includes(user.id) && t.status !== TaskStatus.Hecho).length;
 
         return { sales: monthlySales, prospects: activeProspects, tasks: myPendingTasks };
-    }, [salesOrders, prospects, tasks, user.id, user.role]);
+    }, [salesOrders, prospects, tasks, user.id, user.role, companiesMap]);
 
     const hotDeals = useMemo(() => {
         return prospects.filter(p => 

@@ -33,7 +33,7 @@ const DateFilterInput: React.FC<{ value: string; onChange: (val: string) => void
             type="date"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="pl-10 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all shadow-sm w-full sm:w-auto cursor-pointer"
+            className="pl-12 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all shadow-sm w-full sm:w-auto cursor-pointer"
         />
     </div>
 );
@@ -249,7 +249,7 @@ const AuditPage: React.FC = () => {
                         placeholder="Buscar por ID, acción, usuario..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder-slate-400"
+                        className="w-full pl-12 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder-slate-400"
                     />
                 </div>
 

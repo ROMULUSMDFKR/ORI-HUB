@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Checkbox from '../components/ui/Checkbox';
@@ -133,11 +132,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       <div className="relative z-20 flex flex-col items-center w-full max-w-md">
         <div className="w-full rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 p-8 shadow-2xl shadow-black/50 animate-slide-in-up transition-all duration-500">
             
-            <div className="mb-8 relative h-12">
-                 <h2 className={`text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 transition-all duration-500 absolute inset-0 ${isDomainValid ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
+            {/* Greeting Header - Uses Grid to stack text without absolute positioning issues */}
+            <div className="mb-8 grid place-items-center min-h-[3rem]">
+                 <h2 className={`text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 transition-all duration-500 col-start-1 row-start-1 ${isDomainValid ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
                     Hola
                  </h2>
-                 <h2 className={`text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 transition-all duration-500 absolute inset-0 ${isDomainValid ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+                 <h2 className={`text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 transition-all duration-500 text-center col-start-1 row-start-1 ${isDomainValid ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
                     {dynamicGreeting}
                  </h2>
             </div>
@@ -146,13 +146,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 <div>
                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Email Corporativo</label>
                     <div className="relative group">
-                        <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-500 group-focus-within:text-indigo-400 transition-colors">mail</span>
+                        {/* Force padding with !pl-14 to override index.html specificity. Move icon to left-4 */}
+                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none">mail</span>
                         <input 
                             type="email" 
                             value={email} 
                             onChange={e => setEmail(e.target.value)} 
                             required 
-                            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-3 !pl-14 pr-4 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
                             placeholder="usuario@empresa.com"
                         />
                     </div>
@@ -163,16 +164,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                         <div>
                             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Contraseña</label>
                             <div className="relative group">
-                                <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-500 group-focus-within:text-indigo-400 transition-colors">lock</span>
+                                {/* Force padding with !pl-14. Move icon to left-4 */}
+                                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none">lock</span>
                                 <input 
                                     type={showPassword ? "text" : "password"} 
                                     value={password} 
                                     onChange={e => setPassword(e.target.value)} 
                                     required={isDomainValid}
-                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-2.5 pl-10 pr-10 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-3 !pl-14 !pr-12 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
                                     tabIndex={isDomainValid ? 0 : -1}
                                 />
-                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-300 transition-colors" tabIndex={-1}>
+                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute top-1/2 -translate-y-1/2 right-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors" tabIndex={-1}>
                                     <span className="material-symbols-outlined !text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
                                 </button>
                             </div>

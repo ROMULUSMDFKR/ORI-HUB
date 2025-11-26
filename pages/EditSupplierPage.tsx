@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Supplier, SupplierRating } from '../../types';
-import { useDoc } from '../../hooks/useDoc';
-import Spinner from '../../components/ui/Spinner';
-import CustomSelect from '../../components/ui/CustomSelect';
-import { api } from '../../api/firebaseApi';
+import { Supplier, SupplierRating } from '../types';
+import { useDoc } from '../hooks/useDoc';
+import Spinner from '../components/ui/Spinner';
+import CustomSelect from '../components/ui/CustomSelect';
+import { api } from '../api/firebaseApi';
 
 const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">

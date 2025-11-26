@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
@@ -16,8 +15,6 @@ import InvitationLinkModal from '../../components/ui/InvitationLinkModal';
 
 // KPI Card following "App Icon Pattern"
 const UserKpiCard: React.FC<{ title: string; value: number; icon: string; color: string }> = ({ title, value, icon, color }) => {
-    // Extract color name for bg/text classes logic (simplified for this example, or use direct classes)
-    // Assuming color passed is like "indigo"
     const colorClasses = {
         indigo: "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
         green: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -339,9 +336,8 @@ const UserManagementPage: React.FC = () => {
     return (
         <div className="space-y-8">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Usuarios</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
                         Gestiona el acceso, roles y equipos de tu organización.
                     </p>

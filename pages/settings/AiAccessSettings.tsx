@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { User } from '../../types';
@@ -74,9 +73,8 @@ const AiAccessSettings: React.FC = () => {
     return (
         <div className="space-y-8 max-w-6xl mx-auto pb-12">
             {/* Page Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Configuración de IA</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
                         Administra los permisos de acceso a datos y capacidades operativas del Asistente Studio AI.
                     </p>

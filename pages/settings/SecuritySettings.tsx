@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/firebaseApi';
 import Spinner from '../../components/ui/Spinner';
@@ -70,9 +69,8 @@ const SecuritySettings = () => {
     return (
         <div className="space-y-8 max-w-5xl mx-auto">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Seguridad</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
                         Configura las políticas de acceso y protección de la plataforma.
                     </p>

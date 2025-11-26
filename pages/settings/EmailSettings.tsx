@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { User, ConnectedEmailAccount } from '../../types';
@@ -123,7 +122,6 @@ const EmailSettings: React.FC = () => {
         <div className="space-y-8 max-w-6xl mx-auto">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Cuentas de Correo</h1>
                 <p className="text-slate-500 dark:text-slate-400 mt-1">
                     Gestiona las conexiones IMAP/SMTP y firmas para los usuarios de la organización.
                 </p>

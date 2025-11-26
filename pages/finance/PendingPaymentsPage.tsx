@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
@@ -153,7 +152,6 @@ const PendingPaymentsPage: React.FC = () => {
         <div className="space-y-8 max-w-7xl mx-auto pb-12">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Pagos Pendientes (CXC)</h1>
                 <p className="text-slate-500 dark:text-slate-400 mt-1">Gestiona las cuentas por cobrar y el flujo de efectivo entrante.</p>
             </div>
             

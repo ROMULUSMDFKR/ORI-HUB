@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { Invoice, Expense } from '../../types';
@@ -87,9 +86,8 @@ const CashFlowPage: React.FC = () => {
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-12">
              {/* Header & Controls */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Flujo de Caja</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">Análisis de liquidez y balance financiero.</p>
                 </div>
                 <div className="bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 flex">

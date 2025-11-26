@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { InternalCompany } from '../../types';
@@ -120,9 +119,8 @@ const InternalCompaniesSettings: React.FC = () => {
 
     return (
         <div className="space-y-8 max-w-6xl mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Mis Empresas</h2>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">Configura las entidades legales de tu grupo para la emisión de documentos.</p>
                 </div>
                 <button 

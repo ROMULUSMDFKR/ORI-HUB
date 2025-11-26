@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
-import { Supplier, Product, User, Unit, PurchaseOrder, PurchaseOrderItem, Currency } from '../../types';
+import { Supplier, Product, User, Unit, PurchaseOrder, PurchaseOrderItem } from '../../types';
 import { api } from '../../api/firebaseApi';
 import Spinner from '../../components/ui/Spinner';
 import CustomSelect from '../../components/ui/CustomSelect';
@@ -11,14 +11,14 @@ import Drawer from '../../components/ui/Drawer';
 
 // Moved outside
 const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm">
-        <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <h3 className="text-lg font-bold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
         <div className="space-y-4">{children}</div>
     </div>
 );
 
 const FormRow: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className }) => (
-    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 items-start ${className}`}>
+    <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 items-start ${className}`}>
         {children}
     </div>
 );
@@ -189,8 +189,14 @@ const NewPurchaseOrderPage: React.FC = () => {
         }
     };
     
+    // Input Safe Pattern classes
+    const inputWrapperClass = "relative";
+    const inputIconClass = "absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none";
+    const inputFieldClass = "block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400";
+
+
     return (
-        <div>
+        <div className="pb-20">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Nueva Orden de Compra</h1>
                 <div className="flex gap-2">
@@ -209,12 +215,22 @@ const NewPurchaseOrderPage: React.FC = () => {
                             </FormRow>
                             <FormRow>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fecha de Emisión</label>
-                                    <input type="date" value={new Date().toISOString().split('T')[0]} readOnly disabled className="mt-1 w-full bg-slate-100 dark:bg-slate-700/50 cursor-not-allowed"/>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha de Emisión</label>
+                                     <div className={inputWrapperClass}>
+                                        <div className={inputIconClass}>
+                                            <span className="material-symbols-outlined h-5 w-5 text-gray-400">calendar_today</span>
+                                        </div>
+                                        <input type="date" value={new Date().toISOString().split('T')[0]} readOnly disabled className={`${inputFieldClass} bg-slate-100 dark:bg-slate-700/50 cursor-not-allowed`}/>
+                                    </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fecha de Entrega Esperada</label>
-                                    <input type="date" value={expectedDeliveryDate} onChange={e => setExpectedDeliveryDate(e.target.value)} className="mt-1 w-full"/>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha de Entrega Esperada</label>
+                                     <div className={inputWrapperClass}>
+                                        <div className={inputIconClass}>
+                                            <span className="material-symbols-outlined h-5 w-5 text-gray-400">event</span>
+                                        </div>
+                                        <input type="date" value={expectedDeliveryDate} onChange={e => setExpectedDeliveryDate(e.target.value)} className={inputFieldClass}/>
+                                    </div>
                                 </div>
                             </FormRow>
                         </FormBlock>
@@ -222,18 +238,18 @@ const NewPurchaseOrderPage: React.FC = () => {
                         <FormBlock title="Productos">
                             <div className="space-y-3">
                                 {items.map((item, index) => (
-                                    <div key={item.id} className="grid grid-cols-12 gap-3 items-end p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                                        <div className="col-span-4">
+                                    <div key={item.id} className="grid grid-cols-12 gap-3 items-end p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 relative group">
+                                        <div className="col-span-5">
                                             {item.isCustom ? (
                                                 <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Insumo</label>
+                                                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Insumo</label>
                                                     <div className="flex gap-1">
                                                         <input 
                                                             type="text" 
                                                             value={item.productName || ''} 
                                                             onChange={e => handleItemChange(item.id, 'productName', e.target.value)}
                                                             placeholder="Ej: Costales, Papelería..."
-                                                            className="w-full"
+                                                            className="block w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-slate-900"
                                                             autoFocus
                                                         />
                                                         <button onClick={() => setItems(prev => prev.map(i => i.id === item.id ? { ...i, isCustom: false, productName: '' } : i))} className="p-2 text-slate-500 hover:text-slate-700" title="Volver a lista">
@@ -245,31 +261,51 @@ const NewPurchaseOrderPage: React.FC = () => {
                                                 <CustomSelect label="Producto" options={productOptions} value={item.productId || ''} onChange={val => handleProductSelectionChange(item.id, val)} placeholder="Seleccionar..."/>
                                             )}
                                         </div>
-                                        <div className="col-span-2"><label className="text-xs">Cantidad</label><input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', parseFloat(e.target.value) || 0)} /></div>
-                                        <div className="col-span-2"><CustomSelect label="Unidad" options={unitOptions} value={item.unit} onChange={val => handleItemChange(item.id, 'unit', val as Unit)} /></div>
-                                        <div className="col-span-2"><label className="text-xs">Costo Unit.</label><input type="number" step="0.01" value={item.unitCost} onChange={e => handleItemChange(item.id, 'unitCost', parseFloat(e.target.value) || 0)} /></div>
-                                        <div className="col-span-1"><label className="text-xs">Subtotal</label><input type="text" value={`$${item.subtotal.toFixed(2)}`} disabled className="bg-slate-200 dark:bg-slate-700"/></div>
-                                        <div className="col-span-1 flex items-end"><button onClick={() => handleRemoveItem(item.id)} className="p-2 text-slate-500 hover:text-red-500"><span className="material-symbols-outlined">delete</span></button></div>
+                                        <div className="col-span-2">
+                                            <label className="block text-xs font-medium text-slate-500 mb-1">Cant.</label>
+                                            <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', parseFloat(e.target.value) || 0)} className="block w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-2 text-sm text-right bg-white dark:bg-slate-900" />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <CustomSelect label="Unidad" options={unitOptions} value={item.unit} onChange={val => handleItemChange(item.id, 'unit', val as Unit)} />
+                                        </div>
+                                        <div className="col-span-2">
+                                             <label className="block text-xs font-medium text-slate-500 mb-1">Costo Unit.</label>
+                                            <input type="number" step="0.01" value={item.unitCost} onChange={e => handleItemChange(item.id, 'unitCost', parseFloat(e.target.value) || 0)} className="block w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-2 text-sm text-right bg-white dark:bg-slate-900" />
+                                        </div>
+                                        <div className="col-span-1 flex items-end justify-end">
+                                             <button onClick={() => handleRemoveItem(item.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                                <span className="material-symbols-outlined">delete</span>
+                                            </button>
+                                        </div>
+                                        <div className="col-span-12 text-right text-sm pt-2 border-t border-slate-200 dark:border-slate-700 mt-2">
+                                            <span className="text-slate-500 mr-2">Subtotal:</span>
+                                            <span className="font-bold text-slate-800 dark:text-slate-200">${item.subtotal.toFixed(2)}</span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-                            <button onClick={handleAddItem} className="text-sm font-semibold text-indigo-600 flex items-center mt-4">
-                                <span className="material-symbols-outlined mr-1">add_circle</span> Añadir Producto
+                            <button onClick={handleAddItem} className="w-full mt-4 py-2 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all flex items-center justify-center gap-2 font-medium">
+                                <span className="material-symbols-outlined">add_circle</span> Añadir Producto
                             </button>
                         </FormBlock>
                     </div>
 
                     <div className="lg:col-span-1 space-y-6">
-                        <FormBlock title="Resumen y Notas">
-                            <div className="space-y-2 text-sm text-slate-500 dark:text-slate-400">
-                                <div className="flex justify-between"><span>Subtotal:</span><span className="font-semibold text-slate-800 dark:text-slate-200">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                                <div className="flex justify-between"><span>IVA ({(TAX_RATE * 100).toFixed(0)}%):</span><span className="font-semibold text-slate-800 dark:text-slate-200">${tax.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
-                                <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-2 mt-2 text-slate-800 dark:text-slate-200"><span>Total:</span><span>${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                        <FormBlock title="Resumen">
+                            <div className="space-y-3 text-sm">
+                                <div className="flex justify-between text-slate-600 dark:text-slate-400"><span>Subtotal:</span><span className="font-semibold text-slate-900 dark:text-white">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                                <div className="flex justify-between text-slate-600 dark:text-slate-400"><span>IVA ({(TAX_RATE * 100).toFixed(0)}%):</span><span className="font-semibold text-slate-900 dark:text-white">${tax.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
+                                <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-4 mt-2 text-indigo-600 dark:text-indigo-400"><span>Total:</span><span>${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Notas</label>
-                                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4} className="mt-1 w-full" placeholder="Instrucciones de entrega, términos de pago, etc."/>
-                            </div>
+                        </FormBlock>
+                        <FormBlock title="Notas">
+                             <textarea 
+                                value={notes} 
+                                onChange={e => setNotes(e.target.value)} 
+                                rows={4} 
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none" 
+                                placeholder="Instrucciones de entrega, términos de pago, etc."
+                            />
                         </FormBlock>
                     </div>
                 </div>
@@ -278,17 +314,17 @@ const NewPurchaseOrderPage: React.FC = () => {
             <Drawer isOpen={isProductDrawerOpen} onClose={() => setIsProductDrawerOpen(false)} title="Crear Nuevo Producto">
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre del Producto *</label>
-                        <input type="text" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} />
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Producto *</label>
+                        <input type="text" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} className="block w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">SKU *</label>
-                        <input type="text" value={newProduct.sku} onChange={e => setNewProduct(p => ({ ...p, sku: e.target.value }))} />
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">SKU *</label>
+                        <input type="text" value={newProduct.sku} onChange={e => setNewProduct(p => ({ ...p, sku: e.target.value }))} className="block w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800" />
                     </div>
                     <CustomSelect label="Unidad *" options={unitOptions} value={newProduct.unitDefault} onChange={val => setNewProduct(p => ({ ...p, unitDefault: val as Unit }))} />
                     <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
-                        <button onClick={() => setIsProductDrawerOpen(false)} className="bg-slate-200 dark:bg-slate-700 py-2 px-4 rounded-lg">Cancelar</button>
-                        <button onClick={handleSaveNewProduct} className="bg-indigo-600 text-white py-2 px-4 rounded-lg">Guardar Producto</button>
+                        <button onClick={() => setIsProductDrawerOpen(false)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+                        <button onClick={handleSaveNewProduct} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700">Guardar Producto</button>
                     </div>
                 </div>
             </Drawer>

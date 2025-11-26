@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
@@ -123,7 +122,6 @@ const ReceivedPaymentsPage: React.FC = () => {
         <div className="space-y-8 max-w-7xl mx-auto pb-12">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Pagos Recibidos</h1>
                 <p className="text-slate-500 dark:text-slate-400 mt-1">Historial de ingresos y cobros realizados con éxito.</p>
             </div>
 

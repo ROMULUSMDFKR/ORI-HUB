@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { Company } from '../../types';
@@ -72,7 +71,6 @@ const IndustryManagement: React.FC = () => {
         <div className="space-y-8 max-w-6xl mx-auto">
             {/* Header */}
             <div>
-                <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Industrias</h2>
                 <p className="text-slate-500 dark:text-slate-400 mt-1">Gestiona las categorías de industria para clasificar a tus clientes y prospectos.</p>
             </div>
             

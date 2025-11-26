@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { InventoryMove, Product, User, Unit, ProductLot } from '../types';
@@ -7,8 +8,9 @@ import Drawer from '../components/ui/Drawer';
 import CustomSelect from '../components/ui/CustomSelect';
 import { api } from '../api/firebaseApi';
 import { useAuth } from '../hooks/useAuth';
+import Table from '../components/ui/Table'; // Using Table component for consistency
 
-
+// Drawer Component (Kept logic, improved visual structure inside)
 const NewMovementDrawer: React.FC<{
     isOpen: boolean;
     onClose: () => void;
@@ -86,24 +88,55 @@ const NewMovementDrawer: React.FC<{
     const lotOptions = (availableLots || []).map(l => ({ value: l.id, name: l.code }));
 
     return (
-        <Drawer isOpen={isOpen} onClose={onClose} title="Nuevo Movimiento de Inventario">
-            <div className="space-y-4">
-                <CustomSelect label="Tipo de Movimiento" options={[{value: 'in', name: 'Entrada'}, {value: 'out', name: 'Salida'}, {value: 'transfer', name: 'Traspaso'}, {value: 'adjust', name: 'Ajuste'}]} value={formState.type} onChange={val => handleChange('type', val)} />
-                <CustomSelect label="Producto" options={productOptions} value={formState.productId} onChange={val => handleChange('productId', val)} placeholder="Seleccionar producto..."/>
-                <CustomSelect label="Lote" options={lotOptions} value={formState.lotId} onChange={val => handleChange('lotId', val)} placeholder="Seleccionar lote..."/>
-                <div><label>Cantidad</label><input type="number" value={formState.qty} onChange={e => handleChange('qty', Number(e.target.value))}/></div>
-                {(formState.type === 'out' || formState.type === 'transfer') && <CustomSelect label="De" options={locationOptions} value={formState.fromLocationId} onChange={val => handleChange('fromLocationId', val)} placeholder="Ubicación de origen..."/>}
-                {(formState.type === 'in' || formState.type === 'transfer') && <CustomSelect label="A" options={locationOptions} value={formState.toLocationId} onChange={val => handleChange('toLocationId', val)} placeholder="Ubicación de destino..."/>}
-                <div><label>Nota / Motivo</label><textarea value={formState.note} onChange={e => handleChange('note', e.target.value)} rows={3}/></div>
+        <Drawer isOpen={isOpen} onClose={onClose} title="Nuevo Movimiento">
+            <div className="space-y-6">
+                <CustomSelect 
+                    label="Tipo de Movimiento" 
+                    options={[{value: 'in', name: 'Entrada'}, {value: 'out', name: 'Salida'}, {value: 'transfer', name: 'Traspaso'}, {value: 'adjust', name: 'Ajuste'}]} 
+                    value={formState.type} 
+                    onChange={val => handleChange('type', val)} 
+                />
+                
+                <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-600 space-y-4">
+                    <CustomSelect label="Producto" options={productOptions} value={formState.productId} onChange={val => handleChange('productId', val)} placeholder="Seleccionar producto..."/>
+                    <CustomSelect label="Lote (Opcional)" options={lotOptions} value={formState.lotId} onChange={val => handleChange('lotId', val)} placeholder="Seleccionar lote..."/>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Cantidad</label>
+                         <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span className="material-symbols-outlined h-5 w-5 text-gray-400">numbers</span>
+                            </div>
+                            <input 
+                                type="number" 
+                                value={formState.qty} 
+                                onChange={e => handleChange('qty', Number(e.target.value))}
+                                className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-800"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {(formState.type === 'out' || formState.type === 'transfer') && <CustomSelect label="Origen (De)" options={locationOptions} value={formState.fromLocationId} onChange={val => handleChange('fromLocationId', val)} placeholder="Ubicación de origen..."/>}
+                {(formState.type === 'in' || formState.type === 'transfer') && <CustomSelect label="Destino (A)" options={locationOptions} value={formState.toLocationId} onChange={val => handleChange('toLocationId', val)} placeholder="Ubicación de destino..."/>}
+                
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nota / Motivo</label>
+                    <textarea 
+                        value={formState.note} 
+                        onChange={e => handleChange('note', e.target.value)} 
+                        rows={3}
+                        className="block w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-800"
+                        placeholder="Razón del movimiento..."
+                    />
+                </div>
             </div>
-             <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
-                <button onClick={onClose} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
-                <button onClick={handleSubmit} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Movimiento</button>
+             <div className="mt-8 pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
+                <button onClick={onClose} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">Cancelar</button>
+                <button onClick={handleSubmit} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700">Registrar</button>
             </div>
         </Drawer>
     )
 };
-
 
 const InventoryMovementsPage: React.FC = () => {
     const { data: initialMoves, loading: movesLoading } = useCollection<InventoryMove>('inventoryMoves');
@@ -114,9 +147,12 @@ const InventoryMovementsPage: React.FC = () => {
     
     const [moves, setMoves] = useState<InventoryMove[] | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    
+    // Filters
     const [typeFilter, setTypeFilter] = useState('all');
     const [productFilter, setProductFilter] = useState('all');
     const [locationFilter, setLocationFilter] = useState('all');
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         if (initialMoves) {
@@ -131,37 +167,26 @@ const InventoryMovementsPage: React.FC = () => {
     const filteredMoves = useMemo(() => {
         if (!moves) return [];
         let sortedMoves = [...moves].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
         return sortedMoves.filter(move => {
             const typeMatch = typeFilter === 'all' || move.type === typeFilter;
             const productMatch = productFilter === 'all' || move.productId === productFilter;
             const locationMatch = locationFilter === 'all' || move.fromLocationId === locationFilter || move.toLocationId === locationFilter;
-            return typeMatch && productMatch && locationMatch;
+            const searchMatch = !searchTerm || move.note?.toLowerCase().includes(searchTerm.toLowerCase()) || productsMap.get(move.productId)?.name.toLowerCase().includes(searchTerm.toLowerCase());
+            return typeMatch && productMatch && locationMatch && searchMatch;
         });
-    }, [moves, typeFilter, productFilter, locationFilter]);
+    }, [moves, typeFilter, productFilter, locationFilter, searchTerm, productsMap]);
     
     const typeOptions = [
+        { value: 'all', label: 'Todos' },
         { value: 'in', label: 'Entrada' },
         { value: 'out', label: 'Salida' },
         { value: 'transfer', label: 'Traslado' },
         { value: 'adjust', label: 'Ajuste' },
     ];
-    const productOptions = useMemo(() => products?.map(p => ({ value: p.id, label: p.name })) || [], [products]);
-    const locationOptions = useMemo(() => (locations || []).map((l: any) => ({ value: l.id, label: l.name })), [locations]);
+    const productOptions = useMemo(() => [{value: 'all', label: 'Todos'}, ...(products?.map(p => ({ value: p.id, label: p.name })) || [])], [products]);
+    const locationOptions = useMemo(() => [{value: 'all', label: 'Todas'}, ...(locations || []).map((l: any) => ({ value: l.id, label: l.name }))], [locations]);
 
-
-    const getTypePill = (type: InventoryMove['type']) => {
-        switch (type) {
-            case 'in':
-                return <div className="inline-flex items-center gap-2 text-sm font-medium border rounded-full px-3 py-1 bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/20 text-green-700 dark:text-green-300"><span className="material-symbols-outlined !text-sm">arrow_upward</span> Entrada</div>;
-            case 'out':
-                return <div className="inline-flex items-center gap-2 text-sm font-medium border rounded-full px-3 py-1 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-300"><span className="material-symbols-outlined !text-sm">arrow_downward</span> Salida</div>;
-            case 'transfer':
-                return <div className="inline-flex items-center gap-2 text-sm font-medium border rounded-full px-3 py-1 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20 text-blue-700 dark:text-blue-300"><span className="material-symbols-outlined !text-sm">arrow_forward</span> Traslado</div>;
-            case 'adjust':
-                return <div className="inline-flex items-center gap-2 text-sm font-medium border rounded-full px-3 py-1 bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300"><span className="material-symbols-outlined !text-sm">settings</span> Ajuste</div>;
-        }
-    };
-    
     const handleSaveMovement = async (movementData: Omit<InventoryMove, 'id' | 'createdAt' | 'userId'>) => {
         if (!currentUser) {
             alert("No se pudo identificar al usuario.");
@@ -182,24 +207,106 @@ const InventoryMovementsPage: React.FC = () => {
         }
     };
 
+    const columns = [
+        {
+            header: 'Tipo',
+            accessor: (move: InventoryMove) => {
+                const configs = {
+                    in: { icon: 'arrow_downward', bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Entrada' },
+                    out: { icon: 'arrow_upward', bg: 'bg-red-100', text: 'text-red-700', label: 'Salida' },
+                    transfer: { icon: 'swap_horiz', bg: 'bg-blue-100', text: 'text-blue-700', label: 'Traslado' },
+                    adjust: { icon: 'tune', bg: 'bg-slate-100', text: 'text-slate-700', label: 'Ajuste' },
+                };
+                const cfg = configs[move.type] || configs.adjust;
+                
+                return (
+                    <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-bold ${cfg.bg} ${cfg.text} dark:bg-opacity-20`}>
+                        <span className="material-symbols-outlined !text-sm">{cfg.icon}</span>
+                        {cfg.label}
+                    </div>
+                );
+            }
+        },
+        {
+            header: 'Producto',
+            accessor: (move: InventoryMove) => <span className="font-semibold text-slate-800 dark:text-slate-200">{productsMap.get(move.productId)?.name || 'N/A'}</span>
+        },
+        {
+            header: 'Cantidad',
+            accessor: (move: InventoryMove) => (
+                <span className={`font-mono font-bold ${move.qty > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {move.qty > 0 ? '+' : ''}{move.qty.toLocaleString()} {move.unit}
+                </span>
+            ),
+            className: 'text-right'
+        },
+        {
+            header: 'Ubicación (De -> A)',
+            accessor: (move: InventoryMove) => (
+                <div className="flex items-center text-xs text-slate-500 dark:text-slate-400">
+                    {move.fromLocationId ? locationsMap.get(move.fromLocationId) : <span className="italic">Externo</span>}
+                    <span className="material-symbols-outlined mx-2 !text-sm">arrow_right_alt</span>
+                    {move.toLocationId ? locationsMap.get(move.toLocationId) : <span className="italic">Externo</span>}
+                </div>
+            )
+        },
+        {
+            header: 'Fecha',
+            accessor: (move: InventoryMove) => (
+                <div className="flex flex-col">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{new Date(move.createdAt).toLocaleDateString()}</span>
+                    <span className="text-xs text-slate-500">{new Date(move.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                </div>
+            )
+        },
+        {
+            header: 'Usuario',
+            accessor: (move: InventoryMove) => {
+                const u = usersMap.get(move.userId);
+                return (
+                    <div className="flex items-center gap-2" title={u?.name}>
+                         <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                             {u?.name?.substring(0, 2).toUpperCase() || '??'}
+                         </div>
+                    </div>
+                )
+            }
+        }
+    ];
 
     const loading = movesLoading || productsLoading || usersLoading || locationsLoading;
 
-    return (
-        <>
-            <div className="space-y-6">
-                <div className="flex justify-end items-center">
-                    <button onClick={() => setIsDrawerOpen(true)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90">
-                        <span className="material-symbols-outlined mr-2">add_circle</span>
-                        Nuevo Movimiento
-                    </button>
-                </div>
+    if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
 
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700">
-                    <div className="relative">
-                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">calendar_today</span>
-                        <input type="text" placeholder="dd/mm/aaaa" className="w-full sm:w-40 bg-white dark:bg-slate-800 pl-11 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 search-input-field"/>
+    return (
+        <div className="space-y-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Kárdex de Movimientos</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Registro detallado de todas las entradas, salidas y ajustes de inventario.</p>
+                </div>
+                <button onClick={() => setIsDrawerOpen(true)} className="bg-indigo-600 text-white font-semibold py-2.5 px-5 rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:bg-indigo-700 transition-colors">
+                    <span className="material-symbols-outlined">add_circle</span>
+                    Registrar Movimiento
+                </button>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 items-center justify-between">
+                 {/* Input Safe Pattern */}
+                <div className="relative w-full lg:w-80">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="material-symbols-outlined h-5 w-5 text-gray-400">search</span>
                     </div>
+                    <input
+                        type="text"
+                        placeholder="Buscar por nota o producto..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                    />
+                </div>
+                
+                <div className="flex items-center gap-3 w-full lg:w-auto overflow-x-auto pb-2 lg:pb-0">
                      <FilterButton
                         label="Tipo"
                         options={typeOptions}
@@ -219,46 +326,12 @@ const InventoryMovementsPage: React.FC = () => {
                         onSelect={setLocationFilter}
                     />
                 </div>
-
-                {loading ? (
-                    <div className="flex justify-center py-12"><Spinner /></div>
-                ) : (
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                        {/* Table Header */}
-                        <div className="grid grid-cols-8 gap-4 px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                            <div className="col-span-1">Fecha/Hora</div>
-                            <div className="col-span-1">Tipo</div>
-                            <div className="col-span-1">Producto</div>
-                            <div className="col-span-1">Cantidad</div>
-                            <div className="col-span-1">De</div>
-                            <div className="col-span-1">A</div>
-                            <div className="col-span-1">Motivo</div>
-                            <div className="col-span-1">Usuario</div>
-                        </div>
-                        {/* Table Body */}
-                        <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                            {filteredMoves.map((move) => {
-                                const product = productsMap.get(move.productId);
-                                const user = usersMap.get(move.userId);
-                                return (
-                                    <div key={move.id} className="grid grid-cols-8 gap-4 px-6 py-4 items-center text-sm text-slate-800 dark:text-slate-200">
-                                        <div className="col-span-1 font-medium uppercase">{new Date(move.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</div>
-                                        <div className="col-span-1">{getTypePill(move.type)}</div>
-                                        <div className="col-span-1 font-semibold">{product?.name || 'N/A'}</div>
-                                        <div className={`col-span-1 font-bold ${move.qty > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {move.qty > 0 ? '+' : ''}{move.qty.toLocaleString()} {move.unit}
-                                        </div>
-                                        <div className="col-span-1">{locationsMap.get(move.fromLocationId || '') || '—'}</div>
-                                        <div className="col-span-1">{locationsMap.get(move.toLocationId || '') || '—'}</div>
-                                        <div className="col-span-1">{move.note || '—'}</div>
-                                        <div className="col-span-1">{user?.name || 'N/A'}</div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
             </div>
+
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <Table columns={columns} data={filteredMoves} />
+            </div>
+
             <NewMovementDrawer
                 isOpen={isDrawerOpen}
                 onClose={() => setIsDrawerOpen(false)}
@@ -266,7 +339,7 @@ const InventoryMovementsPage: React.FC = () => {
                 products={products || []}
                 locations={locations || []}
             />
-        </>
+        </div>
     );
 };
 

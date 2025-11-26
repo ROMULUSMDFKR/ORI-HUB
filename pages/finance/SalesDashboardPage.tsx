@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
@@ -331,10 +330,9 @@ const SalesDashboardPage: React.FC = () => {
     return (
         <div className="space-y-8 pb-12">
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-6">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-200">Panel de Ventas</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Visión general del rendimiento comercial y oportunidades.</p>
+                    <p className="text-slate-500 dark:text-slate-400">Visión general del rendimiento comercial y oportunidades.</p>
                 </div>
                 <div className="bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 flex">
                     {periodOptions.map(opt => (

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { Commission, CommissionStatus, SalesOrder, User } from '../../types';
@@ -142,7 +141,6 @@ const CommissionsPage: React.FC = () => {
         <div className="space-y-8 max-w-7xl mx-auto pb-12">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Comisiones</h1>
                 <p className="text-slate-500 dark:text-slate-400 mt-1">Gestiona los pagos de incentivos a tu equipo de ventas.</p>
             </div>
 

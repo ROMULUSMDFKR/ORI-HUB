@@ -107,7 +107,6 @@ const EmailAppearancePage: React.FC = () => {
         <div className="h-full flex flex-col space-y-6 max-w-7xl mx-auto">
             <div className="flex justify-between items-center flex-shrink-0">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Apariencia de Email</h2>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
                         Diseña y estandariza las firmas de correo para todo tu equipo.
                     </p>

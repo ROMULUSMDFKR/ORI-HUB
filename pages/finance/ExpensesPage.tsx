@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
@@ -101,9 +100,8 @@ const ExpensesPage: React.FC = () => {
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-12">
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-4">
                 <div>
-                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Gastos</h1>
                      <p className="text-slate-500 dark:text-slate-400 mt-1">Registro y control de egresos operativos.</p>
                 </div>
                 <Link to="/finance/expenses/new" className="bg-indigo-600 text-white font-semibold py-2.5 px-5 rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:bg-indigo-700 transition-colors">

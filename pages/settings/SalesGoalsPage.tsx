@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { User, SalesGoalSettings, ProductGoal, Product, Unit } from '../../types';
@@ -164,9 +163,8 @@ const SalesGoalsPage: React.FC = () => {
     return (
         <div className="space-y-8 max-w-6xl mx-auto pb-20">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Metas Comerciales</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">Define objetivos mensuales de venta por producto y asígnalos a tu equipo.</p>
                 </div>
                 <div className="flex gap-3">

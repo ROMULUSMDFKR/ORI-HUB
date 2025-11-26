@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { PIPELINE_COLUMNS, SAMPLES_PIPELINE_COLUMNS, QUOTES_PIPELINE_COLUMNS, SALES_ORDERS_PIPELINE_COLUMNS, COMPANIES_PIPELINE_COLUMNS } from '../../constants';
 
@@ -179,7 +178,6 @@ const PipelineManagement: React.FC = () => {
         <div className="space-y-8 max-w-4xl mx-auto">
             {/* Header */}
             <div>
-                <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Etapas de Venta</h2>
                 <p className="text-slate-500 dark:text-slate-400 mt-1">Personaliza los flujos de trabajo y define objetivos claros para cada paso del proceso comercial.</p>
             </div>
             

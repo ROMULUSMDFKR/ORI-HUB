@@ -7,6 +7,7 @@ import { useCollection } from '../hooks/useCollection';
 import DuplicateChecker from '../components/ui/DuplicateChecker';
 import { api } from '../api/firebaseApi';
 import { useToast } from '../hooks/useToast';
+import UserSelector from '../components/ui/UserSelector'; // Import UserSelector
 import { 
     COMMUNICATION_CHANNELS, 
     FORMALITY_OPTIONS, 
@@ -30,6 +31,7 @@ const initialClientState: Partial<Company> = {
     rfc: '',
     industry: '',
     ownerId: '',
+    additionalOwnerIds: [], // Initialize empty array
     createdById: '',
     stage: CompanyPipelineStage.Onboarding,
     priority: Priority.Media,
@@ -38,6 +40,14 @@ const initialClientState: Partial<Company> = {
     deliveryAddresses: [],
     fiscalAddress: { street: '', city: '', state: '', zip: '' },
     primaryContact: { 
+        id: '', 
+        name: '', 
+        email: '', 
+        phone: '', 
+        role: '', 
+        ownerId: '' 
+    } as Contact,
+    secondaryContact: { // Initialize secondary contact
         id: '', 
         name: '', 
         email: '', 
@@ -217,7 +227,6 @@ const NewClientPage: React.FC = () => {
     const { data: users } = useCollection<User>('users');
     
     // Helper to update deep nested state safely
-    // FIXED: Correctly returns object structure instead of just value at leaf
     const setNestedState = (obj: any, path: string[], value: any): any => {
         const [head, ...tail] = path;
         if (tail.length === 0) {
@@ -236,7 +245,6 @@ const NewClientPage: React.FC = () => {
                 if (field === 'name') setSearchTerm(value);
                 return { ...prev, [field]: value };
             }
-            // Use the recursive helper to update nested state properly
             const newState = setNestedState({ ...prev }, path, value);
             return newState;
         });
@@ -256,6 +264,17 @@ const NewClientPage: React.FC = () => {
     const handleRemoveDeliveryAddress = (index: number) => {
         const updatedAddresses = (client.deliveryAddresses || []).filter((_, i) => i !== index);
         setClient(prev => ({ ...prev, deliveryAddresses: updatedAddresses }));
+    };
+    
+    // Handlers for Additional Owners
+    const handleToggleAdditionalOwner = (userId: string) => {
+        setClient(prev => {
+            const currentOwners = prev.additionalOwnerIds || [];
+            const newOwners = currentOwners.includes(userId) 
+                ? currentOwners.filter(id => id !== userId) 
+                : [...currentOwners, userId];
+            return { ...prev, additionalOwnerIds: newOwners };
+        });
     };
 
     const openMap = (addr: Address) => {
@@ -280,17 +299,33 @@ const NewClientPage: React.FC = () => {
 
             const docRef = await api.addDoc('companies', newClientData);
 
-            // Automatically create the contact in the contacts collection
+            // 1. Create Primary Contact
             if (client.primaryContact && client.primaryContact.name) {
                 const contactData: Contact = {
-                    id: `contact-${Date.now()}`,
+                    id: `contact-${Date.now()}-1`,
                     name: client.primaryContact.name,
                     email: client.primaryContact.email || '',
                     phone: client.primaryContact.phone || '',
-                    role: client.primaryContact.role || 'Contacto Principal', // Default role if empty
+                    role: client.primaryContact.role || 'Contacto Principal', 
                     emails: client.primaryContact.email ? [client.primaryContact.email] : [],
                     phones: client.primaryContact.phone ? [client.primaryContact.phone] : [],
-                    companyId: docRef.id, // Link to the newly created company
+                    companyId: docRef.id,
+                    ownerId: newClientData.ownerId,
+                };
+                await api.addDoc('contacts', contactData);
+            }
+            
+            // 2. Create Secondary Contact
+            if (client.secondaryContact && client.secondaryContact.name) {
+                 const contactData: Contact = {
+                    id: `contact-${Date.now()}-2`,
+                    name: client.secondaryContact.name,
+                    email: client.secondaryContact.email || '',
+                    phone: client.secondaryContact.phone || '',
+                    role: client.secondaryContact.role || 'Contacto Secundario', 
+                    emails: client.secondaryContact.email ? [client.secondaryContact.email] : [],
+                    phones: client.secondaryContact.phone ? [client.secondaryContact.phone] : [],
+                    companyId: docRef.id,
                     ownerId: newClientData.ownerId,
                 };
                 await api.addDoc('contacts', contactData);
@@ -334,6 +369,15 @@ const NewClientPage: React.FC = () => {
                         />
                     </div>
                     
+                    <div>
+                         <UserSelector 
+                            label="Colaboradores (Responsables Adicionales)"
+                            users={users || []}
+                            selectedUserIds={client.additionalOwnerIds || []}
+                            onToggleUser={handleToggleAdditionalOwner}
+                        />
+                    </div>
+                    
                     <Select label="Prioridad" value={client.priority || ''} onChange={(val) => handleChange('priority', val)} options={['Alta', 'Media', 'Baja']} />
                     <Select label="Etapa del Cliente" value={client.stage || ''} onChange={(val) => handleChange('stage', val)} options={Object.values(CompanyPipelineStage)} />
                     <Input label="Sitio Web" value={client.website || ''} onChange={(val) => handleChange('website', val)} />
@@ -352,13 +396,25 @@ const NewClientPage: React.FC = () => {
                 </div>
             </FormBlock>
             
-            <FormBlock title="Contacto Principal">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Input label="Nombre" value={client.primaryContact?.name || ''} onChange={(val) => handleChange('primaryContact.name', val)} />
-                    <Input label="Email" value={client.primaryContact?.email || ''} onChange={(val) => handleChange('primaryContact.email', val)} type="email"/>
-                    <Input label="Teléfono" value={client.primaryContact?.phone || ''} onChange={(val) => handleChange('primaryContact.phone', val)} type="tel"/>
-                </div>
-            </FormBlock>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormBlock title="Contacto Principal">
+                    <div className="space-y-4">
+                        <Input label="Nombre" value={client.primaryContact?.name || ''} onChange={(val) => handleChange('primaryContact.name', val)} />
+                        <Input label="Email" value={client.primaryContact?.email || ''} onChange={(val) => handleChange('primaryContact.email', val)} type="email"/>
+                        <Input label="Teléfono" value={client.primaryContact?.phone || ''} onChange={(val) => handleChange('primaryContact.phone', val)} type="tel"/>
+                        <Input label="Puesto" value={client.primaryContact?.role || ''} onChange={(val) => handleChange('primaryContact.role', val)} />
+                    </div>
+                </FormBlock>
+
+                <FormBlock title="Contacto Secundario">
+                     <div className="space-y-4">
+                        <Input label="Nombre" value={client.secondaryContact?.name || ''} onChange={(val) => handleChange('secondaryContact.name', val)} />
+                        <Input label="Email" value={client.secondaryContact?.email || ''} onChange={(val) => handleChange('secondaryContact.email', val)} type="email"/>
+                        <Input label="Teléfono" value={client.secondaryContact?.phone || ''} onChange={(val) => handleChange('secondaryContact.phone', val)} type="tel"/>
+                        <Input label="Puesto" value={client.secondaryContact?.role || ''} onChange={(val) => handleChange('secondaryContact.role', val)} />
+                    </div>
+                </FormBlock>
+            </div>
         </div>
     );
     

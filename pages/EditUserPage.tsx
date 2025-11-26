@@ -51,6 +51,20 @@ const EditUserPage: React.FC = () => {
             return updated;
         });
     };
+
+    const handleDashboardToggle = (dashboardType: 'sales' | 'logistics' | 'finance' | 'admin') => {
+        setEditedUser(prev => {
+            if (!prev) return null;
+            const currentDashboards = prev.activeDashboards || [];
+            const isActive = currentDashboards.includes(dashboardType);
+            
+            const newDashboards = isActive 
+                ? currentDashboards.filter(d => d !== dashboardType)
+                : [...currentDashboards, dashboardType];
+            
+            return { ...prev, activeDashboards: newDashboards };
+        });
+    };
     
     const handleSave = async () => {
         if (!editedUser) return;
@@ -120,6 +134,35 @@ const EditUserPage: React.FC = () => {
                 <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700 mt-4">
                     <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usuario Activo</span>
                     <ToggleSwitch enabled={editedUser.isActive} onToggle={() => handleFieldChange('isActive', !editedUser.isActive)} />
+                </div>
+            </div>
+            
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">Personalización del Dashboard (Hoy)</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Selecciona qué módulos verá este usuario en su pantalla de inicio.</p>
+                
+                <div className="space-y-4">
+                     <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                        <div>
+                            <span className="font-medium text-slate-800 dark:text-slate-200 block">Dashboard de Ventas</span>
+                            <span className="text-xs text-slate-500">KPIs, Metas Mensuales, Oportunidades calientes.</span>
+                        </div>
+                        <ToggleSwitch enabled={editedUser.activeDashboards?.includes('sales') || false} onToggle={() => handleDashboardToggle('sales')} />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                        <div>
+                            <span className="font-medium text-slate-800 dark:text-slate-200 block">Dashboard de Logística</span>
+                            <span className="text-xs text-slate-500">Entregas activas, monitoreo de rutas.</span>
+                        </div>
+                        <ToggleSwitch enabled={editedUser.activeDashboards?.includes('logistics') || false} onToggle={() => handleDashboardToggle('logistics')} />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                        <div>
+                            <span className="font-medium text-slate-800 dark:text-slate-200 block">Dashboard Financiero</span>
+                            <span className="text-xs text-slate-500">Flujo de caja, cobros pendientes.</span>
+                        </div>
+                        <ToggleSwitch enabled={editedUser.activeDashboards?.includes('finance') || false} onToggle={() => handleDashboardToggle('finance')} />
+                    </div>
                 </div>
             </div>
             

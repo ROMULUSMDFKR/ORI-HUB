@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
@@ -255,10 +253,16 @@ const ClientDetailPage: React.FC = () => {
     const companySamples = useMemo(() => samples?.filter(s => s.companyId === id) || [], [samples, id]);
     const companySalesOrders = useMemo(() => salesOrders?.filter(so => so.companyId === id) || [], [salesOrders, id]);
     
-    // FIX: Added explicit type casting [string, User] to resolve Map constructor TypeScript error
-    const usersMap = useMemo(() => new Map<string, User>(users?.map(u => [u.id, u] as [string, User])), [users]);
+    // FIX: Explicit type for usersMap
+    const usersMap = useMemo(() => new Map<string, User>(users?.map(u => [u.id, u])), [users]);
 
     const owner = useMemo(() => usersMap.get(currentCompany?.ownerId || ''), [usersMap, currentCompany]);
+    
+    // Get additional owners
+    const additionalOwners = useMemo(() => {
+        if (!currentCompany?.additionalOwnerIds || !usersMap) return [];
+        return currentCompany.additionalOwnerIds.map(id => usersMap.get(id)).filter(Boolean) as User[];
+    }, [currentCompany, usersMap]);
 
     const handleNoteAdded = async (note: Note) => {
         try {
@@ -360,7 +364,6 @@ const ClientDetailPage: React.FC = () => {
         try {
             if (isEditingPrimary) {
                 // 1. Update Company Document - Primary Contact Embed
-                // FIX: Aseguro que `updatedPrimary` sea un objeto `Contact` completo para cumplir con la firma del tipo.
                 const updatedPrimary: Contact = {
                     // Empiezo con propiedades base para asegurar que todos los campos existan
                     ...(currentCompany.primaryContact || { id: `contact-${Date.now()}`, role: 'Contacto Principal' }),
@@ -539,6 +542,27 @@ const ClientDetailPage: React.FC = () => {
                                     <p className="text-sm text-slate-500 italic">No hay contacto principal asignado.</p>
                                 )}
                             </InfoCard>
+                            
+                            {currentCompany.secondaryContact && currentCompany.secondaryContact.name && (
+                                 <InfoCard title="Contacto Secundario">
+                                     <div className="space-y-2">
+                                        <InfoRow label="Nombre" value={currentCompany.secondaryContact.name} />
+                                        <InfoRow label="Cargo" value={currentCompany.secondaryContact.role} />
+                                        <div className="flex justify-between items-start py-2 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
+                                            <dt className="font-medium text-sm text-slate-500 dark:text-slate-400">Email</dt>
+                                            <dd className="text-right">
+                                                 {currentCompany.secondaryContact.email ? <a href={`mailto:${currentCompany.secondaryContact.email}`} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">{currentCompany.secondaryContact.email}</a> : '-'}
+                                            </dd>
+                                        </div>
+                                         <div className="flex justify-between items-start py-2 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
+                                            <dt className="font-medium text-sm text-slate-500 dark:text-slate-400">Teléfono</dt>
+                                            <dd className="text-right text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                                 {currentCompany.secondaryContact.phone || '-'}
+                                            </dd>
+                                        </div>
+                                     </div>
+                                 </InfoCard>
+                            )}
 
                             <InfoCard 
                                 title="Personas de Contacto"
@@ -575,6 +599,22 @@ const ClientDetailPage: React.FC = () => {
 
                             <InfoCard title="Información General">
                                 <InfoRow label="Responsable" value={owner?.name || 'N/A'} />
+                                
+                                {additionalOwners.length > 0 && (
+                                     <div className="grid grid-cols-3 gap-4 text-sm py-2 border-b border-slate-100 dark:border-slate-700">
+                                        <dt className="font-medium text-slate-500 dark:text-slate-400">Colaboradores</dt>
+                                        <dd className="col-span-2 text-right">
+                                            <div className="flex flex-wrap justify-end gap-1">
+                                                {additionalOwners.map(u => (
+                                                    <span key={u.id} className="text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full text-slate-700 dark:text-slate-300">
+                                                        {u.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </dd>
+                                    </div>
+                                )}
+                                
                                 <InfoRow label="RFC" value={currentCompany.rfc || 'N/A'} />
                                 <InfoRow label="Prioridad" value={<Badge text={currentCompany.priority} />} />
                                 <InfoRow label="Estado" value={<Badge text={currentCompany.isActive ? 'Activo' : 'Inactivo'} color={currentCompany.isActive ? 'green' : 'gray'} />} />

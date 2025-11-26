@@ -20,6 +20,23 @@ export interface User {
     country?: string;
     theme?: 'light' | 'dark';
     signature?: string;
+    // New: Controls which widgets appear on the "Today" dashboard
+    activeDashboards?: ('sales' | 'logistics' | 'finance' | 'admin')[]; 
+}
+
+export interface ProductGoal {
+    id: string; // Unique ID for the goal entry
+    productId: string;
+    productName?: string; // Fallback display
+    unit: string; // 'ton', 'kg', 'L', etc.
+    globalMonthlyTarget: number;
+    userTargets: Record<string, number>; // userId: targetAmount
+}
+
+export interface SalesGoalSettings {
+    id: string; // Usually 'salesGoals'
+    goals: ProductGoal[];
+    updatedAt: string;
 }
 
 export interface Role {
@@ -57,6 +74,7 @@ export interface Company {
     industry?: string;
     website?: string;
     ownerId: string;
+    additionalOwnerIds?: string[]; // Multiple responsible parties
     createdById: string;
     stage: CompanyPipelineStage;
     priority: Priority;
@@ -65,6 +83,7 @@ export interface Company {
     deliveryAddresses: Address[];
     fiscalAddress?: Address;
     primaryContact?: Contact;
+    secondaryContact?: Contact; // Secondary contact
     createdAt: string;
     healthScore?: { score: number; label: string };
     profile?: {
@@ -338,7 +357,6 @@ export interface Quote {
         subtotal: number;
         tax: number;
         grandTotal: number;
-        totalQuotedQty?: number;
     };
     notes?: string;
     changeLog: any[];

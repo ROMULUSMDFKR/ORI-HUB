@@ -3,6 +3,8 @@
 
 
 
+
+
 import { ProspectStage, SampleStatus, QuoteStatus, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role } from './types';
 
 export const NAV_LINKS = [
@@ -128,6 +130,7 @@ export const NAV_LINKS = [
     sublinks: [
       { name: 'Usuarios y Permisos', path: '/settings/users', icon: 'manage_accounts' },
       { name: 'Roles y Permisos', path: '/settings/roles', icon: 'admin_panel_settings' },
+      { name: 'Metas Comerciales', path: '/settings/sales-goals', icon: 'flag' },
       { name: 'Equipos', path: '/settings/teams', icon: 'groups' },
       { name: 'Mis Empresas', path: '/settings/internal-companies', icon: 'domain' },
       { name: 'Seguridad', path: '/settings/security', icon: 'security' },
@@ -406,6 +409,7 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
     'Configuración': {
         'Usuarios y Permisos': ['view', 'create', 'edit', 'delete'],
         'Roles y Permisos': ['view', 'create', 'edit', 'delete'],
+        'Metas Comerciales': ['view', 'create', 'edit', 'delete'],
         'Equipos': ['view', 'create', 'edit', 'delete'],
         'Mis Empresas': ['view', 'create', 'edit', 'delete'],
         'Seguridad': ['view', 'create', 'edit', 'delete'],

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Company, CompanyPipelineStage, ActivityLog, Note, User, Address } from '../types';
+import { Company, CompanyPipelineStage, ActivityLog, Note, User, Address, Contact } from '../types';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
 import Spinner from '../components/ui/Spinner';
@@ -10,7 +10,8 @@ import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
 import { api } from '../api/firebaseApi';
 import { useToast } from '../hooks/useToast';
-import { useAuth } from '../hooks/useAuth'; // Added import
+import { useAuth } from '../hooks/useAuth';
+import UserSelector from '../components/ui/UserSelector';
 
 type Tab = 'General' | 'Perfil' | 'Actividad' | 'Notas';
 
@@ -183,7 +184,7 @@ const EditClientPage: React.FC = () => {
     const { data: allActivities, loading: aLoading } = useCollection<ActivityLog>('activities');
     const { data: users, loading: uLoading } = useCollection<User>('users');
     const { showToast } = useToast();
-    const { user: currentUser } = useAuth(); // Use Auth Hook
+    const { user: currentUser } = useAuth(); 
 
     const [editedCompany, setEditedCompany] = useState<Company | null>(null);
     const [notes, setNotes] = useState<Note[]>([]);
@@ -194,8 +195,13 @@ const EditClientPage: React.FC = () => {
             // Initialize missing nested objects to prevent errors with controlled inputs
             const initializedCompany = {
                 ...initialCompany,
-                // FIX: Initialize primaryContact with all required properties for the Contact type.
-                primaryContact: initialCompany.primaryContact || { id: '', name: '', email: '', phone: '', role: 'Contacto Principal', ownerId: currentUser?.id || '' },
+                // Initialize primaryContact
+                primaryContact: initialCompany.primaryContact || { id: '', name: '', email: '', phone: '', role: 'Contacto Principal', ownerId: currentUser?.id || '' } as Contact,
+                // Initialize secondaryContact
+                secondaryContact: initialCompany.secondaryContact || { id: '', name: '', email: '', phone: '', role: 'Contacto Secundario', ownerId: currentUser?.id || '' } as Contact,
+                // Initialize additionalOwnerIds
+                additionalOwnerIds: initialCompany.additionalOwnerIds || [],
+                
                 deliveryAddresses: initialCompany.deliveryAddresses || [],
                 fiscalAddress: initialCompany.fiscalAddress || { street: '', city: '', state: '', zip: '' },
                 profile: {
@@ -264,7 +270,6 @@ const EditClientPage: React.FC = () => {
     }, [allActivities, id]);
 
     // Deep set helper to safely update nested properties and create intermediate objects if missing
-    // FIXED: Correctly returns object structure instead of just value at leaf
     const setNestedState = (obj: any, path: string[], value: any): any => {
         const [head, ...tail] = path;
         if (tail.length === 0) {
@@ -288,6 +293,17 @@ const EditClientPage: React.FC = () => {
             return newState;
         });
     }, []);
+
+    const handleToggleAdditionalOwner = (userId: string) => {
+        setEditedCompany(prev => {
+            if (!prev) return null;
+            const currentOwners = prev.additionalOwnerIds || [];
+            const newOwners = currentOwners.includes(userId) 
+                ? currentOwners.filter(id => id !== userId) 
+                : [...currentOwners, userId];
+            return { ...prev, additionalOwnerIds: newOwners };
+        });
+    };
 
     const handleAddDeliveryAddress = () => {
         if(!newDeliveryAddress.street || !newDeliveryAddress.city || !newDeliveryAddress.state) {
@@ -369,6 +385,15 @@ const EditClientPage: React.FC = () => {
     const primaryPhone = editedCompany.primaryContact?.phones && editedCompany.primaryContact.phones.length > 0 
         ? editedCompany.primaryContact.phones[0] 
         : editedCompany.primaryContact?.phone || '';
+        
+    // Secondary Contact details
+    const secondaryEmail = editedCompany.secondaryContact?.emails && editedCompany.secondaryContact.emails.length > 0
+        ? editedCompany.secondaryContact.emails[0]
+        : editedCompany.secondaryContact?.email || '';
+
+    const secondaryPhone = editedCompany.secondaryContact?.phones && editedCompany.secondaryContact.phones.length > 0
+        ? editedCompany.secondaryContact.phones[0]
+        : editedCompany.secondaryContact?.phone || '';
     
     const unitOptions = ['Tonelada', 'Litro', 'Unidad', 'Kilogramo'];
 
@@ -388,6 +413,16 @@ const EditClientPage: React.FC = () => {
                             onChange={(val) => handleChange('ownerId', val)} 
                         />
                     </div>
+                    
+                    <div>
+                        <UserSelector 
+                            label="Colaboradores (Responsables Adicionales)"
+                            users={users || []}
+                            selectedUserIds={editedCompany.additionalOwnerIds || []}
+                            onToggleUser={handleToggleAdditionalOwner}
+                        />
+                    </div>
+
                     <Select label="Prioridad" value={editedCompany.priority || ''} onChange={(val) => handleChange('priority', val)} options={['Alta', 'Media', 'Baja']} />
                     <Select label="Etapa del Cliente" value={editedCompany.stage || ''} onChange={(val) => handleChange('stage', val)} options={Object.values(CompanyPipelineStage)} />
                     <Input label="Sitio Web" value={editedCompany.website || ''} onChange={(val) => handleChange('website', val)} />
@@ -434,6 +469,37 @@ const EditClientPage: React.FC = () => {
                                 const newPhones = [...(editedCompany.primaryContact?.phones || [])];
                                 newPhones[0] = val;
                                 handleChange('primaryContact.phones', newPhones);
+                            }} 
+                            type="tel"
+                        />
+                    </div>
+                </FormBlock>
+
+                <FormBlock title="Contacto Secundario">
+                     <p className="text-xs text-slate-500 mb-4">
+                        Punto de contacto alternativo.
+                    </p>
+                    <div className="space-y-4">
+                        <Input label="Nombre" value={editedCompany.secondaryContact?.name || ''} onChange={(val) => handleChange('secondaryContact.name', val)} />
+                        <Input 
+                            label="Email" 
+                            value={secondaryEmail} 
+                            onChange={(val) => {
+                                handleChange('secondaryContact.email', val);
+                                const newEmails = [...(editedCompany.secondaryContact?.emails || [])];
+                                newEmails[0] = val;
+                                handleChange('secondaryContact.emails', newEmails);
+                            }} 
+                            type="email"
+                        />
+                        <Input 
+                            label="Teléfono" 
+                            value={secondaryPhone} 
+                            onChange={(val) => {
+                                handleChange('secondaryContact.phone', val);
+                                const newPhones = [...(editedCompany.secondaryContact?.phones || [])];
+                                newPhones[0] = val;
+                                handleChange('secondaryContact.phones', newPhones);
                             }} 
                             type="tel"
                         />

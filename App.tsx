@@ -149,6 +149,7 @@ const AiAccessSettingsPage = lazy(() => import('./pages/settings/AiAccessSetting
 const RoleManagementPage = lazy(() => import('./pages/settings/RoleManagementPage'));
 const EditRolePage = lazy(() => import('./pages/settings/EditRolePage'));
 const InternalCompaniesSettings = lazy(() => import('./pages/settings/InternalCompaniesSettings'));
+const SalesGoalsPage = lazy(() => import('./pages/settings/SalesGoalsPage'));
 
 // Auth & Onboarding
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -359,6 +360,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/settings/users/:id/edit" element={<EditUserPage />} />
                             <Route path="/settings/roles" element={<RoleManagementPage />} />
                             <Route path="/settings/roles/:id/edit" element={<EditRolePage />} />
+                            <Route path="/settings/sales-goals" element={<SalesGoalsPage />} />
                             <Route path="/settings/teams" element={<TeamManagementPage />} />
                             <Route path="/settings/internal-companies" element={<InternalCompaniesSettings />} />
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />

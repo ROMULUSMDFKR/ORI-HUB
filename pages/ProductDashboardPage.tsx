@@ -1,5 +1,3 @@
-
-
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -8,15 +6,23 @@ import Spinner from '../components/ui/Spinner';
 
 // --- Reusable UI Components ---
 
-const KpiCard: React.FC<{ title: string; value: string | number; icon: string; link?: string; }> = ({ title, value, icon, link }) => {
+const KpiCard: React.FC<{ title: string; value: string | number; icon: string; link?: string; color: string }> = ({ title, value, icon, link, color }) => {
+  const colorClasses = {
+      indigo: "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
+      emerald: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+      amber: "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+      rose: "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400",
+      blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+  }[color] || "bg-slate-100 text-slate-600";
+
   const content = (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 h-full flex flex-col justify-between">
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 h-full flex items-center gap-4 hover:shadow-md transition-all">
+      <div className={`flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center ${colorClasses}`}>
+        <span className="material-symbols-outlined text-2xl">{icon}</span>
+      </div>
       <div>
-        <div className="flex justify-between items-start">
-          <h3 className="text-base font-semibold text-slate-500 dark:text-slate-400">{title}</h3>
-          <span className="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-500">{icon}</span>
-        </div>
-        <p className="text-4xl font-bold mt-2 text-slate-800 dark:text-slate-200">{value}</p>
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</p>
+        <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-0.5">{value}</p>
       </div>
     </div>
   );
@@ -30,8 +36,11 @@ const ChartCard: React.FC<{ title: string; data: { label: string; value: number 
   const colors = ['bg-indigo-500', 'bg-sky-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500'];
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-md border border-slate-200 dark:border-slate-700">
-      <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+      <h3 className="font-bold text-lg mb-6 text-slate-800 dark:text-slate-200 flex items-center gap-2">
+          <span className="material-symbols-outlined text-indigo-500">bar_chart</span>
+          {title}
+      </h3>
       <div className="space-y-4">
         {data.map((item, index) => (
           <div key={item.label} className="group">
@@ -39,9 +48,9 @@ const ChartCard: React.FC<{ title: string; data: { label: string; value: number 
               <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{item.label}</span>
               <span className="text-sm font-bold text-slate-800 dark:text-slate-200">${(item.value || 0).toLocaleString()}</span>
             </div>
-            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+            <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
               <div
-                className={`${colors[index % colors.length]} h-2.5 rounded-full`}
+                className={`${colors[index % colors.length]} h-2.5 rounded-full transition-all duration-1000 ease-out`}
                 style={{ width: `${maxValue > 0 ? (item.value / maxValue) * 100 : 0}%` }}
               ></div>
             </div>
@@ -52,25 +61,37 @@ const ChartCard: React.FC<{ title: string; data: { label: string; value: number 
   );
 };
 
-const ProductListCard: React.FC<{ title: string; products: Product[]; linkTo: string; emptyMessage: string; }> = ({ title, products, linkTo, emptyMessage }) => (
-  <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 h-full flex flex-col">
-    <div className="flex justify-between items-center mb-4">
-      <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200">{title}</h3>
-      <Link to={linkTo} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">Ver todo</Link>
+const ProductListCard: React.FC<{ title: string; products: Product[]; linkTo: string; emptyMessage: string; icon: string }> = ({ title, products, linkTo, emptyMessage, icon }) => (
+  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 h-full flex flex-col">
+    <div className="flex justify-between items-center mb-6">
+      <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 flex items-center gap-2">
+          <span className="material-symbols-outlined text-indigo-500">{icon}</span>
+          {title}
+      </h3>
+      <Link to={linkTo} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+          Ver todo <span className="material-symbols-outlined text-sm">arrow_forward</span>
+      </Link>
     </div>
     <ul className="space-y-3 flex-1">
       {products.length > 0 ? products.map(product => (
         <li key={product.id}>
-          <Link to={`/products/${product.id}`} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50">
-            <div>
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{product.name}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{product.sku}</p>
+          <Link to={`/products/${product.id}`} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/30 hover:bg-white dark:hover:bg-slate-700 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-500 transition-all group shadow-sm">
+            <div className="flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-600 flex items-center justify-center border border-slate-200 dark:border-slate-500 text-xs font-bold text-slate-500 dark:text-slate-300">
+                     {product.sku.substring(0, 2)}
+                 </div>
+                 <div>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{product.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">{product.sku}</p>
+                </div>
             </div>
-            <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+            <span className="material-symbols-outlined text-slate-300 group-hover:text-indigo-400 transition-colors">chevron_right</span>
           </Link>
         </li>
       )) : (
-        <li className="text-center text-sm text-slate-500 dark:text-slate-400 py-8">{emptyMessage}</li>
+        <li className="text-center text-sm text-slate-500 dark:text-slate-400 py-8 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-600">
+            {emptyMessage}
+        </li>
       )}
     </ul>
   </div>
@@ -158,7 +179,8 @@ const ProductDashboardPage: React.FC = () => {
         
         return Object.entries(sales)
             .map(([catId, value]) => ({ label: categoryMap.get(catId) || 'Sin Categoría', value }))
-            .sort((a, b) => b.value - a.value);
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5);
     }, [products, categories, salesOrders]);
     
     const lowStockList = useMemo(() => {
@@ -182,24 +204,34 @@ const ProductDashboardPage: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8 pb-12">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Panel de Productos</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Resumen de catálogo, inventario y rendimiento.</p>
+                </div>
+                 <Link to="/products/new" className="bg-indigo-600 text-white font-semibold py-2.5 px-5 rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:bg-indigo-700 transition-colors">
+                    <span className="material-symbols-outlined">add_circle</span>
+                    Nuevo Producto
+                </Link>
+            </div>
             
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <KpiCard title="Total de Productos" value={kpiData.total} icon="inventory_2" link="/products/list" />
-                <KpiCard title="Productos Activos" value={`${kpiData.active} / ${kpiData.total}`} icon="toggle_on" link="/products/list" />
-                <KpiCard title="Productos con Bajo Stock" value={kpiData.lowStock} icon="warning" link="/inventory/alerts" />
-                <KpiCard title="Top Ventas (Mes)" value={kpiData.topSeller.name} icon="star" />
+                <KpiCard title="Total de Productos" value={kpiData.total} icon="inventory_2" link="/products/list" color="indigo" />
+                <KpiCard title="Productos Activos" value={`${kpiData.active}`} icon="toggle_on" link="/products/list" color="emerald" />
+                <KpiCard title="Bajo Stock" value={kpiData.lowStock} icon="warning" link="/inventory/alerts" color="amber" />
+                <KpiCard title="Top Ventas" value={kpiData.topSeller.name} icon="star" color="rose" />
             </div>
 
             {/* Main Content */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
-                    <ChartCard title="Ventas por Categoría" data={salesByCategory} />
+                    <ChartCard title="Ventas por Categoría (Mes)" data={salesByCategory} />
                 </div>
-                <div className="space-y-6">
-                    <ProductListCard title="Productos con Bajo Stock" products={lowStockList} linkTo="/inventory/alerts" emptyMessage="¡Todo el stock está en orden!" />
-                    <ProductListCard title="Productos Recientemente Añadidos" products={recentProducts} linkTo="/products/list" emptyMessage="No hay productos nuevos." />
+                <div className="space-y-8">
+                    <ProductListCard title="Alertas de Stock" products={lowStockList} linkTo="/inventory/alerts" emptyMessage="¡Todo en orden!" icon="notifications_active" />
+                    <ProductListCard title="Nuevos Productos" products={recentProducts} linkTo="/products/list" emptyMessage="No hay productos recientes." icon="new_releases" />
                 </div>
             </div>
         </div>

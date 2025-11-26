@@ -9,6 +9,7 @@ import Spinner from '../components/ui/Spinner';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
+import FilterButton from '../components/ui/FilterButton';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/firebaseApi';
 import { useToast } from '../hooks/useToast';
@@ -19,34 +20,35 @@ const PipelineColumn: React.FC<{
   items: Company[];
 }> = ({ stage, objective, items }) => {
   return (
-    <div className="flex-shrink-0 w-80 bg-slate-200/60 dark:bg-black/10 rounded-xl p-3 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-2 px-1 group relative">
+    <div className="flex-shrink-0 w-80 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 h-full flex flex-col overflow-hidden">
+      <div className="p-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center group">
         <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-md text-slate-800 dark:text-slate-200">{stage}</h3>
+             <div className={`w-2 h-2 rounded-full ${items.length > 0 ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'}`}></div>
+            <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wide">{stage}</h3>
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-700 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-600 shadow-sm">
                 {items.length}
             </span>
         </div>
 
-        {/* Info Icon with Tooltip */}
         <div className="relative">
-            <span className="material-symbols-outlined text-slate-400 hover:text-indigo-500 cursor-help text-lg">info</span>
-            <div className="absolute top-full right-0 mt-2 w-72 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Objetivo de la Etapa</p>
+            <span className="material-symbols-outlined text-slate-400 hover:text-indigo-600 cursor-help text-lg">info</span>
+            <div className="absolute top-full right-0 mt-2 w-72 p-4 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Objetivo</p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{objective}</p>
             </div>
         </div>
       </div>
 
-      <div className="h-full overflow-y-auto pr-1 custom-scrollbar flex-1" style={{maxHeight: 'calc(100vh - 220px)'}}>
+      <div className="h-full overflow-y-auto p-2 custom-scrollbar flex-1 space-y-3" style={{maxHeight: 'calc(100vh - 240px)'}}>
         {items.map(item => (
             <div key={item.id} data-id={item.id}>
                 <CompanyCard item={item} onDragStart={() => {}} />
             </div>
         ))}
         {items.length === 0 && (
-            <div className="h-32 flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg m-1">
-                <p className="text-xs text-slate-400 dark:text-slate-600 font-medium">Sin empresas</p>
+            <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg m-1">
+                <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-3xl mb-2">domain_disabled</span>
+                <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Sin empresas</p>
             </div>
         )}
       </div>
@@ -65,6 +67,10 @@ const CompaniesPipelinePage: React.FC = () => {
   const [activities, setActivities] = useState<ActivityLog[] | null>(null);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
   
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [industryFilter, setIndustryFilter] = useState('all');
+
   const loading = cLoading || aLoading || uLoading;
   const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
 
@@ -80,13 +86,22 @@ const CompaniesPipelinePage: React.FC = () => {
     }
   }, [activitiesData]);
 
+  const filteredCompanies = useMemo(() => {
+      if (!companies) return [];
+      return companies.filter(c => {
+          const matchSearch = (c.name?.toLowerCase().includes(searchTerm.toLowerCase()) || c.shortName?.toLowerCase().includes(searchTerm.toLowerCase()));
+          const matchIndustry = industryFilter === 'all' || c.industry === industryFilter;
+          return matchSearch && matchIndustry;
+      });
+  }, [companies, searchTerm, industryFilter]);
+
   const pipelineActivities = useMemo(() => {
-    if(!companies || !activities) return [];
-    const companyIds = new Set(companies.map(c => c.id));
+    if(!filteredCompanies || !activities) return [];
+    const companyIds = new Set(filteredCompanies.map(c => c.id));
     return activities
       .filter(a => a.companyId && companyIds.has(a.companyId))
       .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [companies, activities]);
+  }, [filteredCompanies, activities]);
 
   const groupedColumns = useMemo(() => {
     return COMPANIES_PIPELINE_COLUMNS.reduce((acc, column) => {
@@ -148,6 +163,12 @@ const CompaniesPipelinePage: React.FC = () => {
     { id: 'history', name: 'Historial', icon: 'history' },
   ];
   
+  const industryOptions = useMemo(() => {
+      if (!companies) return [];
+      const industries = new Set(companies.map(c => c.industry).filter(Boolean) as string[]);
+      return Array.from(industries).map(i => ({ value: i, label: i }));
+  }, [companies]);
+
   const renderContent = () => {
     if (loading || !companies) {
       return <div className="flex justify-center items-center h-full"><Spinner /></div>;
@@ -156,16 +177,16 @@ const CompaniesPipelinePage: React.FC = () => {
     switch(view) {
         case 'pipeline':
             return (
-                 <div className="flex-1 flex gap-8 overflow-x-auto pb-4" onDragStart={handleDragStart}>
+                 <div className="flex-1 flex gap-6 overflow-x-auto pb-4 pt-2" onDragStart={handleDragStart}>
                     {Object.keys(groupedColumns).map((groupName) => (
                       <div key={groupName} className="flex flex-col h-full">
-                        <div className="px-3 pb-3 flex items-center gap-2">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{groupName}</h3>
+                         <div className="px-1 pb-3 flex items-center gap-2 mb-1">
+                             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{groupName}</span>
                             <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
                         </div>
                         <div className="flex gap-4 h-full">
                             {groupedColumns[groupName].map(col => {
-                              const stageItems = companies.filter(p => p.stage === col.stage);
+                              const stageItems = filteredCompanies.filter(p => p.stage === col.stage);
                               return (
                                 <div key={col.stage} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, col.stage)} className="h-full">
                                   <PipelineColumn stage={col.stage} objective={col.objective} items={stageItems} />
@@ -179,11 +200,27 @@ const CompaniesPipelinePage: React.FC = () => {
             );
         case 'list':
             const columns = [
-                { header: 'Nombre', accessor: (c: Company) => <Link to={`/crm/clients/${c.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{c.shortName || c.name}</Link> },
+                { 
+                    header: 'Nombre', 
+                    accessor: (c: Company) => (
+                        <div className="flex items-center gap-3">
+                             {/* App Icon Pattern */}
+                             <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 flex items-center justify-center font-bold text-xs border border-slate-200 dark:border-slate-600">
+                                {(c.shortName || c.name).substring(0, 2).toUpperCase()}
+                             </div>
+                             <Link to={`/crm/clients/${c.id}`} className="font-medium text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400">{c.shortName || c.name}</Link>
+                        </div>
+                    )
+                },
                 { header: 'Etapa', accessor: (c: Company) => <Badge text={c.stage} /> },
+                { header: 'Industria', accessor: (c: Company) => <span className="text-sm text-slate-600 dark:text-slate-400">{c.industry || '-'}</span> },
                 { header: 'Responsable', accessor: (c: Company) => usersMap.get(c.ownerId)?.name || 'N/A' },
             ];
-            return <Table columns={columns} data={companies} />;
+            return (
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <Table columns={columns} data={filteredCompanies} />
+                </div>
+            );
         case 'history':
              if (pipelineActivities.length === 0) {
                  return (
@@ -194,24 +231,23 @@ const CompaniesPipelinePage: React.FC = () => {
                  );
              }
              return (
-                <ul className="space-y-4">
+                <ul className="space-y-4 max-w-4xl mx-auto">
                     {pipelineActivities.map(activity => {
                         const user = usersMap.get(activity.userId);
                         const company = companies.find(c => c.id === activity.companyId);
                         
-                        const userName = user?.name || 'Usuario Desconocido';
-                        const userAvatar = user?.avatarUrl || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
-                        const companyName = company?.shortName || company?.name || 'Empresa Desconocida';
-                        const companyLink = company ? `/crm/clients/${company.id}` : '#';
-
                         return (
-                            <li key={activity.id} className="flex items-start gap-3 text-sm p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                                <div><img src={userAvatar} alt={userName} className="w-8 h-8 rounded-full" /></div>
+                            <li key={activity.id} className="flex items-start gap-4 p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm">
+                                <img src={user?.avatarUrl} alt={user?.name} className="w-10 h-10 rounded-full object-cover" />
                                 <div className="flex-1">
-                                    <p className="text-slate-800 dark:text-slate-200">{activity.description}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                        {userName} en <Link to={companyLink} className="font-semibold hover:underline">{companyName}</Link> &bull; {new Date(activity.createdAt).toLocaleString()}
-                                    </p>
+                                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{activity.description}</p>
+                                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        <span className="font-semibold">{user?.name || 'Sistema'}</span>
+                                        <span>&bull;</span>
+                                        <Link to={`/crm/clients/${company?.id}`} className="hover:text-indigo-600 hover:underline">{company?.shortName || company?.name || 'Empresa eliminada'}</Link>
+                                        <span>&bull;</span>
+                                        <span>{new Date(activity.createdAt).toLocaleString()}</span>
+                                    </div>
                                 </div>
                             </li>
                         )
@@ -223,18 +259,52 @@ const CompaniesPipelinePage: React.FC = () => {
 
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-            <ViewSwitcher views={pipelineViews} activeView={view} onViewChange={(v) => setView(v as 'pipeline' | 'list' | 'history')} />
+    <div className="h-full flex flex-col space-y-6">
+         {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0">
+            <div>
+                <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Cartera de Empresas</h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestión de clientes activos y cuentas clave.</p>
+            </div>
+            <div className="flex items-center gap-3">
+                <ViewSwitcher views={pipelineViews} activeView={view} onViewChange={(v) => setView(v as 'pipeline' | 'list' | 'history')} />
+                <Link 
+                    to="/crm/clients/new"
+                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 shadow-sm hover:bg-indigo-700 transition-colors"
+                >
+                    <span className="material-symbols-outlined text-lg">add_business</span>
+                    Nueva
+                </Link>
+            </div>
         </div>
-        <Link 
-          to="/crm/clients/new"
-          className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-          <span className="material-symbols-outlined mr-2">add</span>
-          Nueva Empresa
-        </Link>
-      </div>
+
+         {/* Toolbar */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0">
+            {/* Input Safe Pattern */}
+            <div className="relative w-full lg:w-80">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined h-5 w-5 text-gray-400">search</span>
+                </div>
+                <input
+                    type="text"
+                    placeholder="Buscar empresa..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm"
+                />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                <FilterButton 
+                    label="Industria" 
+                    options={industryOptions} 
+                    selectedValue={industryFilter} 
+                    onSelect={setIndustryFilter} 
+                    allLabel="Todas"
+                />
+            </div>
+        </div>
+
       {renderContent()}
     </div>
   );

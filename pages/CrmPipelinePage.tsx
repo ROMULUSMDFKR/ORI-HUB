@@ -1,13 +1,15 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { PIPELINE_COLUMNS } from '../constants';
-import { Prospect, ProspectStage, ActivityLog, User } from '../types';
+import { Prospect, ProspectStage, ActivityLog, User, Priority } from '../types';
 import ProspectCard from '../components/crm/ProspectCard';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
 import Table from '../components/ui/Table';
 import Badge from '../components/ui/Badge';
 import Spinner from '../components/ui/Spinner';
+import FilterButton from '../components/ui/FilterButton';
 import { useToast } from '../hooks/useToast';
 import { api } from '../api/firebaseApi';
 import { useAuth } from '../hooks/useAuth';
@@ -20,10 +22,11 @@ const PipelineColumn: React.FC<{
   const totalValue = prospects.reduce((sum, p) => sum + p.estValue, 0);
 
   return (
-    <div className="flex-shrink-0 w-80 bg-slate-200/60 dark:bg-black/10 rounded-xl p-3 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-2 px-1 group relative">
+    <div className="flex-shrink-0 w-80 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 h-full flex flex-col overflow-hidden">
+      <div className="p-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center group">
         <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-md text-slate-800 dark:text-slate-200">{stage}</h3>
+            <div className={`w-2 h-2 rounded-full ${prospects.length > 0 ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}`}></div>
+            <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wide">{stage}</h3>
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-700 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-600 shadow-sm">
                 {prospects.length}
             </span>
@@ -32,26 +35,27 @@ const PipelineColumn: React.FC<{
         {/* Info Icon with Tooltip */}
         <div className="relative">
             <span className="material-symbols-outlined text-slate-400 hover:text-indigo-500 cursor-help text-lg">info</span>
-            <div className="absolute top-full right-0 mt-2 w-72 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Objetivo de la Etapa</p>
+            <div className="absolute top-full right-0 mt-2 w-72 p-4 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Objetivo</p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{objective}</p>
-                <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                    <span className="text-xs text-slate-500">Valor Total</span>
-                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">${totalValue.toLocaleString('en-US')}</span>
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                    <span className="text-xs text-slate-500">Valor Total en Etapa</span>
+                    <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">${totalValue.toLocaleString('en-US')}</span>
                 </div>
             </div>
         </div>
       </div>
       
-      <div className="h-full overflow-y-auto pr-1 custom-scrollbar flex-1" style={{maxHeight: 'calc(100vh - 220px)'}}>
+      <div className="h-full overflow-y-auto p-2 custom-scrollbar flex-1 space-y-3" style={{maxHeight: 'calc(100vh - 240px)'}}>
         {prospects.map(prospect => (
           <div key={prospect.id} data-id={prospect.id}>
              <ProspectCard prospect={prospect} onDragStart={() => {}} onArchive={() => {}} />
           </div>
         ))}
         {prospects.length === 0 && (
-            <div className="h-32 flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg m-1">
-                <p className="text-xs text-slate-400 dark:text-slate-600 font-medium">Sin prospectos</p>
+            <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg m-1">
+                <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-3xl mb-2">filter_none</span>
+                <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Sin prospectos</p>
             </div>
         )}
       </div>
@@ -69,6 +73,11 @@ const CrmPipelinePage: React.FC = () => {
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [view, setView] = useState<'pipeline' | 'list' | 'history'>('pipeline');
+  
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
 
   useEffect(() => {
     if (prospectsData) {
@@ -84,6 +93,22 @@ const CrmPipelinePage: React.FC = () => {
 
   const loading = prospectsLoading || usersLoading || activitiesLoading;
 
+  const usersMap = useMemo(() => {
+      if (!users) return new Map<string, User>();
+      return new Map<string, User>(users.map(u => [u.id, u] as [string, User]));
+  }, [users]);
+
+  // Filter Data Logic
+  const filteredProspects = useMemo(() => {
+      if (!prospects) return [];
+      return prospects.filter(p => {
+          const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchOwner = ownerFilter === 'all' || p.ownerId === ownerFilter;
+          const matchPriority = priorityFilter === 'all' || p.priority === priorityFilter;
+          return matchSearch && matchOwner && matchPriority;
+      });
+  }, [prospects, searchTerm, ownerFilter, priorityFilter]);
+
   const groupedColumns = useMemo(() => {
     return PIPELINE_COLUMNS.reduce((acc, column) => {
       const group = column.group;
@@ -95,17 +120,12 @@ const CrmPipelinePage: React.FC = () => {
   
   const pipelineActivities = useMemo(() => {
     if (!activities) return [];
-    const prospectIds = new Set(prospects.map(p => p.id));
+    const prospectIds = new Set(filteredProspects.map(p => p.id));
     return activities
       .filter(a => a.prospectId && prospectIds.has(a.prospectId))
       .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [prospects, activities]);
+  }, [filteredProspects, activities]);
   
-  const usersMap = useMemo(() => {
-      if (!users) return new Map<string, User>();
-      return new Map<string, User>(users.map(u => [u.id, u] as [string, User]));
-  }, [users]);
-
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
     const cardElement = target.closest('[data-id]');
@@ -166,22 +186,25 @@ const CrmPipelinePage: React.FC = () => {
     { id: 'history', name: 'Historial', icon: 'history' },
   ];
 
+  const userOptions = useMemo(() => (users || []).map(u => ({ value: u.id, label: u.name })), [users]);
+  const priorityOptions = Object.values(Priority).map(p => ({ value: p, label: p }));
+
   const renderContent = () => {
     if (loading) return <div className="flex-1 flex items-center justify-center"><Spinner /></div>;
 
     switch(view) {
         case 'pipeline':
             return (
-                 <div className="flex-1 flex gap-8 overflow-x-auto pb-4" onDragStart={handleDragStart}>
+                 <div className="flex-1 flex gap-6 overflow-x-auto pb-4 pt-2" onDragStart={handleDragStart}>
                     {Object.keys(groupedColumns).map((groupName) => (
                       <div key={groupName} className="flex flex-col h-full">
-                        <div className="px-3 pb-3 flex items-center gap-2">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{groupName}</h3>
+                        <div className="px-1 pb-3 flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{groupName}</span>
                             <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
                         </div>
                         <div className="flex gap-4 h-full">
                             {groupedColumns[groupName].map(col => {
-                                const stageProspects = prospects.filter(p => p.stage === col.stage);
+                                const stageProspects = filteredProspects.filter(p => p.stage === col.stage);
                                 return (
                                     <div key={col.stage} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, col.stage)} className="h-full">
                                         <PipelineColumn stage={col.stage} objective={col.objective} prospects={stageProspects} />
@@ -195,28 +218,58 @@ const CrmPipelinePage: React.FC = () => {
             );
         case 'list':
             const columns = [
-                { header: 'Nombre', accessor: (p: Prospect) => <Link to={`/hubs/prospects/${p.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{p.name}</Link> },
+                { 
+                    header: 'Nombre', 
+                    accessor: (p: Prospect) => (
+                        <div className="flex items-center gap-3">
+                             <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">
+                                {p.name.substring(0, 2).toUpperCase()}
+                             </div>
+                             <Link to={`/hubs/prospects/${p.id}`} className="font-medium text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400">{p.name}</Link>
+                        </div>
+                    )
+                },
                 { header: 'Etapa', accessor: (p: Prospect) => <Badge text={p.stage} color="blue" />},
-                { header: 'Valor Est.', accessor: (p: Prospect) => `$${p.estValue.toLocaleString()}`},
-                { header: 'Responsable', accessor: (p: Prospect) => usersMap.get(p.ownerId)?.name || 'N/A' },
+                { header: 'Prioridad', accessor: (p: Prospect) => <Badge text={p.priority} />},
+                { header: 'Valor Est.', accessor: (p: Prospect) => <span className="font-mono font-semibold">${p.estValue.toLocaleString()}</span>, className: 'text-right'},
+                { 
+                    header: 'Responsable', 
+                    accessor: (p: Prospect) => {
+                        const u = usersMap.get(p.ownerId);
+                        return (
+                            <div className="flex items-center gap-2">
+                                {u && <img src={u.avatarUrl} className="w-5 h-5 rounded-full" alt="" />}
+                                <span>{u?.name || 'N/A'}</span>
+                            </div>
+                        );
+                    }
+                },
                 { header: 'Creación', accessor: (p: Prospect) => new Date(p.createdAt).toLocaleDateString()},
             ];
-            return <Table columns={columns} data={prospects} />;
+            return (
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <Table columns={columns} data={filteredProspects} />
+                </div>
+            );
         case 'history':
             return (
-                <ul className="space-y-4">
+                <ul className="space-y-4 max-w-4xl mx-auto">
                     {pipelineActivities.map(activity => {
                         const user = usersMap.get(activity.userId);
                         const prospect = prospects.find(p => p.id === activity.prospectId);
                         if (!user || !prospect) return null;
                         return (
-                            <li key={activity.id} className="flex items-start gap-3 text-sm p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                                <div><img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full" /></div>
+                            <li key={activity.id} className="flex items-start gap-4 p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm">
+                                <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full object-cover" />
                                 <div className="flex-1">
-                                    <p className="text-slate-800 dark:text-slate-200">{activity.description}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                        {user.name} en <Link to={`/hubs/prospects/${prospect?.id}`} className="font-semibold hover:underline">{prospect?.name}</Link> &bull; {new Date(activity.createdAt).toLocaleString()}
-                                    </p>
+                                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{activity.description}</p>
+                                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        <span className="font-semibold">{user.name}</span>
+                                        <span>&bull;</span>
+                                        <Link to={`/hubs/prospects/${prospect?.id}`} className="hover:text-indigo-600 hover:underline">{prospect?.name}</Link>
+                                        <span>&bull;</span>
+                                        <span>{new Date(activity.createdAt).toLocaleString()}</span>
+                                    </div>
                                 </div>
                             </li>
                         )
@@ -228,18 +281,59 @@ const CrmPipelinePage: React.FC = () => {
 
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-            <ViewSwitcher views={pipelineViews} activeView={view} onViewChange={(v) => setView(v as 'pipeline' | 'list' | 'history')} />
+    <div className="h-full flex flex-col space-y-6">
+        {/* Header & Actions */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0">
+            <div>
+                <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Pipeline de Prospectos</h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona tus oportunidades de venta y seguimiento.</p>
+            </div>
+            <div className="flex items-center gap-3">
+                <ViewSwitcher views={pipelineViews} activeView={view} onViewChange={(v) => setView(v as 'pipeline' | 'list' | 'history')} />
+                <Link 
+                    to="/hubs/prospects/new"
+                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 shadow-sm hover:bg-indigo-700 transition-colors"
+                >
+                    <span className="material-symbols-outlined text-lg">add</span>
+                    Nuevo
+                </Link>
+            </div>
         </div>
-        <Link 
-          to="/hubs/prospects/new"
-          className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-          <span className="material-symbols-outlined mr-2">add</span>
-          Nuevo Prospecto
-        </Link>
-      </div>
+
+        {/* Toolbar: Search & Filters */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0">
+            {/* Input Safe Pattern */}
+            <div className="relative w-full lg:w-80">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined h-5 w-5 text-gray-400">search</span>
+                </div>
+                <input
+                    type="text"
+                    placeholder="Buscar prospecto..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm"
+                />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                <FilterButton 
+                    label="Responsable" 
+                    options={userOptions} 
+                    selectedValue={ownerFilter} 
+                    onSelect={setOwnerFilter} 
+                    allLabel="Todos"
+                />
+                <FilterButton 
+                    label="Prioridad" 
+                    options={priorityOptions} 
+                    selectedValue={priorityFilter} 
+                    onSelect={setPriorityFilter} 
+                    allLabel="Todas"
+                />
+            </div>
+        </div>
+      
       {renderContent()}
     </div>
   );

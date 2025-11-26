@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -10,6 +9,7 @@ import Badge from '../components/ui/Badge';
 import { api } from '../api/firebaseApi';
 import AddLotDrawer from '../components/products/AddLotDrawer';
 import { useToast } from '../hooks/useToast';
+import FilterButton from '../components/ui/FilterButton';
 
 const ActionsMenu: React.FC<{ product: Product, onDelete: (product: Product) => void, onAddLot: (product: Product) => void }> = ({ product, onDelete, onAddLot }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -35,28 +35,28 @@ const ActionsMenu: React.FC<{ product: Product, onDelete: (product: Product) => 
         <div className="relative" ref={menuRef}>
             <button 
                 onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }} 
-                className={`p-2 rounded-full transition-colors ${isOpen ? 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                className={`p-2 rounded-lg transition-colors ${isOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
             >
-                <span className="material-symbols-outlined">more_vert</span>
+                <span className="material-symbols-outlined text-xl">more_vert</span>
             </button>
             {isOpen && (
-                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg z-20 border border-slate-200 dark:border-slate-700 transform origin-top-right">
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl z-20 border border-slate-200 dark:border-slate-700 transform origin-top-right overflow-hidden">
                     <ul className="py-1">
                         <li>
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onAddLot(product); setIsOpen(false); }} 
-                                className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                className="w-full text-left flex items-center px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                             >
-                                <span className="material-symbols-outlined mr-3 text-base">add_box</span>
+                                <span className="material-symbols-outlined mr-3 text-lg text-slate-400">add_box</span>
                                 Añadir Lote
                             </button>
                         </li>
                         <li>
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onDelete(product); setIsOpen(false); }} 
-                                className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                className="w-full text-left flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                             >
-                                <span className="material-symbols-outlined mr-3 text-base">delete</span>
+                                <span className="material-symbols-outlined mr-3 text-lg text-red-500">delete</span>
                                 Eliminar
                             </button>
                         </li>
@@ -77,6 +77,9 @@ const ProductsListPage: React.FC = () => {
 
     const [products, setProducts] = useState<Product[] | null>(null);
     const [filter, setFilter] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
+
     const navigate = useNavigate();
 
     const [isAddLotDrawerOpen, setIsAddLotDrawerOpen] = useState(false);
@@ -95,11 +98,14 @@ const ProductsListPage: React.FC = () => {
 
     const filteredProducts = useMemo(() => {
         if (!products) return [];
-        return products.filter(product =>
-            product.name.toLowerCase().includes(filter.toLowerCase()) ||
-            product.sku.toLowerCase().includes(filter.toLowerCase())
-        );
-    }, [products, filter]);
+        return products.filter(product => {
+            const matchesSearch = product.name.toLowerCase().includes(filter.toLowerCase()) || product.sku.toLowerCase().includes(filter.toLowerCase());
+            const matchesCategory = categoryFilter === 'all' || product.categoryId === categoryFilter;
+            const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? product.isActive : !product.isActive);
+            
+            return matchesSearch && matchesCategory && matchesStatus;
+        });
+    }, [products, filter, categoryFilter, statusFilter]);
     
     const handleOpenAddLot = (product: Product) => {
         setProductForLot(product);
@@ -136,7 +142,6 @@ const ProductsListPage: React.FC = () => {
     const handleDeleteProduct = async (product: Product) => {
         try {
             const productLots = await api.getLotsForProduct(product.id);
-            // Safe check for lot.stock using optional chaining
             const hasStock = productLots.some(lot => lot.stock?.some((s: { qty: number; }) => s.qty > 0));
             
             if (hasStock) {
@@ -156,36 +161,53 @@ const ProductsListPage: React.FC = () => {
     };
 
     const columns = [
-        { header: 'SKU', accessor: (p: Product) => <span className="font-mono text-xs">{p.sku}</span> },
         {
-            header: 'Nombre',
-            accessor: (p: Product) => (
-                <Link to={`/products/${p.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
-                    {p.name}
-                </Link>
-            )
+             header: 'Nombre',
+             accessor: (p: Product) => (
+                 <div className="flex items-center gap-3">
+                     {/* App Icon Pattern */}
+                     <div className="flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                         <span className="material-symbols-outlined text-xl">inventory_2</span>
+                     </div>
+                     <div>
+                         <Link to={`/products/${p.id}`} className="font-bold text-slate-800 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                             {p.name}
+                         </Link>
+                         <p className="text-xs text-slate-500 font-mono mt-0.5">{p.sku}</p>
+                     </div>
+                 </div>
+             )
         },
         { header: 'Categoría', accessor: (p: Product) => categoriesMap.get(p.categoryId) || 'N/A' },
-        { header: 'Unidad', accessor: (p: Product) => p.unitDefault },
+        { header: 'Unidad', accessor: (p: Product) => <span className="text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md text-xs font-medium">{p.unitDefault}</span> },
         { 
             header: 'Precio Mín.', 
-            accessor: (p: Product) => `$${p.pricing.min.toFixed(2)}`,
+            accessor: (p: Product) => <span className="font-semibold text-slate-700 dark:text-slate-300">${p.pricing.min.toFixed(2)}</span>,
             className: 'text-right' 
         },
         { 
             header: 'Estado', 
-            accessor: (p: Product) => (
-                p.isActive ? <Badge text="Activo" color="green" /> : <Badge text="Inactivo" color="red" />
-            )
+            accessor: (p: Product) => <Badge text={p.isActive ? 'Activo' : 'Inactivo'} color={p.isActive ? 'green' : 'gray'} />
         },
         {
             header: 'Acciones',
-            accessor: (p: Product) => <div className="flex justify-center"><ActionsMenu product={p} onDelete={handleDeleteProduct} onAddLot={handleOpenAddLot} /></div>,
-            className: 'text-center'
+            accessor: (p: Product) => <div className="flex justify-end"><ActionsMenu product={p} onDelete={handleDeleteProduct} onAddLot={handleOpenAddLot} /></div>,
+            className: 'text-right'
         }
     ];
     
     const loading = productsLoading || categoriesLoading || suppliersLoading || locationsLoading;
+
+    const categoryOptions = useMemo(() => [
+        { value: 'all', label: 'Todas' },
+        ...(categories || []).map(c => ({ value: c.id, label: c.name }))
+    ], [categories]);
+
+    const statusOptions = [
+        { value: 'all', label: 'Todos' },
+        { value: 'active', label: 'Activos' },
+        { value: 'inactive', label: 'Inactivos' },
+    ];
 
     const renderContent = () => {
         if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
@@ -196,43 +218,66 @@ const ProductsListPage: React.FC = () => {
                     <EmptyState
                         icon="inventory_2"
                         title="No se encontraron productos"
-                        message="Comienza creando tu primer producto para gestionar tu catálogo."
+                        message="Intenta ajustar los filtros o crea tu primer producto para gestionar tu catálogo."
                         actionText="Crear Producto"
                         onAction={() => navigate('/products/new')}
                     />
                 </div>
             );
         }
-        return <Table columns={columns} data={filteredProducts} />;
+        return <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden"><Table columns={columns} data={filteredProducts} /></div>;
     };
 
     return (
-        <>
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
-                <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center w-80 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus-within:ring-1 focus-within:ring-indigo-500">
-                        <span className="material-symbols-outlined px-3 text-slate-500 dark:text-slate-400 pointer-events-none">
-                            search
-                        </span>
-                        <input
-                            id="product-search"
-                            type="text"
-                            placeholder="Buscar por nombre o SKU..."
-                            value={filter}
-                            onChange={e => setFilter(e.target.value)}
-                            className="w-full bg-transparent pr-4 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none search-input-field"
-                        />
-                    </div>
-                    <Link 
+        <div className="space-y-8 pb-12">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Catálogo de Productos</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Administra tu inventario, precios y detalles de productos.</p>
+                </div>
+                 <Link 
                     to="/products/new"
-                    className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-                        <span className="material-symbols-outlined mr-2">add</span>
-                        Nuevo Producto
-                    </Link>
+                    className="bg-indigo-600 text-white font-semibold py-2.5 px-5 rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:bg-indigo-700 transition-colors"
+                >
+                    <span className="material-symbols-outlined">add_circle</span>
+                    Nuevo Producto
+                </Link>
+            </div>
+            
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 justify-between items-center">
+                {/* Input Safe Pattern */}
+                <div className="relative w-full lg:w-96">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="material-symbols-outlined h-5 w-5 text-gray-400">search</span>
+                    </div>
+                    <input
+                        id="product-search"
+                        type="text"
+                        placeholder="Buscar por nombre o SKU..."
+                        value={filter}
+                        onChange={e => setFilter(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm transition-shadow focus:shadow-md outline-none"
+                    />
                 </div>
                 
-                {renderContent()}
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                    <FilterButton 
+                        label="Categoría" 
+                        options={categoryOptions} 
+                        selectedValue={categoryFilter} 
+                        onSelect={setCategoryFilter} 
+                    />
+                     <FilterButton 
+                        label="Estado" 
+                        options={statusOptions} 
+                        selectedValue={statusFilter} 
+                        onSelect={setStatusFilter} 
+                    />
+                </div>
             </div>
+                
+            {renderContent()}
+            
             <AddLotDrawer 
                 isOpen={isAddLotDrawerOpen}
                 onClose={() => setIsAddLotDrawerOpen(false)}
@@ -241,7 +286,7 @@ const ProductsListPage: React.FC = () => {
                 locations={locations || []}
                 productSku={productForLot?.sku}
             />
-        </>
+        </div>
     );
 };
 

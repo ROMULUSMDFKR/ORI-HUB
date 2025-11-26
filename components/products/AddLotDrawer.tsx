@@ -54,39 +54,69 @@ const AddLotDrawer: React.FC<AddLotDrawerProps> = ({ isOpen, onClose, onSave, su
     const supplierOptions = (suppliers || []).map(s => ({ value: s.id, name: s.name }));
     const locationOptions = (locations || []).map(l => ({ value: l.id, name: l.name }));
 
+    // Input Safe Pattern classes
+    const inputWrapperClass = "relative";
+    const inputIconClass = "absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none";
+    const inputFieldClass = "block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 shadow-sm";
+
     return (
         <Drawer isOpen={isOpen} onClose={onClose} title="Añadir Nuevo Lote">
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Código de Lote</label>
-                    <input type="text" value={lot.code} onChange={e => handleChange('code', e.target.value)} />
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Código de Lote</label>
+                    <div className={inputWrapperClass}>
+                        <div className={inputIconClass}>
+                            <span className="material-symbols-outlined h-5 w-5 text-gray-400">qr_code</span>
+                        </div>
+                        <input type="text" value={lot.code} onChange={e => handleChange('code', e.target.value)} className={inputFieldClass} />
+                    </div>
                 </div>
                 <CustomSelect label="Proveedor" options={supplierOptions} value={lot.supplierId} onChange={val => handleChange('supplierId', val)} placeholder="Seleccionar..."/>
                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fecha de Recepción</label>
-                    <input type="date" value={lot.receptionDate} onChange={e => handleChange('receptionDate', e.target.value)} />
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha de Recepción</label>
+                    <div className={inputWrapperClass}>
+                        <div className={inputIconClass}>
+                            <span className="material-symbols-outlined h-5 w-5 text-gray-400">event</span>
+                        </div>
+                        <input type="date" value={lot.receptionDate} onChange={e => handleChange('receptionDate', e.target.value)} className={inputFieldClass} />
+                    </div>
                 </div>
                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Cantidad Recibida</label>
-                        <input type="number" value={lot.initialQty} onChange={e => handleChange('initialQty', parseFloat(e.target.value) || 0)} />
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Cantidad</label>
+                         <div className={inputWrapperClass}>
+                            <div className={inputIconClass}>
+                                <span className="material-symbols-outlined h-5 w-5 text-gray-400">numbers</span>
+                            </div>
+                            <input type="number" value={lot.initialQty} onChange={e => handleChange('initialQty', parseFloat(e.target.value) || 0)} className={inputFieldClass} />
+                        </div>
                     </div>
                      <CustomSelect label="Ubicación Inicial" options={locationOptions} value={lot.initialLocationId} onChange={val => handleChange('initialLocationId', val)} placeholder="Seleccionar..."/>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Costo Unitario</label>
-                        <input type="number" value={lot.unitCost} onChange={e => handleChange('unitCost', parseFloat(e.target.value) || 0)} />
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Costo Unitario</label>
+                        <div className={inputWrapperClass}>
+                            <div className={inputIconClass}>
+                                <span className="material-symbols-outlined h-5 w-5 text-gray-400">attach_money</span>
+                            </div>
+                            <input type="number" value={lot.unitCost} onChange={e => handleChange('unitCost', parseFloat(e.target.value) || 0)} className={inputFieldClass} />
+                        </div>
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Precio Venta Mín.</label>
-                        <input type="number" value={lot.minSellPrice} onChange={e => handleChange('minSellPrice', parseFloat(e.target.value) || 0)} />
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Precio Venta Mín.</label>
+                         <div className={inputWrapperClass}>
+                            <div className={inputIconClass}>
+                                <span className="material-symbols-outlined h-5 w-5 text-gray-400">sell</span>
+                            </div>
+                            <input type="number" value={lot.minSellPrice} onChange={e => handleChange('minSellPrice', parseFloat(e.target.value) || 0)} className={inputFieldClass} />
+                        </div>
                     </div>
                 </div>
             </div>
              <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
-                <button onClick={onClose} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm">Cancelar</button>
-                <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Guardar Lote</button>
+                <button onClick={onClose} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">Cancelar</button>
+                <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors">Guardar Lote</button>
             </div>
         </Drawer>
     );

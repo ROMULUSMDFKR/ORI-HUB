@@ -1,5 +1,3 @@
-
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import { Category, Product } from '../types';
@@ -21,35 +19,35 @@ const ConfirmationDialog: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" onClick={onClose} role="dialog" aria-modal="true">
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl m-4 max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl m-4 max-w-md w-full overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="p-6">
-                    <div className="sm:flex sm:items-start">
-                        <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/50 sm:mx-0 sm:h-10 sm:w-10">
-                            <span className="material-symbols-outlined text-red-600 dark:text-red-400">warning</span>
+                    <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                            <span className="material-symbols-outlined text-2xl">warning</span>
                         </div>
-                        <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                            <h3 className="text-lg leading-6 font-medium text-slate-900 dark:text-slate-100" id="modal-title">
+                        <div className="flex-1">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white" id="modal-title">
                                 {title}
                             </h3>
                             <div className="mt-2">
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                                     {message}
                                 </p>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse rounded-b-lg">
+                <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-4 flex flex-row-reverse gap-3 border-t border-slate-100 dark:border-slate-700">
                     <button
                         type="button"
-                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                        className="inline-flex justify-center rounded-xl border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm transition-colors"
                         onClick={onConfirm}
                     >
                         Eliminar
                     </button>
                     <button
                         type="button"
-                        className="mt-3 w-full inline-flex justify-center rounded-md border border-slate-300 dark:border-slate-600 shadow-sm px-4 py-2 bg-white dark:bg-slate-700 text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+                        className="inline-flex justify-center rounded-xl border border-slate-300 dark:border-slate-600 shadow-sm px-4 py-2 bg-white dark:bg-slate-700 text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm transition-colors"
                         onClick={onClose}
                     >
                         Cancelar
@@ -71,6 +69,9 @@ const ProductCategoriesPage: React.FC = () => {
     const [hasAttemptedSeed, setHasAttemptedSeed] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+    
+    // Search state
+    const [searchTerm, setSearchTerm] = useState('');
 
 
     useEffect(() => {
@@ -136,6 +137,15 @@ const ProductCategoriesPage: React.FC = () => {
         if (!categories) return new Map();
         return new Map(categories.map(c => [c.id, c.name]));
     }, [categories]);
+    
+    const filteredCategories = useMemo(() => {
+        if (!categories) return [];
+        if (!searchTerm) return categories;
+        return categories.filter(c => 
+            c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.code.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [categories, searchTerm]);
 
     const handleSaveCategory = async (categoryData: Partial<Category>) => {
         try {
@@ -193,24 +203,30 @@ const ProductCategoriesPage: React.FC = () => {
         {
             header: 'Nombre',
             accessor: (c: Category) => (
-                <div>
-                    <p className="font-medium text-slate-800 dark:text-slate-200">{c.name}</p>
-                    {c.description && <p className="text-xs text-slate-500 truncate max-w-xs">{c.description}</p>}
+                <div className="flex items-center gap-3">
+                     {/* App Icon Pattern */}
+                     <div className="flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800">
+                         <span className="material-symbols-outlined text-xl">category</span>
+                     </div>
+                    <div>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">{c.name}</p>
+                        {c.description && <p className="text-xs text-slate-500 truncate max-w-xs mt-0.5">{c.description}</p>}
+                    </div>
                 </div>
             )
         },
         {
             header: 'Código',
-            accessor: (c: Category) => <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">{c.code || '-'}</span>
+            accessor: (c: Category) => <span className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-2 py-1 rounded border border-slate-200 dark:border-slate-600">{c.code || '-'}</span>
         },
         {
             header: 'Categoría Padre',
-            accessor: (c: Category) => c.parentId ? <span className="text-sm text-indigo-600 dark:text-indigo-400">{categoriesMap.get(c.parentId)}</span> : <span className="text-xs text-slate-400">Raíz</span>
+            accessor: (c: Category) => c.parentId ? <span className="text-sm text-indigo-600 dark:text-indigo-400 font-medium">{categoriesMap.get(c.parentId)}</span> : <span className="text-xs text-slate-400 uppercase font-bold tracking-wider">Raíz</span>
         },
         {
             header: '# Prod.',
             accessor: (c: Category) => (
-                <span className="text-center block font-semibold">{productCounts.get(c.id) || 0}</span>
+                <span className="text-center block font-semibold text-slate-700 dark:text-slate-300">{productCounts.get(c.id) || 0}</span>
             ),
             className: 'text-center'
         },
@@ -221,12 +237,16 @@ const ProductCategoriesPage: React.FC = () => {
         {
             header: 'Acciones',
             accessor: (c: Category) => (
-                <div className="flex space-x-2 justify-center">
-                    <button onClick={() => openEdit(c)} className="text-gray-500 hover:text-indigo-600 p-1 rounded-full"><span className="material-symbols-outlined text-base">edit</span></button>
-                    <button onClick={() => handleDeleteCategory(c)} className="text-gray-500 hover:text-red-600 p-1 rounded-full"><span className="material-symbols-outlined text-base">delete</span></button>
+                <div className="flex space-x-2 justify-end">
+                    <button onClick={() => openEdit(c)} className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors" title="Editar">
+                        <span className="material-symbols-outlined text-lg">edit_square</span>
+                    </button>
+                    <button onClick={() => handleDeleteCategory(c)} className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Eliminar">
+                        <span className="material-symbols-outlined text-lg">delete</span>
+                    </button>
                 </div>
             ),
-            className: 'text-center'
+            className: 'text-right'
         },
     ];
     
@@ -246,24 +266,39 @@ const ProductCategoriesPage: React.FC = () => {
                 </div>
             );
         }
-        return <Table columns={columns} data={categories} />;
+        return <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden"><Table columns={columns} data={filteredCategories} /></div>;
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="space-y-8 pb-12">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Categorías de Productos</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Organiza tu catálogo con jerarquías y códigos.</p>
+                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Categorías de Productos</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Organiza tu catálogo con jerarquías y códigos para facilitar la gestión.</p>
                 </div>
-                <div className="flex gap-2">
-                    <button 
-                        onClick={openNew}
-                        className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
-                        <span className="material-symbols-outlined mr-2">add</span>
-                        Nueva Categoría
-                    </button>
+            </div>
+            
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4">
+                 {/* Input Safe Pattern */}
+                 <div className="relative w-full sm:w-96">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="material-symbols-outlined h-5 w-5 text-gray-400">search</span>
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Buscar categorías..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm"
+                    />
                 </div>
+                <button 
+                    onClick={openNew}
+                    className="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-2.5 px-5 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:bg-indigo-700 transition-colors gap-2"
+                >
+                    <span className="material-symbols-outlined">add_circle</span>
+                    Nueva Categoría
+                </button>
             </div>
 
             {renderContent()}

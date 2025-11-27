@@ -56,6 +56,62 @@ const PipelineColumn: React.FC<{
   );
 };
 
+// --- KPI Widget for Companies ---
+const CompaniesKPIs: React.FC<{ companies: Company[] }> = ({ companies }) => {
+    const activeClients = companies.filter(c => c.stage === CompanyPipelineStage.ClienteActivo || c.stage === CompanyPipelineStage.AlianzaEstrategica).length;
+    const onboarding = companies.filter(c => c.stage === CompanyPipelineStage.Onboarding).length;
+    const atRisk = companies.filter(c => c.stage === CompanyPipelineStage.EnRiesgo).length;
+    
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const newThisMonth = companies.filter(c => {
+        const d = new Date(c.createdAt);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    }).length;
+
+    return (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                    <span className="material-symbols-outlined text-2xl">storefront</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Cartera Activa</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{activeClients}</p>
+                </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                 <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    <span className="material-symbols-outlined text-2xl">rocket_launch</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Onboarding</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{onboarding}</p>
+                </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                 <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                    <span className="material-symbols-outlined text-2xl">warning</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">En Riesgo</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{atRisk}</p>
+                </div>
+            </div>
+             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    <span className="material-symbols-outlined text-2xl">person_add</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Nuevos (Mes)</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{newThisMonth}</p>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 const CompaniesPipelinePage: React.FC = () => {
   const { data: initialCompanies, loading: cLoading } = useCollection<Company>('companies');
   const { data: activitiesData, loading: aLoading } = useCollection<ActivityLog>('activities');
@@ -277,6 +333,9 @@ const CompaniesPipelinePage: React.FC = () => {
                 </Link>
             </div>
         </div>
+
+         {/* KPI Mini-Dashboard */}
+         <CompaniesKPIs companies={filteredCompanies} />
 
          {/* Toolbar */}
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0">

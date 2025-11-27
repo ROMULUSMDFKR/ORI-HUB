@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -214,35 +215,34 @@ const CandidatesPage: React.FC = () => {
         { 
             header: 'Nombre', 
             accessor: (c: Candidate) => (
-                <div className="max-w-[200px] truncate" title={c.name}>
-                    <Link to={`/prospecting/candidates/${c.id}`} onClick={e => e.stopPropagation()} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
-                        {c.name}
-                    </Link>
+                <div className="flex items-center gap-3">
+                    {/* App Icon Pattern */}
+                     <div className="flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                        <span className="material-symbols-outlined text-xl">person</span>
+                    </div>
+                    <div className="max-w-[200px] truncate" title={c.name}>
+                        <Link to={`/prospecting/candidates/${c.id}`} onClick={e => e.stopPropagation()} className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                            {c.name}
+                        </Link>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{c.city || 'Sin ciudad'}</p>
+                    </div>
                 </div>
             )
         },
         { 
-            header: 'Término de Búsqueda', 
+            header: 'Categoría', 
             accessor: (c: Candidate) => (
                 <span className="text-sm text-slate-700 dark:text-slate-300">
                     {c.rawCategories?.[0] ? <Badge text={c.rawCategories[0]} color="gray" /> : '-'}
                 </span>
             )
         },
-        { 
-            header: 'Ciudad', 
-            accessor: (c: Candidate) => <span className="text-sm text-slate-500 dark:text-slate-400">{c.city || '-'}</span>
-        },
-        { 
-            header: 'Estado', 
-            accessor: (c: Candidate) => <span className="text-sm text-slate-500 dark:text-slate-400">{c.state || '-'}</span>
-        },
         {
-            header: 'Perfilado Para',
+            header: 'Perfilado',
             accessor: (c: Candidate) => c.assignedCompanyId ? <Badge text={c.assignedCompanyId} color="blue" /> : <span className="text-sm text-slate-500 dark:text-slate-400">-</span>
         },
         {
-            header: 'Puntuación',
+            header: 'Score',
             accessor: (c: Candidate) => {
                 const score = calculateProfileScore(c);
                 let color: 'green' | 'yellow' | 'red' = 'green';
@@ -253,10 +253,6 @@ const CandidatesPage: React.FC = () => {
             className: 'text-center'
         },
         { header: 'Estado', accessor: (c: Candidate) => <Badge text={c.status} color={getStatusColor(c.status)} /> },
-        { 
-            header: 'Fecha Creación', 
-            accessor: (c: Candidate) => <span className="text-sm text-slate-500 dark:text-slate-400">{new Date(c.importedAt).toLocaleDateString('es-ES')}</span> 
-        },
     ];
 
     const statusOptions = Object.values(CandidateStatus).map(s => ({ value: s, label: s }));
@@ -269,26 +265,26 @@ const CandidatesPage: React.FC = () => {
     ];
     
     return (
-        <div className="space-y-6 h-full flex flex-col">
+        <div className="space-y-6 h-full flex flex-col pb-12">
             <div className="flex justify-between items-center flex-shrink-0">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Candidatos de Prospección</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona, califica y convierte datos crudos en prospectos de valor.</p>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Candidatos</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestiona y califica los prospectos importados.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <Link to="/prospecting/upload" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center shadow-sm hover:opacity-90 transition-colors">
                         <span className="material-symbols-outlined mr-2">upload</span>
-                        Importar / Buscar Candidatos
+                        Importar
                     </Link>
                 </div>
             </div>
             
             {/* Import History Banner */}
             {importHistoryFilter && (
-                <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 p-3 rounded-lg flex justify-between items-center flex-shrink-0">
+                <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 p-3 rounded-xl flex justify-between items-center flex-shrink-0">
                     <div className="flex items-center gap-2 text-indigo-800 dark:text-indigo-200">
                         <span className="material-symbols-outlined">filter_list</span>
-                        <span className="text-sm font-medium">Estás viendo los resultados de una importación específica ({filteredData.length} registros).</span>
+                        <span className="text-sm font-medium">Filtrado por lote de importación: {filteredData.length} resultados.</span>
                     </div>
                     <button 
                         onClick={() => setImportHistoryFilter(null)} 
@@ -300,29 +296,23 @@ const CandidatesPage: React.FC = () => {
                 </div>
             )}
 
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-wrap items-center gap-4 border border-slate-200 dark:border-slate-700 flex-shrink-0">
-                <FilterButton label="Estatus" options={statusOptions} selectedValue={statusFilter} onSelect={setStatusFilter} />
-                <FilterButton label="Etiqueta" options={tagOptions} selectedValue={tagFilter} onSelect={setTagFilter} />
-                <FilterButton label="Compañía" options={companyOptions} selectedValue={companyFilter} onSelect={setCompanyFilter} allLabel="Cualquiera" />
-                <FilterButton label="Estado" options={stateOptions} selectedValue={stateFilter} onSelect={val => { setStateFilter(val); setCityFilter('all'); }} />
-                <FilterButton label="Ciudad" options={cityOptions} selectedValue={cityFilter} onSelect={setCityFilter} disabled={stateFilter === 'all'} />
-                <FilterButton label="Puntuación" options={scoreOptions} selectedValue={scoreFilter} onSelect={setScoreFilter} />
-                
-                {/* Search Term Input with Autocomplete */}
-                <div className="relative">
-                    <div className="flex items-center bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 w-64 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition-all">
-                        <span className="material-symbols-outlined text-slate-400 text-xl mr-2">search</span>
-                        <input
-                            type="text"
-                            value={tagInput}
-                            onChange={(e) => { setTagInput(e.target.value); setShowSuggestions(true); }}
-                            onFocus={() => setShowSuggestions(true)}
-                            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                            onKeyDown={handleTagInputKeyDown}
-                            placeholder="Buscar..."
-                            className="bg-transparent outline-none text-sm text-slate-800 dark:text-slate-200 w-full placeholder-slate-500 dark:placeholder-slate-400"
-                        />
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm flex flex-col lg:flex-row items-start lg:items-center gap-4 border border-slate-200 dark:border-slate-700 flex-shrink-0">
+                 {/* Input Safe Pattern for Search */}
+                <div className="relative w-full lg:w-80">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="material-symbols-outlined h-5 w-5 text-gray-400">search</span>
                     </div>
+                    <input
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => { setTagInput(e.target.value); setShowSuggestions(true); }}
+                        onFocus={() => setShowSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                        onKeyDown={handleTagInputKeyDown}
+                        placeholder="Buscar por nombre, tag..."
+                        className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm"
+                    />
+                    {/* Autocomplete Dropdown */}
                     {showSuggestions && suggestions.length > 0 && (
                         <ul className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                             {suggestions.map(suggestion => (
@@ -338,8 +328,8 @@ const CandidatesPage: React.FC = () => {
                     )}
                 </div>
 
-                {/* Active Search Tags */}
-                <div className="flex flex-wrap gap-2 items-center flex-1">
+                 {/* Active Search Tags */}
+                 <div className="flex flex-wrap gap-2 items-center flex-1">
                     {searchTags.map((tag, index) => (
                         <span key={index} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-medium border border-indigo-200 dark:border-indigo-800">
                             {tag}
@@ -349,9 +339,17 @@ const CandidatesPage: React.FC = () => {
                         </span>
                     ))}
                 </div>
+
+                <div className="flex flex-wrap gap-2">
+                    <FilterButton label="Estatus" options={statusOptions} selectedValue={statusFilter} onSelect={setStatusFilter} />
+                    <FilterButton label="Etiqueta" options={tagOptions} selectedValue={tagFilter} onSelect={setTagFilter} />
+                    <FilterButton label="Compañía" options={companyOptions} selectedValue={companyFilter} onSelect={setCompanyFilter} allLabel="Cualquiera" />
+                    <FilterButton label="Estado" options={stateOptions} selectedValue={stateFilter} onSelect={val => { setStateFilter(val); setCityFilter('all'); }} />
+                    <FilterButton label="Puntuación" options={scoreOptions} selectedValue={scoreFilter} onSelect={setScoreFilter} />
+                </div>
             </div>
             
-            <div className="flex-1 min-h-0 relative bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="flex-1 min-h-0 relative bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
                 {loading ? (
                     <div className="flex justify-center items-center h-full"><Spinner /></div>
                 ) : error ? (

@@ -56,6 +56,58 @@ const PipelineColumn: React.FC<{
   );
 };
 
+// --- KPI Widget for Samples ---
+const SamplesKPIs: React.FC<{ samples: Sample[] }> = ({ samples }) => {
+    const activeSamples = samples.filter(s => s.status !== SampleStatus.Archivada && s.status !== SampleStatus.Cerrada && s.status !== SampleStatus.Aprobada);
+    const pendingFeedback = samples.filter(s => s.status === SampleStatus.ConFeedback || s.status === SampleStatus.Recibida).length;
+    
+    const approvedCount = samples.filter(s => s.status === SampleStatus.Aprobada).length;
+    const rejectedCount = samples.filter(s => s.status === SampleStatus.Cerrada).length; // Assuming 'Cerrada' as rejected/failed for this metric
+    const totalClosed = approvedCount + rejectedCount;
+    const approvalRate = totalClosed > 0 ? (approvedCount / totalClosed) * 100 : 0;
+
+    return (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+                    <span className="material-symbols-outlined text-2xl">science</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Muestras Activas</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{activeSamples.length}</p>
+                </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                 <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                    <span className="material-symbols-outlined text-2xl">rate_review</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Esperando Feedback</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{pendingFeedback}</p>
+                </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    <span className="material-symbols-outlined text-2xl">local_shipping</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">En Tránsito</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{samples.filter(s => s.status === SampleStatus.Enviada).length}</p>
+                </div>
+            </div>
+             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    <span className="material-symbols-outlined text-2xl">check_circle</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Tasa Aprobación</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{approvalRate.toFixed(0)}%</p>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 const SamplesPipelinePage: React.FC = () => {
   const { data: samplesData, loading: sLoading } = useCollection<Sample>('samples');
   const { data: activitiesData, loading: aLoading } = useCollection<ActivityLog>('activities');
@@ -244,8 +296,8 @@ const SamplesPipelinePage: React.FC = () => {
                     accessor: (s: Sample) => (
                         <div className="flex items-center gap-3">
                              {/* App Icon Pattern */}
-                             <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 flex items-center justify-center font-bold text-xs">
-                                <span className="material-symbols-outlined !text-sm">science</span>
+                             <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 flex items-center justify-center font-bold text-xs">
+                                <span className="material-symbols-outlined !text-xl">science</span>
                              </div>
                              <Link to={`/hubs/samples/${s.id}`} className="font-medium text-slate-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400">{s.name}</Link>
                         </div>
@@ -315,6 +367,9 @@ const SamplesPipelinePage: React.FC = () => {
             </Link>
         </div>
       </div>
+      
+      {/* KPI Mini-Dashboard */}
+      <SamplesKPIs samples={filteredSamples} />
 
       {/* Toolbar */}
       <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0">

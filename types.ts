@@ -451,19 +451,48 @@ export enum SampleStatus {
     Aprobada = 'Aprobada'
 }
 
+export interface PurchasePayment {
+    id: string;
+    amount: number;
+    date: string;
+    method: string; // Transferencia, Cheque, Efectivo
+    reference?: string; // Comprobante, # Transferencia
+    notes?: string;
+    registeredBy: string;
+}
+
 export interface PurchaseOrder {
     id: string;
     supplierId: string;
+    issuingCompanyId?: string; // Added: Internal Company making the purchase
     responsibleId: string;
+    approverId?: string; 
     expectedDeliveryDate: string;
     notes?: string;
+    quoteAttachment?: Attachment;
+    invoiceAttachment?: Attachment;
     items: PurchaseOrderItem[];
-    status: 'Borrador' | 'Enviada' | 'Confirmada' | 'Recibida Parcial' | 'Recibida Completa' | 'Cancelada';
+    status: PurchaseOrderStatus;
     createdAt: string;
     subtotal: number;
     tax: number;
     total: number;
     paidAmount: number;
+    payments?: PurchasePayment[]; // Added: List of partial payments
+}
+
+// New comprehensive enum for Purchase Pipeline
+export enum PurchaseOrderStatus {
+    Borrador = 'Borrador',
+    PorAprobar = 'Por Aprobar',
+    Ordenada = 'Ordenada', // Sent to supplier
+    PagoPendiente = 'Pago Pendiente',
+    PagoParcial = 'Pago Parcial',
+    Pagada = 'Pagada',
+    EnTransito = 'En Tránsito',
+    Recibida = 'Recibida',
+    Facturada = 'Facturada', // Final step
+    Cancelada = 'Cancelada'
 }
 
 export interface PurchaseOrderItem {

@@ -1,11 +1,5 @@
 
-
-
-
-
-
-
-import { ProspectStage, SampleStatus, QuoteStatus, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role } from './types';
+import { ProspectStage, SampleStatus, QuoteStatus, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role, PurchaseOrderStatus } from './types';
 
 export const NAV_LINKS = [
   { name: 'Hoy', path: '/today', icon: 'home' },
@@ -57,7 +51,7 @@ export const NAV_LINKS = [
     icon: 'shopping_cart',
     sublinks: [
         { name: 'Dashboard de Compras', path: '/purchase/dashboard', icon: 'dashboard' },
-        { name: 'Órdenes de Compra', path: '/purchase/orders', icon: 'shopping_basket' },
+        { name: 'Pipeline de Compras', path: '/purchase/orders', icon: 'view_kanban' },
         { name: 'Proveedores', path: '/purchase/suppliers', icon: 'factory' },
     ]
   },
@@ -323,6 +317,54 @@ export const COMPANIES_PIPELINE_COLUMNS = [
     },
 ];
 
+export const PURCHASE_ORDERS_PIPELINE_COLUMNS = [
+    {
+        stage: PurchaseOrderStatus.Borrador,
+        group: 'SOLICITUD',
+        objective: 'Creación de la necesidad de compra. Definición de productos y cantidades.'
+    },
+    {
+        stage: PurchaseOrderStatus.PorAprobar,
+        group: 'APROBACIÓN',
+        objective: 'Revisión de presupuesto y autorización por parte de gerencia/finanzas.'
+    },
+    {
+        stage: PurchaseOrderStatus.Ordenada,
+        group: 'GESTIÓN',
+        objective: 'Orden de compra enviada al proveedor. Esperando confirmación y factura.'
+    },
+    {
+        stage: PurchaseOrderStatus.PagoPendiente,
+        group: 'FINANZAS',
+        objective: 'Factura recibida. Programando pago parcial o total.'
+    },
+     {
+        stage: PurchaseOrderStatus.PagoParcial,
+        group: 'FINANZAS',
+        objective: 'Se ha realizado un anticipo o pago parcial al proveedor.'
+    },
+    {
+        stage: PurchaseOrderStatus.Pagada,
+        group: 'FINANZAS',
+        objective: 'Pago total realizado. Esperando liberación de mercancía.'
+    },
+    {
+        stage: PurchaseOrderStatus.EnTransito,
+        group: 'LOGÍSTICA',
+        objective: 'Mercancía en camino a bodega o destino final.'
+    },
+     {
+        stage: PurchaseOrderStatus.Recibida,
+        group: 'LOGÍSTICA',
+        objective: 'Mercancía recibida en almacén. Pendiente de cierre administrativo.'
+    },
+    {
+        stage: PurchaseOrderStatus.Facturada,
+        group: 'CIERRE',
+        objective: 'Proceso de compra finalizado y cerrado administrativamente.'
+    }
+];
+
 
 export const UNITS: Unit[] = ["ton", "kg", "L", "unidad"];
 
@@ -373,7 +415,7 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
     },
     'Compras': { 
         'Dashboard de Compras': ['view'],
-        'Órdenes de Compra': ['view', 'create', 'edit', 'delete'], 
+        'Pipeline de Compras': ['view', 'create', 'edit', 'delete'], 
         'Proveedores': ['view', 'create', 'edit', 'delete'] 
     },
     'Inventario': { 

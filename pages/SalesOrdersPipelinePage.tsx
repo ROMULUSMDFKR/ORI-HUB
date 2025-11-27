@@ -20,7 +20,7 @@ const PipelineColumn: React.FC<{
   items: SalesOrder[];
   deliveriesBySoId: Map<string, Delivery[]>;
 }> = ({ stage, objective, items, deliveriesBySoId }) => {
-    const totalValue = items.reduce((sum, so) => sum + so.total, 0);
+    const totalValue = items.reduce((sum, so) => sum + (so.total || 0), 0);
     return (
         <div className="flex-shrink-0 w-80 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 h-full flex flex-col overflow-hidden">
             <div className="p-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center group">
@@ -61,6 +61,56 @@ const PipelineColumn: React.FC<{
     );
 };
 
+// --- KPI Widget for Sales Orders ---
+const OrdersKPIs: React.FC<{ orders: SalesOrder[] }> = ({ orders }) => {
+    const activeOrders = orders.filter(o => o.status !== SalesOrderStatus.Cancelada);
+    const totalRevenue = activeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    
+    const pendingFulfillment = orders.filter(o => o.status === SalesOrderStatus.Pendiente || o.status === SalesOrderStatus.EnPreparacion).length;
+    const inTransit = orders.filter(o => o.status === SalesOrderStatus.EnTransito).length;
+    const completed = orders.filter(o => o.status === SalesOrderStatus.Entregada || o.status === SalesOrderStatus.Facturada).length;
+    
+    return (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    <span className="material-symbols-outlined text-2xl">payments</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Venta Total</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">${totalRevenue.toLocaleString('en-US', { notation: "compact", compactDisplay: "short" })}</p>
+                </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                 <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                    <span className="material-symbols-outlined text-2xl">inventory</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Por Despachar</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{pendingFulfillment}</p>
+                </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                 <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    <span className="material-symbols-outlined text-2xl">local_shipping</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">En Ruta</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{inTransit}</p>
+                </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                 <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                    <span className="material-symbols-outlined text-2xl">check_circle</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Completadas</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{completed}</p>
+                </div>
+            </div>
+        </div>
+    )
+}
 
 const SalesOrdersPipelinePage: React.FC = () => {
   const { data: soData, loading: soLoading } = useCollection<SalesOrder>('salesOrders');
@@ -229,7 +279,7 @@ const SalesOrdersPipelinePage: React.FC = () => {
                     )
                 },
                 { header: 'Estado', accessor: (so: SalesOrder) => <Badge text={so.status} />},
-                { header: 'Total', accessor: (so: SalesOrder) => <span className="font-bold text-slate-800 dark:text-slate-200">${so.total.toLocaleString()}</span>, className: 'text-right'},
+                { header: 'Total', accessor: (so: SalesOrder) => <span className="font-bold text-slate-800 dark:text-slate-200">${(so.total || 0).toLocaleString()}</span>, className: 'text-right'},
                 { header: 'Creación', accessor: (so: SalesOrder) => new Date(so.createdAt).toLocaleDateString()},
             ];
             return (
@@ -298,6 +348,9 @@ const SalesOrdersPipelinePage: React.FC = () => {
                 </Link>
             </div>
         </div>
+        
+        {/* KPI Mini-Dashboard */}
+        <OrdersKPIs orders={filteredOrders} />
 
         {/* Toolbar */}
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0">

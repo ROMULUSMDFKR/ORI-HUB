@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
-import { PurchaseOrder, Supplier } from '../../types';
+import { PurchaseOrder, Supplier, PurchaseOrderStatus } from '../../types';
 import Spinner from '../../components/ui/Spinner';
 import Badge from '../../components/ui/Badge';
 import FilterButton from '../../components/ui/FilterButton';
@@ -75,7 +75,7 @@ const PurchasesDashboardPage: React.FC = () => {
 
         const totalSpent = filteredOrders.reduce((sum, po) => sum + po.total, 0);
         const activeSuppliers = new Set(purchaseOrders.map(po => po.supplierId)).size;
-        const pendingReceptions = purchaseOrders.filter(po => po.status === 'Enviada' || po.status === 'Confirmada').length;
+        const pendingReceptions = purchaseOrders.filter(po => po.status === PurchaseOrderStatus.Ordenada || po.status === PurchaseOrderStatus.EnTransito).length;
 
         return {
             poThisMonth: filteredOrders.length,
@@ -114,10 +114,15 @@ const PurchasesDashboardPage: React.FC = () => {
 
     const getStatusColor = (status: PurchaseOrder['status']) => {
         switch (status) {
-            case 'Recibida Completa': return 'green';
-            case 'Confirmada':
-            case 'Recibida Parcial': return 'blue';
-            case 'Enviada': return 'yellow';
+            case PurchaseOrderStatus.Recibida: return 'green';
+            case PurchaseOrderStatus.Pagada: return 'green';
+            case PurchaseOrderStatus.Facturada: return 'green';
+            case PurchaseOrderStatus.Ordenada:
+            case PurchaseOrderStatus.PorAprobar:
+            case PurchaseOrderStatus.PagoPendiente: return 'blue';
+            case PurchaseOrderStatus.PagoParcial:
+            case PurchaseOrderStatus.EnTransito: return 'yellow';
+            case PurchaseOrderStatus.Cancelada: return 'red';
             default: return 'gray';
         }
     };

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { Task, Delivery, Prospect, Sample, PurchaseOrder, Company, Birthday } from '../types';
+import { Task, Delivery, Prospect, Sample, PurchaseOrder, Company, Birthday, Supplier } from '../types';
 import Spinner from '../components/ui/Spinner';
 import { getOverdueStatus } from '../utils/time';
 import EventDrawer from '../components/calendar/EventDrawer';
@@ -70,6 +70,7 @@ const CalendarPage: React.FC = () => {
     const { data: purchaseOrders, loading: poLoading } = useCollection<PurchaseOrder>('purchaseOrders');
     const { data: companies, loading: cLoading } = useCollection<Company>('companies');
     const { data: birthdays, loading: bLoading } = useCollection<Birthday>('birthdays');
+    const { data: suppliers, loading: supLoading } = useCollection<Supplier>('suppliers');
     
     const [currentDate, setCurrentDate] = useState(new Date());
     const [now, setNow] = useState(new Date());
@@ -95,6 +96,8 @@ const CalendarPage: React.FC = () => {
             setLocalTasks(tasks);
         }
     }, [tasks]);
+    
+    const suppliersMap = useMemo(() => new Map(suppliers?.map(s => [s.id, s.name])), [suppliers]);
 
     const handleAddTask = (newTask: Task) => {
         setLocalTasks(prev => (prev ? [...prev, newTask] : [newTask]));
@@ -125,7 +128,19 @@ const CalendarPage: React.FC = () => {
           events.push({ id: `sr-${s.id}`, title: `Muestra: ${s.name}`, start: new Date(s.requestDate), type: 'sampleRequest', link: `/hubs/samples/${s.id}`, data: s });
         });
         
-        purchaseOrders?.forEach(po => events.push({ id: `po-${po.id}`, title: `OC: ${po.id}`, start: new Date(po.createdAt), type: 'purchaseOrder', link: `/purchase/orders/${po.id}`, data: po }));
+        // Update: Better Purchase Order Title using Supplier Name
+        purchaseOrders?.forEach(po => {
+            const supplierName = suppliersMap.get(po.supplierId) || 'Proveedor';
+            const date = po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate) : new Date(po.createdAt);
+            events.push({ 
+                id: `po-${po.id}`, 
+                title: `OC: ${supplierName} - $${(po.total || 0).toLocaleString()}`, 
+                start: date, 
+                type: 'purchaseOrder', 
+                link: `/purchase/orders/${po.id}`, 
+                data: po 
+            });
+        });
         
         birthdays?.forEach(b => {
             const [year, month, day] = b.date.split('-').map(Number);
@@ -143,7 +158,7 @@ const CalendarPage: React.FC = () => {
         });
         
         return events.sort((a,b) => a.start.getTime() - b.start.getTime());
-    }, [localTasks, deliveries, prospects, samples, purchaseOrders, companies, birthdays, currentDate]);
+    }, [localTasks, deliveries, prospects, samples, purchaseOrders, companies, birthdays, currentDate, suppliersMap]);
 
     const filteredEvents = useMemo(() => {
         if (!currentUser) return [];
@@ -209,7 +224,7 @@ const CalendarPage: React.FC = () => {
         return title.charAt(0).toUpperCase() + title.slice(1);
     }, [currentDate, view]);
 
-    const loading = tasksLoading || delLoading || pLoading || sLoading || poLoading || cLoading || bLoading;
+    const loading = tasksLoading || delLoading || pLoading || sLoading || poLoading || cLoading || bLoading || supLoading;
 
     const MonthView = () => {
         const firstDayOfMonth = new Date(year, month, 1);
@@ -294,7 +309,6 @@ const CalendarPage: React.FC = () => {
                     {days.map(day => {
                         const dayEvents = filteredEvents.filter(e => e.start.toDateString() === day.toDateString());
                         const isToday = day.toDateString() === now.toDateString();
-                        const pastEvents = isToday ? dayEvents.filter(e => e.start <= now) : dayEvents; // Simply splitting logic
                         
                         return (
                             <div key={day.toISOString()} className={`border-r border-slate-200 dark:border-slate-700 p-2 space-y-2 relative ${isToday ? 'bg-indigo-50/10' : ''}`}>

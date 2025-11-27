@@ -335,11 +335,11 @@ const UploadCandidatesPage: React.FC = () => {
     ];
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6">
+        <div className="max-w-5xl mx-auto space-y-6 pb-20">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Importar Candidatos</h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Busca, revisa e importa nuevos prospectos masivamente.</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Busca, revisa e importa nuevos prospectos masivamente.</p>
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">
                     <button 
@@ -355,39 +355,50 @@ const UploadCandidatesPage: React.FC = () => {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Método 1: Scraping */}
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100 dark:border-slate-700">
-                        <span className="material-symbols-outlined text-indigo-500">travel_explore</span>
-                        <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-300">Método 1: Búsqueda en Maps</h2>
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-100 dark:border-slate-700">
+                         {/* App Icon Pattern */}
+                         <div className="flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                            <span className="material-symbols-outlined text-xl">travel_explore</span>
+                        </div>
+                        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Método 1: Búsqueda en Maps</h2>
                     </div>
                     
                     <div className="space-y-5">
-                         <div className="relative z-0">
+                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Términos de Búsqueda</label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={termsInput}
-                                    onChange={e => setTermsInput(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleAddTerm()}
-                                    placeholder="Ej: 'Gasolineras', 'Ferreterías'..."
-                                    className="flex-1 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 relative z-10"
-                                    disabled={isProcessing}
-                                />
+                             <div className="relative flex gap-2">
+                                 {/* Input Safe Pattern */}
+                                 <div className="relative flex-1">
+                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span className="material-symbols-outlined h-5 w-5 text-gray-400">search</span>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={termsInput}
+                                        onChange={e => setTermsInput(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddTerm()}
+                                        placeholder="Ej: 'Gasolineras', 'Ferreterías'..."
+                                        className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                                        disabled={isProcessing}
+                                    />
+                                 </div>
                                 <button 
                                     type="button" 
                                     onClick={handleAddTerm} 
                                     disabled={isProcessing} 
-                                    className="bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-semibold hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors"
+                                    className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-semibold hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
                                 >
                                     Añadir
                                 </button>
                             </div>
-                            <div className="flex flex-wrap gap-2 mt-2">
+                            <div className="flex flex-wrap gap-2 mt-2 min-h-[28px]">
                                 {criteria.searchTerms.map(term => (
-                                    <span key={term} className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-full text-sm flex items-center">
+                                    <span key={term} className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-lg text-xs font-medium flex items-center border border-indigo-100 dark:border-indigo-800">
                                         {term}
-                                        <button type="button" onClick={() => removeTerm(term)} disabled={isProcessing} className="ml-2 hover:text-indigo-900 dark:hover:text-indigo-100">&times;</button>
+                                        <button type="button" onClick={() => removeTerm(term)} disabled={isProcessing} className="ml-2 hover:text-indigo-900 dark:hover:text-indigo-100 flex items-center">
+                                             <span className="material-symbols-outlined !text-sm">close</span>
+                                        </button>
                                     </span>
                                 ))}
                             </div>
@@ -403,13 +414,19 @@ const UploadCandidatesPage: React.FC = () => {
                             />
                              <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Cantidad de Resultados (aprox.)</label>
-                                <input 
-                                    type="number" 
-                                    value={criteria.resultsCount} 
-                                    onChange={e => handleCriteriaChange('resultsCount', parseInt(e.target.value))}
-                                    className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    disabled={isProcessing}
-                                />
+                                {/* Input Safe Pattern */}
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span className="material-symbols-outlined h-5 w-5 text-gray-400">123</span>
+                                    </div>
+                                    <input 
+                                        type="number" 
+                                        value={criteria.resultsCount} 
+                                        onChange={e => handleCriteriaChange('resultsCount', parseInt(e.target.value))}
+                                        className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                                        disabled={isProcessing}
+                                    />
+                                </div>
                             </div>
                             <CustomSelect 
                                 label="Perfilado para (Empresa)" 
@@ -426,13 +443,13 @@ const UploadCandidatesPage: React.FC = () => {
                         </div>
 
                         <div className="flex flex-col gap-3 pt-2">
-                             <div className="flex items-center gap-3">
+                             <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700/30 p-3 rounded-lg border border-slate-100 dark:border-slate-600">
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Incluir resultados web</span>
                                 <ToggleSwitch enabled={criteria.includeWebResults} onToggle={() => handleCriteriaChange('includeWebResults', !criteria.includeWebResults)} />
-                                <span className="text-sm text-slate-700 dark:text-slate-300">Incluir resultados web</span>
                             </div>
-                             <div className="flex items-center gap-3">
+                             <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700/30 p-3 rounded-lg border border-slate-100 dark:border-slate-600">
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Enriquecer contactos (IA)</span>
                                 <ToggleSwitch enabled={criteria.enrichContacts} onToggle={() => handleCriteriaChange('enrichContacts', !criteria.enrichContacts)} />
-                                <span className="text-sm text-slate-700 dark:text-slate-300">Enriquecer contactos (IA)</span>
                             </div>
                         </div>
 
@@ -440,7 +457,7 @@ const UploadCandidatesPage: React.FC = () => {
                             <button 
                                 onClick={performSearch} 
                                 disabled={isProcessing || criteria.searchTerms.length === 0}
-                                className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                                className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                             >
                                 {isProcessing ? <Spinner /> : <span className="material-symbols-outlined">search</span>}
                                 {isProcessing ? status : 'Iniciar Búsqueda'}
@@ -450,24 +467,34 @@ const UploadCandidatesPage: React.FC = () => {
                 </div>
                 
                  {/* Método 2: URL */}
-                 <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 h-fit">
-                     <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100 dark:border-slate-700">
-                        <span className="material-symbols-outlined text-indigo-500">link</span>
-                        <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">Método 2: Importar URL</h3>
+                 <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 h-fit">
+                     <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-100 dark:border-slate-700">
+                         {/* App Icon Pattern */}
+                         <div className="flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                             <span className="material-symbols-outlined text-xl">link</span>
+                         </div>
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">Método 2: Importar URL</h3>
                      </div>
+                     
                      <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Si ya tienes una URL de búsqueda o dataset de Apify/Maps, pégala aquí para procesarla directamente.</p>
                      <div className="space-y-3">
-                         <input 
-                            type="text" 
-                            value={importUrl} 
-                            onChange={e => setImportUrl(e.target.value)}
-                            placeholder="https://api.apify.com/v2/datasets/..." 
-                            className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            disabled={isProcessing}
-                        />
+                         {/* Input Safe Pattern */}
+                         <div className="relative">
+                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span className="material-symbols-outlined h-5 w-5 text-gray-400">link</span>
+                            </div>
+                             <input 
+                                type="text" 
+                                value={importUrl} 
+                                onChange={e => setImportUrl(e.target.value)}
+                                placeholder="https://api.apify.com/v2/datasets/..." 
+                                className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                                disabled={isProcessing}
+                            />
+                         </div>
                          <button 
                             type="button"
-                            className="w-full bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                            className="w-full bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                             onClick={handleUrlImport}
                             disabled={isProcessing}
                         >

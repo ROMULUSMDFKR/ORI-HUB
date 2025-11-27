@@ -62,6 +62,64 @@ const PipelineColumn: React.FC<{
   );
 };
 
+// --- KPI Widget for Quotes ---
+const QuotesKPIs: React.FC<{ quotes: Quote[] }> = ({ quotes }) => {
+    // Filter out cancelled/draft for revenue calculations if needed, but usually we want total *active* potential
+    const activeQuotes = quotes.filter(q => q.status !== QuoteStatus.Rechazada);
+    const totalValue = activeQuotes.reduce((sum, q) => sum + (q.totals?.grandTotal || 0), 0);
+    const avgTicket = activeQuotes.length > 0 ? totalValue / activeQuotes.length : 0;
+    
+    // "In Play" vs Drafts
+    const pendingApproval = quotes.filter(q => q.status === QuoteStatus.EnAprobacionInterna || q.status === QuoteStatus.Borrador).length;
+    const sentToClient = quotes.filter(q => q.status === QuoteStatus.EnviadaAlCliente || q.status === QuoteStatus.EnNegociacion).length;
+    
+    const wonCount = quotes.filter(q => q.status === QuoteStatus.AprobadaPorCliente).length;
+    const lostCount = quotes.filter(q => q.status === QuoteStatus.Rechazada).length;
+    const totalClosed = wonCount + lostCount;
+    const winRate = totalClosed > 0 ? (wonCount / totalClosed) * 100 : 0;
+
+    return (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    <span className="material-symbols-outlined text-2xl">request_quote</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Valor Ofertado</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">${totalValue.toLocaleString('en-US', { notation: "compact", compactDisplay: "short" })}</p>
+                </div>
+            </div>
+             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                    <span className="material-symbols-outlined text-2xl">send</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Enviadas</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{sentToClient}</p>
+                </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                 <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                    <span className="material-symbols-outlined text-2xl">pending_actions</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Por Aprobar</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{pendingApproval}</p>
+                </div>
+            </div>
+             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    <span className="material-symbols-outlined text-2xl">pie_chart</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Win Rate</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{winRate.toFixed(0)}%</p>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 const QuotesPipelinePage: React.FC = () => {
   const { data: quotesData, loading: quotesLoading } = useCollection<Quote>('quotes');
   const { data: activitiesData, loading: activitiesLoading } = useCollection<ActivityLog>('activities');
@@ -225,7 +283,7 @@ const QuotesPipelinePage: React.FC = () => {
                     )
                 },
                 { header: 'Estado', accessor: (q: Quote) => <Badge text={q.status} />},
-                { header: 'Total', accessor: (q: Quote) => <span className="font-mono font-bold text-slate-700 dark:text-slate-300">${q.totals.grandTotal.toLocaleString()}</span>, className: 'text-right'},
+                { header: 'Total', accessor: (q: Quote) => <span className="font-mono font-bold text-slate-700 dark:text-slate-300">${(q.totals?.grandTotal || 0).toLocaleString()}</span>, className: 'text-right'},
                 { header: 'Responsable', accessor: (q: Quote) => usersMap.get(q.salespersonId)?.name || 'N/A' },
                 { header: 'Creación', accessor: (q: Quote) => new Date(q.createdAt).toLocaleDateString()},
             ];
@@ -290,6 +348,9 @@ const QuotesPipelinePage: React.FC = () => {
                 </Link>
             </div>
         </div>
+
+        {/* KPI Mini-Dashboard */}
+        <QuotesKPIs quotes={filteredQuotes} />
 
         {/* Toolbar */}
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0">

@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { ImportHistory, User, Candidate } from '../../types';
@@ -19,6 +20,7 @@ const ImportHistoryPage: React.FC = () => {
 
     const [editingHistory, setEditingHistory] = useState<ImportHistory | null>(null);
     const [deletingHistory, setDeletingHistory] = useState<ImportHistory | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         if(initialHistory) {
@@ -30,8 +32,17 @@ const ImportHistoryPage: React.FC = () => {
 
     const sortedHistory = useMemo(() => {
         if (!history) return [];
-        return [...history].sort((a, b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime());
-    }, [history]);
+        let data = [...history].sort((a, b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime());
+        
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            data = data.filter(h => 
+                h.searchCriteria.searchTerms.some(t => t.toLowerCase().includes(lowerTerm)) ||
+                usersMap.get(h.importedById)?.toLowerCase().includes(lowerTerm)
+            );
+        }
+        return data;
+    }, [history, searchTerm, usersMap]);
 
     const handleEdit = (record: ImportHistory) => {
         setEditingHistory(record);
@@ -89,7 +100,15 @@ const ImportHistoryPage: React.FC = () => {
     const columns = [
         { 
             header: 'Fecha de Importación', 
-            accessor: (h: ImportHistory) => <span className="font-semibold text-slate-800 dark:text-slate-200">{new Date(h.importedAt).toLocaleString()}</span>
+            accessor: (h: ImportHistory) => (
+                 <div className="flex items-center gap-3">
+                     {/* App Icon Pattern */}
+                     <div className="flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                        <span className="material-symbols-outlined text-xl">history</span>
+                    </div>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">{new Date(h.importedAt).toLocaleString()}</span>
+                </div>
+            )
         },
         { 
             header: 'Criterios de Búsqueda', 
@@ -98,25 +117,24 @@ const ImportHistoryPage: React.FC = () => {
                     <p className="font-semibold text-indigo-600 dark:text-indigo-400 truncate max-w-xs" title={h.searchCriteria.searchTerms.join(', ')}>
                         {h.searchCriteria.searchTerms.join(', ')}
                     </p>
-                    <p className="text-slate-500 dark:text-slate-400">
-                        {h.searchCriteria.location} &bull; {h.searchCriteria.profiledCompany}
+                    <p className="text-slate-500 dark:text-slate-400 mt-0.5">
+                        {h.searchCriteria.location} &bull; {h.searchCriteria.profiledCompany || 'Sin perfil'}
                     </p>
                 </div>
             )
         },
         { 
-            header: 'Nuevos', 
-            accessor: (h: ImportHistory) => <span className="text-green-600 font-bold">{h.newCandidates}</span>,
-            className: 'text-center'
-        },
-        { 
-            header: 'Omitidos', 
-            accessor: (h: ImportHistory) => <span className="text-slate-500 dark:text-slate-400">{h.duplicatesSkipped}</span>,
-            className: 'text-center'
+            header: 'Resultados', 
+            accessor: (h: ImportHistory) => (
+                <div className="flex gap-2 text-xs">
+                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-md border border-green-200">+{h.newCandidates} Nuevos</span>
+                    <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200">{h.duplicatesSkipped} Omitidos</span>
+                </div>
+            )
         },
         { 
             header: 'Importado por', 
-            accessor: (h: ImportHistory) => usersMap.get(h.importedById) || h.importedById
+            accessor: (h: ImportHistory) => <span className="text-sm text-slate-600 dark:text-slate-300">{usersMap.get(h.importedById) || h.importedById}</span>
         },
         { 
             header: 'Estado', 
@@ -126,43 +144,64 @@ const ImportHistoryPage: React.FC = () => {
             header: 'Acciones',
             accessor: (h: ImportHistory) => (
                 <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => handleViewResults(h)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700" title="Ver resultados">
-                        <span className="material-symbols-outlined text-base text-indigo-600">visibility</span>
+                    <button onClick={() => handleViewResults(h)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-indigo-600" title="Ver resultados">
+                        <span className="material-symbols-outlined text-lg">visibility</span>
                     </button>
-                    <button onClick={() => handleRetry(h)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700" title="Reintentar con estos criterios">
-                        <span className="material-symbols-outlined text-base text-blue-600">refresh</span>
+                    <button onClick={() => handleRetry(h)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-blue-600" title="Reintentar">
+                        <span className="material-symbols-outlined text-lg">refresh</span>
                     </button>
-                    <button onClick={() => handleEdit(h)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700" title="Editar criterios">
-                        <span className="material-symbols-outlined text-base">edit</span>
+                    <button onClick={() => handleEdit(h)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500" title="Editar criterios">
+                        <span className="material-symbols-outlined text-lg">edit</span>
                     </button>
-                     <button onClick={() => handleDelete(h)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700" title="Eliminar lote y candidatos">
-                        <span className="material-symbols-outlined text-base text-red-500">delete</span>
+                     <button onClick={() => handleDelete(h)} className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500" title="Eliminar">
+                        <span className="material-symbols-outlined text-lg">delete</span>
                     </button>
                 </div>
-            )
+            ),
+            className: 'text-right'
         }
     ];
 
     const loading = historyLoading || usersLoading;
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Historial de Importaciones</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Revisa el registro de todos los lotes de candidatos importados al sistema.</p>
+        <div className="space-y-8 pb-12">
+            <div className="flex justify-between items-end">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Historial de Importaciones</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Registro de lotes importados y resultados.</p>
+                </div>
+            </div>
+            
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-4 justify-between items-center">
+                 {/* Input Safe Pattern */}
+                <div className="relative w-full sm:w-96">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="material-symbols-outlined h-5 w-5 text-gray-400">search</span>
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Buscar por término o usuario..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm"
+                    />
+                </div>
             </div>
 
-            {loading ? (
-                <div className="flex justify-center py-12"><Spinner /></div>
-            ) : !sortedHistory || sortedHistory.length === 0 ? (
-                <EmptyState
-                    icon="history"
-                    title="No hay historial de importaciones"
-                    message="Una vez que importes tu primer lote de candidatos, aparecerá un registro aquí."
-                />
-            ) : (
-                <Table columns={columns} data={sortedHistory} />
-            )}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                {loading ? (
+                    <div className="flex justify-center py-12"><Spinner /></div>
+                ) : !sortedHistory || sortedHistory.length === 0 ? (
+                    <EmptyState
+                        icon="history"
+                        title="No hay historial"
+                        message="Una vez que importes candidatos, el registro aparecerá aquí."
+                    />
+                ) : (
+                    <Table columns={columns} data={sortedHistory} />
+                )}
+            </div>
 
             {editingHistory && (
                 <EditHistoryDrawer 
@@ -175,14 +214,17 @@ const ImportHistoryPage: React.FC = () => {
 
             {deletingHistory && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" onClick={() => setDeletingHistory(null)}>
-                    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-4">Confirmar Eliminación</h3>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                            ¿Estás seguro de que quieres eliminar este lote de importación? Se eliminarán permanentemente <b>{deletingHistory.newCandidates}</b> candidatos asociados a este lote. Esta acción no se puede deshacer.
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+                         <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
+                            <span className="material-symbols-outlined text-2xl">warning</span>
+                            <h3 className="text-lg font-bold">Confirmar Eliminación</h3>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
+                            ¿Estás seguro de que quieres eliminar este lote? Se eliminarán permanentemente <b>{deletingHistory.newCandidates}</b> candidatos asociados. Esta acción no se puede deshacer.
                         </p>
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setDeletingHistory(null)} className="bg-slate-200 dark:bg-slate-700 py-2 px-4 rounded-lg font-semibold">Cancelar</button>
-                            <button onClick={handleConfirmDelete} className="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg">Eliminar Lote</button>
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setDeletingHistory(null)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 py-2 px-4 rounded-lg font-semibold hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">Cancelar</button>
+                            <button onClick={handleConfirmDelete} className="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors shadow-sm">Eliminar Lote</button>
                         </div>
                     </div>
                 </div>

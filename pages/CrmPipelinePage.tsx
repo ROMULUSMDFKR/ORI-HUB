@@ -63,6 +63,61 @@ const PipelineColumn: React.FC<{
   );
 };
 
+// --- KPI Widget ---
+const PipelineKPIs: React.FC<{ prospects: Prospect[] }> = ({ prospects }) => {
+    const activeProspects = prospects.filter(p => p.stage !== ProspectStage.Ganado && p.stage !== ProspectStage.Perdido);
+    const totalValue = activeProspects.reduce((sum, p) => sum + p.estValue, 0);
+    const avgValue = activeProspects.length > 0 ? totalValue / activeProspects.length : 0;
+    const highPriorityCount = activeProspects.filter(p => p.priority === Priority.Alta).length;
+
+    // Conversion rate (simple: won / (won + lost))
+    const wonCount = prospects.filter(p => p.stage === ProspectStage.Ganado).length;
+    const lostCount = prospects.filter(p => p.stage === ProspectStage.Perdido).length;
+    const closedTotal = wonCount + lostCount;
+    const winRate = closedTotal > 0 ? (wonCount / closedTotal) * 100 : 0;
+
+    return (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    <span className="material-symbols-outlined text-2xl">payments</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Valor en Pipeline</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">${totalValue.toLocaleString('en-US', { notation: "compact", compactDisplay: "short" })}</p>
+                </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                 <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                    <span className="material-symbols-outlined text-2xl">filter_alt</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Oportunidades</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{activeProspects.length}</p>
+                </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                    <span className="material-symbols-outlined text-2xl">local_fire_department</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Alta Prioridad</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{highPriorityCount}</p>
+                </div>
+            </div>
+             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                <div className="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    <span className="material-symbols-outlined text-2xl">query_stats</span>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">Tasa de Cierre</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{winRate.toFixed(0)}%</p>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 const CrmPipelinePage: React.FC = () => {
   const { data: prospectsData, loading: prospectsLoading } = useCollection<Prospect>('prospects');
   const { data: users, loading: usersLoading } = useCollection<User>('users');
@@ -222,7 +277,7 @@ const CrmPipelinePage: React.FC = () => {
                     header: 'Nombre', 
                     accessor: (p: Prospect) => (
                         <div className="flex items-center gap-3">
-                             <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">
+                             <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">
                                 {p.name.substring(0, 2).toUpperCase()}
                              </div>
                              <Link to={`/hubs/prospects/${p.id}`} className="font-medium text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400">{p.name}</Link>
@@ -299,6 +354,9 @@ const CrmPipelinePage: React.FC = () => {
                 </Link>
             </div>
         </div>
+
+        {/* KPI Mini-Dashboard */}
+        <PipelineKPIs prospects={filteredProspects} />
 
         {/* Toolbar: Search & Filters */}
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0">

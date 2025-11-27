@@ -1,13 +1,14 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
-import { Supplier, Product, User, Unit, PurchaseOrder, PurchaseOrderItem } from '../../types';
+import { Supplier, Product, User, Unit, PurchaseOrder, PurchaseOrderItem, Attachment, PurchaseOrderStatus, InternalCompany } from '../../types';
 import { api } from '../../api/firebaseApi';
 import Spinner from '../../components/ui/Spinner';
 import CustomSelect from '../../components/ui/CustomSelect';
 import { TAX_RATE, UNITS } from '../../constants';
 import Drawer from '../../components/ui/Drawer';
+import { useToast } from '../../hooks/useToast';
 
 // Moved outside
 const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
@@ -30,14 +31,22 @@ interface POItemForm extends PurchaseOrderItem {
 
 const NewPurchaseOrderPage: React.FC = () => {
     const navigate = useNavigate();
+    const { showToast } = useToast();
+    
     const [supplierId, setSupplierId] = useState('');
+    const [issuingCompanyId, setIssuingCompanyId] = useState('');
     const [responsibleId, setResponsibleId] = useState('');
+    const [approverId, setApproverId] = useState(''); 
     const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
     const [notes, setNotes] = useState('');
     const [items, setItems] = useState<POItemForm[]>([]);
     
+    // Quote Attachment State
+    const [quoteFile, setQuoteFile] = useState<File | null>(null);
+    
     const { data: suppliers, loading: sLoading } = useCollection<Supplier>('suppliers');
     const { data: initialProducts, loading: pLoading } = useCollection<Product>('products');
+    const { data: internalCompanies, loading: cLoading } = useCollection<InternalCompany>('internalCompanies');
     const [products, setProducts] = useState<Product[] | null>(null);
     const { data: users, loading: uLoading } = useCollection<User>('users');
 
@@ -45,6 +54,8 @@ const NewPurchaseOrderPage: React.FC = () => {
     const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
     const [newProduct, setNewProduct] = useState({ name: '', sku: '', unitDefault: 'kg' as Unit });
     const [creatingProductForRow, setCreatingProductForRow] = useState<number | null>(null);
+    
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (initialProducts) {
@@ -52,9 +63,10 @@ const NewPurchaseOrderPage: React.FC = () => {
         }
     }, [initialProducts]);
 
-    const loading = sLoading || !products || uLoading;
+    const loading = sLoading || !products || uLoading || cLoading;
     
     const supplierOptions = useMemo(() => (suppliers || []).map(s => ({ value: s.id, name: s.name })), [suppliers]);
+    const internalCompanyOptions = useMemo(() => (internalCompanies || []).map(c => ({ value: c.id, name: c.name })), [internalCompanies]);
     const productOptions = useMemo(() => [
         { value: 'CUSTOM_ITEM', name: 'Otro (Insumo/Gasto...)' },
         { value: 'CREATE_NEW', name: 'Crear Nuevo Producto (Catálogo)...' },
@@ -147,6 +159,12 @@ const NewPurchaseOrderPage: React.FC = () => {
         }
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setQuoteFile(e.target.files[0]);
+        }
+    };
+
     const handleSubmit = async () => {
         if (!supplierId || items.length === 0) {
             alert('Por favor, selecciona un proveedor y añade al menos un producto.');
@@ -164,28 +182,47 @@ const NewPurchaseOrderPage: React.FC = () => {
                 return;
             }
         }
-
-        const newPO: Omit<PurchaseOrder, 'id'> = {
-            supplierId,
-            responsibleId,
-            expectedDeliveryDate,
-            notes,
-            items: items.map(({ id, isCustom, ...rest }) => rest),
-            status: 'Borrador',
-            createdAt: new Date().toISOString(),
-            subtotal,
-            tax,
-            total,
-            paidAmount: 0,
-        };
+        
+        // Generate ID for folder structure immediately
+        const tempId = `PO-${Date.now()}`;
+        let quoteAttachment: Attachment | undefined = undefined;
 
         try {
+            // Upload file if exists
+            if (quoteFile) {
+                const url = await api.uploadFile(quoteFile, `purchase_orders/${tempId}`);
+                quoteAttachment = {
+                    id: `att-${Date.now()}`,
+                    name: quoteFile.name,
+                    size: quoteFile.size,
+                    url: url
+                };
+            }
+
+            const newPO: Omit<PurchaseOrder, 'id'> = {
+                supplierId,
+                issuingCompanyId: issuingCompanyId || undefined,
+                responsibleId,
+                approverId: approverId || undefined,
+                expectedDeliveryDate,
+                notes,
+                items: items.map(({ id, isCustom, ...rest }) => rest),
+                status: PurchaseOrderStatus.Borrador, // Start as Draft
+                createdAt: new Date().toISOString(),
+                subtotal,
+                tax,
+                total,
+                paidAmount: 0,
+                quoteAttachment,
+                payments: []
+            };
+
             await api.addDoc('purchaseOrders', newPO);
-            alert('Orden de Compra creada con éxito.');
+            showToast('success', 'Orden de Compra creada con éxito.');
             navigate('/purchase/orders');
         } catch (error) {
             console.error("Error creating purchase order:", error);
-            alert('Error al crear la orden de compra.');
+            showToast('error', 'Error al crear la orden de compra.');
         }
     };
     
@@ -211,7 +248,17 @@ const NewPurchaseOrderPage: React.FC = () => {
                         <FormBlock title="Información General">
                             <FormRow>
                                 <CustomSelect label="Proveedor *" options={supplierOptions} value={supplierId} onChange={setSupplierId} placeholder="Seleccionar..."/>
+                                <CustomSelect label="Empresa Compra (Interna)" options={internalCompanyOptions} value={issuingCompanyId} onChange={setIssuingCompanyId} placeholder="Seleccionar empresa..."/>
+                            </FormRow>
+                            <FormRow>
                                 <CustomSelect label="Responsable" options={userOptions} value={responsibleId} onChange={setResponsibleId} placeholder="Seleccionar..."/>
+                                <CustomSelect 
+                                    label="Aprobador (Opcional)" 
+                                    options={[{ value: '', name: 'Sin aprobación requerida' }, ...userOptions]} 
+                                    value={approverId} 
+                                    onChange={setApproverId} 
+                                    placeholder="Seleccionar aprobador..."
+                                />
                             </FormRow>
                             <FormRow>
                                 <div>
@@ -298,6 +345,25 @@ const NewPurchaseOrderPage: React.FC = () => {
                                 <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-4 mt-2 text-indigo-600 dark:text-indigo-400"><span>Total:</span><span>${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
                             </div>
                         </FormBlock>
+                        
+                         <FormBlock title="Cotización del Proveedor">
+                             <div className="p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-center hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                                <input 
+                                    type="file" 
+                                    ref={fileInputRef}
+                                    className="hidden" 
+                                    accept="image/*,.pdf"
+                                    onChange={handleFileChange}
+                                />
+                                <label onClick={() => fileInputRef.current?.click()} className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
+                                    <span className="material-symbols-outlined text-3xl text-slate-400 mb-2">cloud_upload</span>
+                                    <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                                        {quoteFile ? quoteFile.name : 'Subir Cotización (PDF o Imagen)'}
+                                    </span>
+                                </label>
+                             </div>
+                        </FormBlock>
+
                         <FormBlock title="Notas">
                              <textarea 
                                 value={notes} 

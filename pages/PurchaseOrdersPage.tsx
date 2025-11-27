@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { PurchaseOrder, Supplier } from '../types';
+import { PurchaseOrder, Supplier, PurchaseOrderStatus } from '../types';
 import Table from '../components/ui/Table';
 import Spinner from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
@@ -35,10 +35,15 @@ const PurchaseOrdersPage: React.FC = () => {
 
     const getStatusColor = (status: PurchaseOrder['status']) => {
         switch (status) {
-            case 'Recibida Completa': return 'green';
-            case 'Confirmada':
-            case 'Recibida Parcial': return 'blue';
-            case 'Enviada': return 'yellow';
+            case PurchaseOrderStatus.Recibida: return 'green';
+            case PurchaseOrderStatus.Pagada: return 'green';
+            case PurchaseOrderStatus.Facturada: return 'green';
+            case PurchaseOrderStatus.Ordenada:
+            case PurchaseOrderStatus.PorAprobar:
+            case PurchaseOrderStatus.PagoPendiente: return 'blue';
+            case PurchaseOrderStatus.PagoParcial:
+            case PurchaseOrderStatus.EnTransito: return 'yellow';
+            case PurchaseOrderStatus.Cancelada: return 'red';
             default: return 'gray';
         }
     };
@@ -85,12 +90,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
     const statusOptions = [
         { value: 'all', label: 'Todos' },
-        { value: 'Borrador', label: 'Borrador' },
-        { value: 'Enviada', label: 'Enviada' },
-        { value: 'Confirmada', label: 'Confirmada' },
-        { value: 'Recibida Parcial', label: 'Recibida Parcial' },
-        { value: 'Recibida Completa', label: 'Recibida Completa' },
-        { value: 'Cancelada', label: 'Cancelada' },
+        ...Object.values(PurchaseOrderStatus).map(s => ({ value: s, label: s })),
     ];
 
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;

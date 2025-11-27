@@ -93,6 +93,7 @@ export const NAV_LINKS = [
     name: 'Comunicación', 
     icon: 'chat', 
     sublinks: [
+      { name: 'Bandeja de Entrada', path: '/communication/inbox', icon: 'inbox' },
       { name: 'Chat Interno', path: '/communication/chat', icon: 'forum' },
       { name: 'Correos', path: '/communication/emails', icon: 'mail' },
       { name: 'Asistente IA', path: '/communication/ai-assistant', icon: 'smart_toy' },
@@ -124,6 +125,7 @@ export const NAV_LINKS = [
     sublinks: [
       { name: 'Usuarios y Permisos', path: '/settings/users', icon: 'manage_accounts' },
       { name: 'Roles y Permisos', path: '/settings/roles', icon: 'admin_panel_settings' },
+      { name: 'Widgets de Chat', path: '/settings/chat-widgets', icon: 'chat_bubble' },
       { name: 'Metas Comerciales', path: '/settings/sales-goals', icon: 'flag' },
       { name: 'Equipos', path: '/settings/teams', icon: 'groups' },
       { name: 'Mis Empresas', path: '/settings/internal-companies', icon: 'domain' },
@@ -136,6 +138,8 @@ export const NAV_LINKS = [
     ] 
   },
 ];
+
+// ... rest of the file (constants) ...
 
 export const PIPELINE_COLUMNS = [
     // CUALIFICACIÓN (LEADS)
@@ -435,6 +439,12 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Proyectos': ['view', 'create', 'edit', 'delete'], 
         'Calendario': ['view', 'create', 'edit', 'delete'] 
     },
+    'Comunicación': {
+        'Bandeja de Entrada': ['view', 'create', 'edit', 'delete'],
+        'Chat Interno': ['view', 'create', 'edit', 'delete'],
+        'Correos': ['view', 'create', 'edit', 'delete'],
+        'Asistente IA': ['view']
+    },
     'Finanzas': { 
         'Facturación': ['view', 'create', 'edit', 'delete'], 
         'Panel de Ventas': ['view'],
@@ -451,6 +461,7 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
     'Configuración': {
         'Usuarios y Permisos': ['view', 'create', 'edit', 'delete'],
         'Roles y Permisos': ['view', 'create', 'edit', 'delete'],
+        'Widgets de Chat': ['view', 'create', 'edit', 'delete'],
         'Metas Comerciales': ['view', 'create', 'edit', 'delete'],
         'Equipos': ['view', 'create', 'edit', 'delete'],
         'Mis Empresas': ['view', 'create', 'edit', 'delete'],
@@ -491,8 +502,7 @@ export const COUNTRIES = [
     { value: 'AR', name: 'Argentina' },
 ];
 
-// --- STATE NORMALIZATION LOGIC ---
-
+// ... State Normalization Logic ...
 const STATE_NORMALIZATION_MAP: Record<string, string> = {
     // Aguascalientes
     'ags': 'Aguascalientes',

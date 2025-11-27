@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -118,6 +119,7 @@ const InternalChatPage = lazy(() => import('./pages/InternalChatPage'));
 const EmailsPage = lazy(() => import('./pages/EmailsPage'));
 const AiAssistantPage = lazy(() => import('./pages/AiAssistantPage'));
 const AllNotificationsPage = lazy(() => import('./pages/AllNotificationsPage'));
+const ChatInboxPage = lazy(() => import('./pages/communication/ChatInboxPage')); // NEW
 
 // Finance
 const BillingPage = lazy(() => import('./pages/BillingPage'));
@@ -150,6 +152,7 @@ const RoleManagementPage = lazy(() => import('./pages/settings/RoleManagementPag
 const EditRolePage = lazy(() => import('./pages/settings/EditRolePage'));
 const InternalCompaniesSettings = lazy(() => import('./pages/settings/InternalCompaniesSettings'));
 const SalesGoalsPage = lazy(() => import('./pages/settings/SalesGoalsPage'));
+const ChatWidgetsPage = lazy(() => import('./pages/settings/ChatWidgetsPage')); // NEW
 
 // Auth & Onboarding
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -333,6 +336,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/calendar" element={<CalendarPage />} />
 
                             {/* Communication */}
+                            <Route path="/communication/inbox" element={<ChatInboxPage />} />
                             <Route path="/communication/chat" element={<InternalChatPage />} />
                             <Route path="/communication/chat/:type/:id" element={<InternalChatPage />} />
                             <Route path="/communication/emails" element={<EmailsPage />} />
@@ -366,6 +370,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />
                             <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />
                             <Route path="/settings/email-appearance" element={<EmailAppearancePage />} />
+                            <Route path="/settings/chat-widgets" element={<ChatWidgetsPage />} />
                             <Route path="/settings/industries" element={<IndustryManagementPage />} />
                             <Route path="/settings/pipelines" element={<PipelineManagementPage />} />
                             <Route path="/settings/ai-access" element={<AiAccessSettingsPage />} />

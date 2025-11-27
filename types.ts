@@ -878,6 +878,55 @@ export interface FreightPricingRule {
     active: boolean;
 }
 
+// --- NEW TYPES FOR LIVE CHAT & WIDGETS ---
+
+export type ChatSource = 'web' | 'instagram' | 'facebook' | 'whatsapp';
+export type ChatStatus = 'active' | 'closed' | 'pending';
+export type MessageSender = 'user' | 'agent' | 'system' | 'ai';
+
+export interface ChatWidgetConfig {
+    id: string;
+    name: string;
+    websiteUrl: string;
+    brandColor: string;
+    welcomeMessage: string;
+    aiPersonality: string; // Instructions for the AI
+    isActive: boolean;
+    createdById: string;
+    
+    // Appearance Config
+    position?: 'bottom-right' | 'bottom-left';
+    launcherIcon?: string; // 'chat', 'forum', 'support_agent', etc.
+    logoUrl?: string; // URL for header logo
+    ctaText?: string; // Text to show next to bubble, e.g. "We are online!"
+}
+
+export interface ChatSession {
+    id: string;
+    widgetId?: string; // Which widget/site it came from
+    source: ChatSource;
+    visitorName: string;
+    visitorEmail?: string; // Captured info
+    visitorPhone?: string; // Captured info
+    status: ChatStatus;
+    lastMessage: string;
+    lastMessageAt: string;
+    unreadCount: number; // For admin
+    assignedToUserId?: string; // If a human takes over
+    prospectId?: string; // Linked CRM Prospect
+    isAiActive: boolean; // If true, AI responds
+}
+
+export interface ChatSessionMessage {
+    id: string;
+    sessionId: string;
+    text: string;
+    sender: MessageSender; // 'user' (visitor), 'agent' (human), 'ai' (bot)
+    timestamp: string;
+    isRead: boolean;
+}
+
+
 export type RejectionReason = 'No interesado' | 'No califica' | 'Competencia' | 'Otro';
 export type BlacklistReason = 'Mal historial' | 'Fraude' | 'Solicitud del cliente';
 export type PreferredDays = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado';

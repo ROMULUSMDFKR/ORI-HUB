@@ -16,15 +16,21 @@ const PurchaseOrderCard: React.FC<PurchaseOrderCardProps> = ({ item, onDragStart
   const supplier = useMemo(() => suppliers?.find(s => s.id === item.supplierId), [suppliers, item.supplierId]);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Simple progress logic
+  // Simple progress logic based on status
   const progress = useMemo(() => {
       if (item.status === PurchaseOrderStatus.Facturada || item.status === PurchaseOrderStatus.Recibida) return 100;
       if (item.status === PurchaseOrderStatus.EnTransito) return 75;
       if (item.status === PurchaseOrderStatus.Pagada) return 60;
       if (item.status === PurchaseOrderStatus.PagoParcial) return 45;
       if (item.status === PurchaseOrderStatus.Ordenada) return 30;
-      return 0;
+      return 10; // Borrador/Por Aprobar
   }, [item.status]);
+
+  const getProgressColor = () => {
+      if (progress === 100) return 'bg-emerald-500';
+      if (progress > 50) return 'bg-blue-500';
+      return 'bg-indigo-500';
+  };
 
   return (
     <div
@@ -55,13 +61,14 @@ const PurchaseOrderCard: React.FC<PurchaseOrderCardProps> = ({ item, onDragStart
         </div>
       </div>
       
-      <div className="mt-2">
-           <div className="flex justify-between text-xs text-gray-500 mb-1">
+      {/* Internal Pipeline / Progress Bar */}
+      <div className="mt-3">
+           <div className="flex justify-between text-[10px] text-slate-400 mb-1 uppercase font-bold">
                 <span>Progreso</span>
                 <span>{progress}%</span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-slate-600 rounded-full h-1.5">
-                <div className={`h-1.5 rounded-full transition-all duration-500 ${progress === 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${progress}%` }}></div>
+            <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                <div className={`h-1.5 rounded-full transition-all duration-500 ${getProgressColor()}`} style={{ width: `${progress}%` }}></div>
             </div>
       </div>
 

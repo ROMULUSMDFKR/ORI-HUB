@@ -83,7 +83,8 @@ const ProductCategoriesPage = lazy(() => import('./pages/ProductCategoriesPage')
 
 // Purchases
 const PurchasesDashboardPage = lazy(() => import('./pages/purchase/PurchasesDashboardPage'));
-const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage'));
+// Use the new Pipeline page instead of the old list page
+const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPipelinePage'));
 const NewPurchaseOrderPage = lazy(() => import('./pages/purchase/NewPurchaseOrderPage'));
 const PurchaseOrderDetailPage = lazy(() => import('./pages/purchase/PurchaseOrderDetailPage'));
 const SuppliersPage = lazy(() => import('./pages/purchase/SuppliersPage'));

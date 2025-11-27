@@ -899,6 +899,12 @@ export interface ChatWidgetConfig {
     launcherIcon?: string; // 'chat', 'forum', 'support_agent', etc.
     logoUrl?: string; // URL for header logo
     ctaText?: string; // Text to show next to bubble, e.g. "We are online!"
+
+    // AI Brain Config
+    aiModel?: string;
+    temperature?: number;
+    maxTokens?: number;
+    frequencyPenalty?: number;
 }
 
 export interface ChatSession {

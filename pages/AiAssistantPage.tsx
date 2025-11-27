@@ -1,8 +1,8 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, FunctionDeclaration, Type } from '@google/genai';
 import { useCollection } from '../hooks/useCollection';
-import { SalesOrder, Prospect, Task, User, ProspectStage } from '../types';
+import { SalesOrder, Prospect, Task, ProspectStage } from '../types';
 import { api } from '../api/firebaseApi';
 import { useAuth } from '../hooks/useAuth';
 
@@ -24,7 +24,7 @@ const MOCK_ACTION_PERMISSIONS: Record<string, Record<string, boolean>> = {
 };
 
 // DEFINE ALL POSSIBLE AI FUNCTIONS
-const ALL_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
+const ALL_FUNCTION_DECLATIONS: FunctionDeclaration[] = [
     {
         name: 'createTask',
         description: 'Crea una nueva tarea en el sistema.',
@@ -170,7 +170,7 @@ const AiAssistantPage: React.FC = () => {
             // Filter tools based on user role
             const role = currentUser.role || 'Ventas';
             const userPermissions = MOCK_ACTION_PERMISSIONS[role];
-            const allowedFunctionDeclarations = ALL_FUNCTION_DECLARATIONS.filter(
+            const allowedFunctionDeclarations = ALL_FUNCTION_DECLATIONS.filter(
                 func => userPermissions && userPermissions[func.name]
             );
 
@@ -229,7 +229,23 @@ const AiAssistantPage: React.FC = () => {
 
                 } else if (functionCall.name === 'updateClientStatus') {
                     console.log('AI wants to update a client:', functionCall.args);
-                    apiResponseText = `Acción simulada: Estatus de "${functionCall.args.clientName}" actualizado a "${functionCall.args.newStatus}".`;
+                    
+                    // Implement real update logic
+                    try {
+                        const allCompanies = await api.getCollection('companies');
+                        const targetName = (functionCall.args.clientName as string).toLowerCase();
+                        const client = allCompanies.find((c: any) => (c.name || '').toLowerCase().includes(targetName) || (c.shortName || '').toLowerCase().includes(targetName));
+                        
+                        if (client) {
+                             await api.updateDoc('companies', client.id, { stage: functionCall.args.newStatus });
+                             apiResponseText = `Estatus de "${client.name}" actualizado correctamente a "${functionCall.args.newStatus}".`;
+                        } else {
+                             apiResponseText = `No encontré ninguna empresa que coincida con "${functionCall.args.clientName}".`;
+                        }
+                    } catch (err) {
+                        console.error("Error updating client:", err);
+                        apiResponseText = "Hubo un error al intentar actualizar el cliente. Verifica los permisos.";
+                    }
                     aiResponseText = apiResponseText;
 
                 } else if (functionCall.name === 'analyzeWebsite') {
@@ -259,13 +275,8 @@ const AiAssistantPage: React.FC = () => {
                         };
                     }
                     
-                    // We don't add a message yet, we feed this back to the AI or ask user confirmation
-                    // For this simplified flow, we'll tell the user what we found and ask to confirm.
                     const foundDataStr = JSON.stringify(extractedData, null, 2);
                     aiResponseText = `He analizado el enlace. Encontré la siguiente información:\n\n${foundDataStr}\n\n¿Quieres que proceda a crear el prospecto con estos datos?`;
-                    
-                    // OPTIONAL: If you want the AI to automatically chain the creation, you would need a loop here.
-                    // For better UX, asking confirmation is safer.
                 
                 } else {
                     apiResponseText = `No reconozco la acción: ${functionCall.name}`;

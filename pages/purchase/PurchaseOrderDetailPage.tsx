@@ -37,6 +37,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
     const [order, setOrder] = useState<PurchaseOrder | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const quoteInputRef = useRef<HTMLInputElement>(null);
     const invoiceInputRef = useRef<HTMLInputElement>(null); // Ref for Invoice Upload
     
     // Payment Drawer State
@@ -533,17 +534,17 @@ const PurchaseOrderDetailPage: React.FC = () => {
                      </div>
 
                     {/* Quote Attachment Card */}
-                     <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-                        <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-3">Cotizaciones del Proveedor</h3>
+                     <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 h-full flex flex-col">
+                        <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-4">COTIZACIONES DEL PROVEEDOR</h3>
                         
-                        <div className="space-y-2">
+                        <div className="space-y-2 flex-1 mb-4">
                             {allQuoteAttachments.map((att, index) => (
                                 <div key={att.id || index} className="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 p-2 rounded-lg">
-                                     <div className="flex items-center gap-2 overflow-hidden">
-                                         <span className="material-symbols-outlined text-red-500">picture_as_pdf</span>
+                                     <div className="flex items-center gap-3 overflow-hidden">
+                                         <span className="material-symbols-outlined text-red-500 text-2xl">picture_as_pdf</span>
                                          <div className="flex flex-col min-w-0">
-                                             <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[100px]">{att.name}</span>
-                                             <span className="text-xs text-slate-500">{(att.size / 1024).toFixed(1)} KB</span>
+                                             <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[150px]">{att.name}</span>
+                                             <span className="text-[10px] text-slate-500">{(att.size / 1024).toFixed(1)} KB</span>
                                          </div>
                                      </div>
                                      <a 
@@ -556,29 +557,37 @@ const PurchaseOrderDetailPage: React.FC = () => {
                                     </a>
                                 </div>
                             ))}
+                             {/* Placeholder for empty state to maintain height */}
+                             {allQuoteAttachments.length === 0 && (
+                                 <div className="h-32 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center">
+                                     <p className="text-xs text-slate-400">No hay cotizaciones.</p>
+                                 </div>
+                             )}
                         </div>
 
-                        <div className="mt-4 p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-center hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                            <input 
+                        <div className="flex justify-center">
+                             <input 
                                 type="file" 
-                                id="po-upload" 
                                 className="hidden" 
                                 accept="image/*,.pdf"
                                 onChange={handleQuoteFileUpload}
                                 disabled={isUploading}
+                                ref={quoteInputRef} 
                             />
-                            <label htmlFor="po-upload" className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
+                             <button 
+                                onClick={() => quoteInputRef.current?.click()}
+                                disabled={isUploading}
+                                className="flex flex-col items-center text-slate-400 hover:text-indigo-500 transition-colors"
+                            >
                                 {isUploading ? (
                                     <Spinner />
                                 ) : (
                                     <>
-                                        <span className="material-symbols-outlined text-3xl text-slate-400 mb-2">cloud_upload</span>
-                                        <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                                            Añadir Cotización
-                                        </span>
+                                        <span className="material-symbols-outlined text-3xl mb-1">cloud_upload</span>
+                                        <span className="text-sm font-medium">Añadir Cotización</span>
                                     </>
                                 )}
-                            </label>
+                            </button>
                         </div>
                     </div>
 

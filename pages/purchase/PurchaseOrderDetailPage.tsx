@@ -37,10 +37,15 @@ const PurchaseOrderDetailPage: React.FC = () => {
     const [order, setOrder] = useState<PurchaseOrder | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const invoiceInputRef = useRef<HTMLInputElement>(null); // Ref for Invoice Upload
     
     // Payment Drawer State
     const [isPaymentDrawerOpen, setIsPaymentDrawerOpen] = useState(false);
     const [paymentForm, setPaymentForm] = useState({ amount: 0, date: new Date().toISOString().split('T')[0], method: 'Transferencia', reference: '', notes: '' });
+
+    // Invoice Upload Modal State
+    const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+    const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
 
     // Active Tab
     const [activeTab, setActiveTab] = useState<'General' | 'Pagos'>('General');
@@ -56,18 +61,9 @@ const PurchaseOrderDetailPage: React.FC = () => {
     const approver = useMemo(() => users?.find(u => u.id === order?.approverId), [order, users]);
     const issuingCompany = useMemo(() => internalCompanies?.find(c => c.id === order?.issuingCompanyId), [order, internalCompanies]);
 
-    const orderNotes = useMemo(() => {
-        if (!allNotes || !id) return [];
-        return allNotes.filter(n => n.salesOrderId === id || n.companyId === order?.supplierId) // Adjust filter logic if needed, ideally filtering by specific entity ID for Purchase Orders if schema allowed, re-using salesOrderId or creating new field
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [allNotes, id, order]);
-    
     // Hack: Using salesOrderId field in Note for purchase order ID to reuse NotesSection
-    // Ideally update Note type to have purchaseOrderId
     const notesForSection = useMemo(() => {
         if (!allNotes || !id) return [];
-        // Filter notes where the text indicates it belongs to this PO or use a convention
-        // For now, assuming we use salesOrderId field to store PO ID for simplicity as per common NoSQL pattern
         return allNotes.filter(n => n.salesOrderId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [allNotes, id]);
 
@@ -75,6 +71,13 @@ const PurchaseOrderDetailPage: React.FC = () => {
     // --- STATUS MANAGEMENT ---
     const handleStatusChange = async (newStatus: PurchaseOrderStatus) => {
         if (!order || !id) return;
+
+        // Requirement: Request Invoice when changing to Facturada
+        if (newStatus === PurchaseOrderStatus.Facturada && !order.invoiceAttachment) {
+            setIsInvoiceModalOpen(true);
+            return;
+        }
+
         try {
             await api.updateDoc('purchaseOrders', id, { status: newStatus });
             setOrder({ ...order, status: newStatus });
@@ -82,6 +85,47 @@ const PurchaseOrderDetailPage: React.FC = () => {
         } catch (error) {
             console.error("Error updating status:", error);
             showToast('error', "Error al actualizar el estado.");
+        }
+    };
+
+    // --- INVOICE UPLOAD & CLOSE ---
+    const handleInvoiceUploadAndClose = async () => {
+        if (!invoiceFile || !order || !id) {
+            showToast('warning', 'Debes seleccionar el archivo de la factura.');
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const url = await api.uploadFile(invoiceFile, `purchase_orders/${id}/invoice`);
+            const attachment: Attachment = {
+                id: `inv-${Date.now()}`,
+                name: invoiceFile.name,
+                size: invoiceFile.size,
+                url: url
+            };
+
+            // Update order with Invoice AND Status
+            await api.updateDoc('purchaseOrders', id, { 
+                invoiceAttachment: attachment,
+                status: PurchaseOrderStatus.Facturada
+            });
+
+            setOrder(prev => prev ? ({ 
+                ...prev, 
+                invoiceAttachment: attachment, 
+                status: PurchaseOrderStatus.Facturada 
+            }) : null);
+
+            showToast('success', 'Factura subida y orden cerrada exitosamente.');
+            setIsInvoiceModalOpen(false);
+            setInvoiceFile(null);
+
+        } catch (error) {
+            console.error("Error uploading invoice:", error);
+            showToast('error', 'Error al subir la factura.');
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -96,24 +140,32 @@ const PurchaseOrderDetailPage: React.FC = () => {
         }
     };
 
-    // --- FILE UPLOAD ---
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // --- QUOTE FILE UPLOAD (Multiple) ---
+    const handleQuoteFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || !e.target.files[0] || !order || !id) return;
         const file = e.target.files[0];
         
         setIsUploading(true);
         try {
-            const url = await api.uploadFile(file, `purchase_orders/${id}/quote`);
-            const attachment: Attachment = {
+            const url = await api.uploadFile(file, `purchase_orders/${id}/quotes`);
+            const newAttachment: Attachment = {
                 id: `att-${Date.now()}`,
                 name: file.name,
                 size: file.size,
                 url: url
             };
             
-            await api.updateDoc('purchaseOrders', id, { quoteAttachment: attachment });
-            setOrder(prev => prev ? ({ ...prev, quoteAttachment: attachment }) : null);
-            showToast('success', 'Cotización adjuntada correctamente.');
+            // Combine legacy attachment with new array if needed
+            const currentAttachments = order.quoteAttachments || [];
+            if (order.quoteAttachment && currentAttachments.length === 0) {
+                currentAttachments.push(order.quoteAttachment);
+            }
+
+            const updatedAttachments = [...currentAttachments, newAttachment];
+            
+            await api.updateDoc('purchaseOrders', id, { quoteAttachments: updatedAttachments });
+            setOrder(prev => prev ? ({ ...prev, quoteAttachments: updatedAttachments }) : null);
+            showToast('success', 'Cotización añadida correctamente.');
         } catch (error) {
             console.error("Error uploading file:", error);
             showToast('error', 'Error al subir el documento.');
@@ -174,9 +226,6 @@ const PurchaseOrderDetailPage: React.FC = () => {
 
     // --- NOTES LOGIC WITH MENTIONS ---
     const handleNoteAdded = async (note: Note) => {
-        // Re-using the structure but mapping to PO ID logic
-        // Ideally Note type should have purchaseOrderId
-        // We act as if salesOrderId is the generic 'order ID' container
         try {
             const noteWithId = { ...note, salesOrderId: id }; // Reuse field
             await api.addDoc('notes', noteWithId);
@@ -227,6 +276,12 @@ const PurchaseOrderDetailPage: React.FC = () => {
     if (error || !order) return <div className="text-center p-12">Orden de Compra no encontrada.</div>;
     
     const balance = order.total - order.paidAmount;
+    
+    // Normalize quotes for display (legacy + new array)
+    const allQuoteAttachments = order.quoteAttachments ? [...order.quoteAttachments] : [];
+    if (order.quoteAttachment && allQuoteAttachments.length === 0) {
+        allQuoteAttachments.push(order.quoteAttachment);
+    }
 
     return (
         <div className="max-w-5xl mx-auto pb-12 space-y-6">
@@ -259,16 +314,16 @@ const PurchaseOrderDetailPage: React.FC = () => {
                          )
                     )}
                      {!needsApproval && order.status !== PurchaseOrderStatus.Facturada && order.status !== PurchaseOrderStatus.Cancelada && (
-                         <div className="relative group">
+                         <div className="relative group z-50">
                              <button className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 flex items-center gap-2">
                                  Cambiar Estado <span className="material-symbols-outlined">expand_more</span>
                              </button>
-                             <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 hidden group-hover:block z-10">
+                             <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 hidden group-hover:block z-50">
                                  {Object.values(PurchaseOrderStatus).map(s => (
                                      <button 
                                         key={s} 
                                         onClick={() => handleStatusChange(s)}
-                                        className="block w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                        className="block w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-lg last:rounded-b-lg"
                                      >
                                          {s}
                                      </button>
@@ -455,53 +510,76 @@ const PurchaseOrderDetailPage: React.FC = () => {
                              </div>
                         </div>
                     )}
+                    
+                    {/* Invoice Attachment */}
+                     <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                         <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-3 flex items-center gap-2">
+                             <span className="material-symbols-outlined text-base">receipt</span> Factura Fiscal
+                         </h3>
+                         {order.invoiceAttachment ? (
+                              <div className="flex justify-between items-center bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 rounded-lg">
+                                 <div className="flex items-center gap-2 overflow-hidden">
+                                     <span className="material-symbols-outlined text-green-600">description</span>
+                                     <div className="flex flex-col min-w-0">
+                                         <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[100px]">{order.invoiceAttachment.name}</span>
+                                         <span className="text-xs text-slate-500">{(order.invoiceAttachment.size / 1024).toFixed(1)} KB</span>
+                                     </div>
+                                 </div>
+                                 <a href={order.invoiceAttachment.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Ver</a>
+                             </div>
+                         ) : (
+                             <p className="text-sm text-slate-400 italic">Pendiente de facturación</p>
+                         )}
+                     </div>
 
                     {/* Quote Attachment Card */}
                      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-                        <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-3">Cotización del Proveedor</h3>
+                        <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-3">Cotizaciones del Proveedor</h3>
                         
-                         {order.quoteAttachment ? (
-                             <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 p-3 rounded-lg">
-                                 <div className="flex items-center gap-2 overflow-hidden">
-                                     <span className="material-symbols-outlined text-red-500">picture_as_pdf</span>
-                                     <div className="flex flex-col min-w-0">
-                                         <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[100px]">{order.quoteAttachment.name}</span>
-                                         <span className="text-xs text-slate-500">{(order.quoteAttachment.size / 1024).toFixed(1)} KB</span>
+                        <div className="space-y-2">
+                            {allQuoteAttachments.map((att, index) => (
+                                <div key={att.id || index} className="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 p-2 rounded-lg">
+                                     <div className="flex items-center gap-2 overflow-hidden">
+                                         <span className="material-symbols-outlined text-red-500">picture_as_pdf</span>
+                                         <div className="flex flex-col min-w-0">
+                                             <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[100px]">{att.name}</span>
+                                             <span className="text-xs text-slate-500">{(att.size / 1024).toFixed(1)} KB</span>
+                                         </div>
                                      </div>
-                                 </div>
-                                 <a 
-                                    href={order.quoteAttachment.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-medium"
-                                >
-                                    Ver
-                                </a>
-                             </div>
-                         ) : (
-                            <div className="p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-center hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                <input 
-                                    type="file" 
-                                    id="po-upload" 
-                                    className="hidden" 
-                                    accept="image/*,.pdf"
-                                    onChange={handleFileUpload}
-                                    disabled={isUploading}
-                                />
-                                <label htmlFor="po-upload" className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
-                                    {isUploading ? (
-                                        <Spinner />
-                                    ) : (
-                                        <>
-                                            <span className="material-symbols-outlined text-3xl text-slate-400 mb-2">cloud_upload</span>
-                                            <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                                                Subir Cotización
-                                            </span>
-                                        </>
-                                    )}
-                                </label>
-                            </div>
-                         )}
+                                     <a 
+                                        href={att.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-medium"
+                                    >
+                                        Ver
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="mt-4 p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-center hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                            <input 
+                                type="file" 
+                                id="po-upload" 
+                                className="hidden" 
+                                accept="image/*,.pdf"
+                                onChange={handleQuoteFileUpload}
+                                disabled={isUploading}
+                            />
+                            <label htmlFor="po-upload" className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
+                                {isUploading ? (
+                                    <Spinner />
+                                ) : (
+                                    <>
+                                        <span className="material-symbols-outlined text-3xl text-slate-400 mb-2">cloud_upload</span>
+                                        <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                                            Añadir Cotización
+                                        </span>
+                                    </>
+                                )}
+                            </label>
+                        </div>
                     </div>
 
                     {/* Notes Section (Updated to allow editing and mentions) */}
@@ -580,6 +658,65 @@ const PurchaseOrderDetailPage: React.FC = () => {
                     </div>
                 </div>
             </Drawer>
+
+            {/* Invoice Upload Drawer */}
+             <Drawer isOpen={isInvoiceModalOpen} onClose={() => { setIsInvoiceModalOpen(false); setInvoiceFile(null); }} title="Subir Factura para Cerrar Orden">
+                 <div className="space-y-6">
+                     <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
+                         <div className="flex gap-3">
+                             <span className="material-symbols-outlined text-blue-600 dark:text-blue-400">info</span>
+                             <p className="text-sm text-blue-800 dark:text-blue-300">
+                                 Para marcar esta orden como <strong>Facturada</strong> y cerrarla administrativamente, es necesario adjuntar el archivo fiscal (PDF o XML) proporcionado por el proveedor.
+                             </p>
+                         </div>
+                     </div>
+
+                     <div>
+                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Archivo de Factura *</label>
+                         <div className="p-6 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-center hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer relative">
+                             <input 
+                                 type="file" 
+                                 ref={invoiceInputRef}
+                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                 accept=".pdf,.xml,image/*"
+                                 onChange={(e) => { if(e.target.files) setInvoiceFile(e.target.files[0]); }}
+                             />
+                             <div className="flex flex-col items-center justify-center pointer-events-none">
+                                 {invoiceFile ? (
+                                     <>
+                                         <span className="material-symbols-outlined text-4xl text-green-500 mb-2">check_circle</span>
+                                         <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{invoiceFile.name}</p>
+                                         <p className="text-xs text-slate-500">{(invoiceFile.size / 1024).toFixed(1)} KB</p>
+                                     </>
+                                 ) : (
+                                     <>
+                                         <span className="material-symbols-outlined text-4xl text-slate-400 mb-2">cloud_upload</span>
+                                         <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Haz clic o arrastra el archivo aquí</p>
+                                         <p className="text-xs text-slate-500 mt-1">PDF, XML o Imagen</p>
+                                     </>
+                                 )}
+                             </div>
+                         </div>
+                     </div>
+
+                     <div className="pt-4 flex justify-end gap-2 border-t border-slate-200 dark:border-slate-700">
+                         <button 
+                            onClick={() => { setIsInvoiceModalOpen(false); setInvoiceFile(null); }} 
+                            className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg"
+                        >
+                            Cancelar
+                        </button>
+                         <button 
+                            onClick={handleInvoiceUploadAndClose} 
+                            disabled={!invoiceFile || isUploading}
+                            className="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {isUploading ? <Spinner /> : <span className="material-symbols-outlined">check</span>}
+                            Subir y Finalizar
+                        </button>
+                     </div>
+                 </div>
+             </Drawer>
         </div>
     );
 };

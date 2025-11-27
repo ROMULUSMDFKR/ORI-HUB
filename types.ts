@@ -20,23 +20,7 @@ export interface User {
     country?: string;
     theme?: 'light' | 'dark';
     signature?: string;
-    // New: Controls which widgets appear on the "Today" dashboard
-    activeDashboards?: ('sales' | 'logistics' | 'finance' | 'admin')[]; 
-}
-
-export interface ProductGoal {
-    id: string; // Unique ID for the goal entry
-    productId: string;
-    productName?: string; // Fallback display
-    unit: string; // 'ton', 'kg', 'L', etc.
-    globalMonthlyTarget: number;
-    userTargets: Record<string, number>; // userId: targetAmount
-}
-
-export interface SalesGoalSettings {
-    id: string; // Usually 'salesGoals'
-    goals: ProductGoal[];
-    updatedAt: string;
+    activeDashboards?: string[];
 }
 
 export interface Role {
@@ -74,7 +58,7 @@ export interface Company {
     industry?: string;
     website?: string;
     ownerId: string;
-    additionalOwnerIds?: string[]; // Multiple responsible parties
+    additionalOwnerIds?: string[];
     createdById: string;
     stage: CompanyPipelineStage;
     priority: Priority;
@@ -83,7 +67,7 @@ export interface Company {
     deliveryAddresses: Address[];
     fiscalAddress?: Address;
     primaryContact?: Contact;
-    secondaryContact?: Contact; // Secondary contact
+    secondaryContact?: Contact;
     createdAt: string;
     healthScore?: { score: number; label: string };
     profile?: {
@@ -139,7 +123,7 @@ export interface Contact {
     role: string;
     emails?: string[];
     phones?: string[];
-    companyId?: string;
+    companyId?: string | null;
     ownerId: string;
     prospectId?: string;
 }
@@ -274,6 +258,7 @@ export interface ProductLot {
     receptionDate: string;
     initialQty: number;
     status: LotStatus;
+    minSellPrice?: number;
     pricing: { min: number };
     stock: { locationId: string; qty: number }[];
 }
@@ -451,26 +436,14 @@ export enum SampleStatus {
     Aprobada = 'Aprobada'
 }
 
-export interface PurchasePayment {
-    id: string;
-    amount: number;
-    date: string;
-    method: string; // Transferencia, Cheque, Efectivo
-    reference?: string; // Comprobante, # Transferencia
-    notes?: string;
-    registeredBy: string;
-}
-
 export interface PurchaseOrder {
     id: string;
     supplierId: string;
-    issuingCompanyId?: string; // Added: Internal Company making the purchase
+    issuingCompanyId?: string;
     responsibleId: string;
-    approverId?: string; 
+    approverId?: string;
     expectedDeliveryDate: string;
     notes?: string;
-    quoteAttachment?: Attachment;
-    invoiceAttachment?: Attachment;
     items: PurchaseOrderItem[];
     status: PurchaseOrderStatus;
     createdAt: string;
@@ -478,20 +451,22 @@ export interface PurchaseOrder {
     tax: number;
     total: number;
     paidAmount: number;
-    payments?: PurchasePayment[]; // Added: List of partial payments
+    quoteAttachment?: Attachment;
+    quoteAttachments?: Attachment[];
+    invoiceAttachment?: Attachment;
+    payments?: PurchasePayment[];
 }
 
-// New comprehensive enum for Purchase Pipeline
 export enum PurchaseOrderStatus {
     Borrador = 'Borrador',
     PorAprobar = 'Por Aprobar',
-    Ordenada = 'Ordenada', // Sent to supplier
+    Ordenada = 'Ordenada',
     PagoPendiente = 'Pago Pendiente',
     PagoParcial = 'Pago Parcial',
     Pagada = 'Pagada',
     EnTransito = 'En Tránsito',
     Recibida = 'Recibida',
-    Facturada = 'Facturada', // Final step
+    Facturada = 'Facturada',
     Cancelada = 'Cancelada'
 }
 
@@ -502,6 +477,16 @@ export interface PurchaseOrderItem {
     unit: Unit;
     unitCost: number;
     subtotal: number;
+}
+
+export interface PurchasePayment {
+    id: string;
+    amount: number;
+    date: string;
+    method: string;
+    reference: string;
+    notes: string;
+    registeredBy: string;
 }
 
 export interface Supplier {
@@ -594,6 +579,9 @@ export interface Candidate {
     instagrams?: string[];
     twitters?: string[];
     googleMapsUrl?: string;
+    googlePlaceId?: string;
+    placeId?: string;
+    title?: string;
 }
 
 export enum CandidateStatus {
@@ -878,61 +866,6 @@ export interface FreightPricingRule {
     active: boolean;
 }
 
-// --- NEW TYPES FOR LIVE CHAT & WIDGETS ---
-
-export type ChatSource = 'web' | 'instagram' | 'facebook' | 'whatsapp';
-export type ChatStatus = 'active' | 'closed' | 'pending';
-export type MessageSender = 'user' | 'agent' | 'system' | 'ai';
-
-export interface ChatWidgetConfig {
-    id: string;
-    name: string;
-    websiteUrl: string;
-    brandColor: string;
-    welcomeMessage: string;
-    aiPersonality: string; // Instructions for the AI
-    isActive: boolean;
-    createdById: string;
-    
-    // Appearance Config
-    position?: 'bottom-right' | 'bottom-left';
-    launcherIcon?: string; // 'chat', 'forum', 'support_agent', etc.
-    logoUrl?: string; // URL for header logo
-    ctaText?: string; // Text to show next to bubble, e.g. "We are online!"
-
-    // AI Brain Config
-    aiModel?: string;
-    temperature?: number;
-    maxTokens?: number;
-    frequencyPenalty?: number;
-}
-
-export interface ChatSession {
-    id: string;
-    widgetId?: string; // Which widget/site it came from
-    source: ChatSource;
-    visitorName: string;
-    visitorEmail?: string; // Captured info
-    visitorPhone?: string; // Captured info
-    status: ChatStatus;
-    lastMessage: string;
-    lastMessageAt: string;
-    unreadCount: number; // For admin
-    assignedToUserId?: string; // If a human takes over
-    prospectId?: string; // Linked CRM Prospect
-    isAiActive: boolean; // If true, AI responds
-}
-
-export interface ChatSessionMessage {
-    id: string;
-    sessionId: string;
-    text: string;
-    sender: MessageSender; // 'user' (visitor), 'agent' (human), 'ai' (bot)
-    timestamp: string;
-    isRead: boolean;
-}
-
-
 export type RejectionReason = 'No interesado' | 'No califica' | 'Competencia' | 'Otro';
 export type BlacklistReason = 'Mal historial' | 'Fraude' | 'Solicitud del cliente';
 export type PreferredDays = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado';
@@ -961,4 +894,61 @@ export interface InventoryMove {
     note?: string;
     userId: string;
     createdAt: string;
+}
+
+export interface ChatWidgetConfig {
+    id: string;
+    name: string;
+    websiteUrl: string;
+    brandColor: string;
+    welcomeMessage: string;
+    aiPersonality: string;
+    isActive: boolean;
+    position: 'bottom-right' | 'bottom-left';
+    launcherIcon: string;
+    ctaText?: string;
+    aiModel: string;
+    temperature?: number;
+    maxTokens?: number;
+    frequencyPenalty?: number;
+    logoUrl?: string;
+    createdById: string;
+}
+
+export interface ChatSession {
+    id: string;
+    source: 'web' | 'whatsapp' | 'instagram' | 'facebook';
+    visitorName: string;
+    visitorEmail?: string;
+    visitorPhone?: string;
+    status: 'active' | 'pending' | 'closed';
+    lastMessage: string;
+    lastMessageAt: string;
+    unreadCount: number;
+    isAiActive: boolean;
+    prospectId?: string;
+}
+
+export interface ChatSessionMessage {
+    id: string;
+    sessionId: string;
+    text: string;
+    sender: 'user' | 'agent' | 'ai' | 'system';
+    timestamp: string;
+    isRead: boolean;
+}
+
+export interface SalesGoalSettings {
+    id: string;
+    goals: ProductGoal[];
+    updatedAt: string;
+}
+
+export interface ProductGoal {
+    id: string;
+    productId: string;
+    productName?: string;
+    unit: string;
+    globalMonthlyTarget: number;
+    userTargets: Record<string, number>; // userId -> target
 }

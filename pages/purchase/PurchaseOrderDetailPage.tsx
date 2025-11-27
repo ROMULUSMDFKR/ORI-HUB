@@ -37,8 +37,6 @@ const PurchaseOrderDetailPage: React.FC = () => {
     const [order, setOrder] = useState<PurchaseOrder | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const quoteInputRef = useRef<HTMLInputElement>(null);
-    const invoiceInputRef = useRef<HTMLInputElement>(null); // Ref for Invoice Upload
     
     // Payment Drawer State
     const [isPaymentDrawerOpen, setIsPaymentDrawerOpen] = useState(false);
@@ -47,6 +45,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
     // Invoice Upload Modal State
     const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
     const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+    const invoiceInputRef = useRef<HTMLInputElement>(null);
 
     // Active Tab
     const [activeTab, setActiveTab] = useState<'General' | 'Pagos'>('General');
@@ -62,7 +61,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
     const approver = useMemo(() => users?.find(u => u.id === order?.approverId), [order, users]);
     const issuingCompany = useMemo(() => internalCompanies?.find(c => c.id === order?.issuingCompanyId), [order, internalCompanies]);
 
-    // Hack: Using salesOrderId field in Note for purchase order ID to reuse NotesSection
+    // Use salesOrderId field in Note for purchase order ID for simplicity
     const notesForSection = useMemo(() => {
         if (!allNotes || !id) return [];
         return allNotes.filter(n => n.salesOrderId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -130,6 +129,12 @@ const PurchaseOrderDetailPage: React.FC = () => {
         }
     };
 
+    const handleInvoiceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setInvoiceFile(e.target.files[0]);
+        }
+    };
+
     // --- APPROVAL LOGIC ---
     const isApprover = currentUser?.id === order?.approverId || currentUser?.role === 'Admin';
     const needsApproval = order?.status === PurchaseOrderStatus.PorAprobar;
@@ -141,7 +146,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
         }
     };
 
-    // --- QUOTE FILE UPLOAD (Multiple) ---
+    // --- QUOTE FILE UPLOAD ---
     const handleQuoteFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || !e.target.files[0] || !order || !id) return;
         const file = e.target.files[0];
@@ -225,33 +230,11 @@ const PurchaseOrderDetailPage: React.FC = () => {
         }
     };
 
-    // --- NOTES LOGIC WITH MENTIONS ---
+    // --- NOTES LOGIC ---
     const handleNoteAdded = async (note: Note) => {
         try {
-            const noteWithId = { ...note, salesOrderId: id }; // Reuse field
+            const noteWithId = { ...note, salesOrderId: id }; // Reuse field as per schema constraint
             await api.addDoc('notes', noteWithId);
-            
-            // Check for mentions
-            const mentionMatch = note.text.match(/@(\w+)/g);
-            if (mentionMatch && users) {
-                const mentionedNames = mentionMatch.map(m => m.substring(1).toLowerCase());
-                const mentionedUsers = users.filter(u => mentionedNames.includes(u.name.toLowerCase().split(' ')[0].toLowerCase()) || mentionedNames.includes(u.name.toLowerCase()));
-                
-                for (const user of mentionedUsers) {
-                     if (user.id === currentUser?.id) continue;
-                     const notification: Omit<Notification, 'id'> = {
-                        userId: user.id,
-                        title: 'Mención en Orden de Compra',
-                        message: `${currentUser?.name} te mencionó en la OC ${order?.id}`,
-                        type: 'message',
-                        link: `/purchase/orders/${id}`,
-                        isRead: false,
-                        createdAt: new Date().toISOString()
-                     };
-                     await api.addDoc('notifications', notification);
-                }
-            }
-
             showToast('success', 'Nota agregada.');
         } catch (err) {
             console.error(err);
@@ -259,33 +242,20 @@ const PurchaseOrderDetailPage: React.FC = () => {
         }
     };
     
-    const handleNoteUpdated = async (noteId: string, newText: string) => {
-         try {
-            await api.updateDoc('notes', noteId, { text: newText });
-            showToast('success', 'Nota actualizada.');
-        } catch (err) {
-            console.error(err);
-            showToast('error', 'Error al actualizar nota.');
-        }
-    }
-
-
     // --- PIPELINE VISUALIZATION ---
     const currentStageIndex = PURCHASE_ORDERS_PIPELINE_COLUMNS.findIndex(col => col.stage === order?.status);
 
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (error || !order) return <div className="text-center p-12">Orden de Compra no encontrada.</div>;
     
-    const balance = order.total - order.paidAmount;
-    
-    // Normalize quotes for display (legacy + new array)
+    // Determine quote list for display
     const allQuoteAttachments = order.quoteAttachments ? [...order.quoteAttachments] : [];
     if (order.quoteAttachment && allQuoteAttachments.length === 0) {
         allQuoteAttachments.push(order.quoteAttachment);
     }
 
     return (
-        <div className="max-w-5xl mx-auto pb-12 space-y-6">
+        <div className="max-w-6xl mx-auto pb-12 space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
@@ -356,103 +326,326 @@ const PurchaseOrderDetailPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="border-b border-slate-200 dark:border-slate-700">
-                <nav className="-mb-px flex space-x-6">
-                    <button onClick={() => setActiveTab('General')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'General' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>General</button>
-                    <button onClick={() => setActiveTab('Pagos')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'Pagos' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Pagos y Anticipos</button>
-                </nav>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column */}
+                <div className="lg:col-span-2 space-y-6">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-indigo-500">factory</span>
+                            Detalles
+                        </h3>
+                        <div className="grid grid-cols-2 gap-6 text-sm">
+                            <div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Proveedor</p>
+                                <p className="font-semibold text-slate-800 dark:text-slate-200 text-base mt-1">{supplier?.name || 'Desconocido'}</p>
+                                <p className="text-slate-600 dark:text-slate-400">{supplier?.address?.city}, {supplier?.address?.state}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Empresa Compradora</p>
+                                <p className="text-slate-800 dark:text-slate-200 mt-1 font-medium">{issuingCompany?.name || 'No especificada'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Responsable</p>
+                                <p className="text-slate-800 dark:text-slate-200 mt-1">{responsible?.name || 'N/A'}</p>
+                            </div>
+                             <div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Entrega Estimada</p>
+                                <p className="text-slate-800 dark:text-slate-200 mt-1">{order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toLocaleDateString() : 'Pendiente'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                         <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-indigo-500">list_alt</span>
+                            Productos
+                        </h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-50 dark:bg-slate-700/50 text-left text-slate-500 dark:text-slate-400 uppercase text-xs">
+                                    <tr>
+                                        <th className="p-3 rounded-l-lg">Producto</th>
+                                        <th className="p-3 text-right">Cant.</th>
+                                        <th className="p-3 text-right">Costo Unit.</th>
+                                        <th className="p-3 rounded-r-lg text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                    {order.items.map((item, index) => (
+                                        <tr key={index}>
+                                            <td className="p-3 font-medium text-slate-800 dark:text-slate-200">{item.productName || 'Producto'}</td>
+                                            <td className="p-3 text-right text-slate-600 dark:text-slate-300">{item.qty} {item.unit}</td>
+                                            <td className="p-3 text-right text-slate-600 dark:text-slate-300">${item.unitCost.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                            <td className="p-3 text-right font-bold text-slate-800 dark:text-slate-200">${item.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                     {/* Payments Section */}
+                     <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-indigo-500">payments</span>
+                                Historial de Pagos
+                            </h3>
+                            <button onClick={() => setIsPaymentDrawerOpen(true)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 flex items-center gap-2 text-sm">
+                                <span className="material-symbols-outlined text-base">add</span> Registrar Pago
+                            </button>
+                        </div>
+                        
+                        {order.payments && order.payments.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-50 dark:bg-slate-700/50 text-left text-slate-500 dark:text-slate-400 uppercase text-xs">
+                                        <tr>
+                                            <th className="p-3 rounded-l-lg">Fecha</th>
+                                            <th className="p-3">Método</th>
+                                            <th className="p-3">Referencia</th>
+                                            <th className="p-3 rounded-r-lg text-right">Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                        {order.payments.map((payment) => (
+                                            <tr key={payment.id}>
+                                                <td className="p-3 text-slate-700 dark:text-slate-300">{new Date(payment.date).toLocaleDateString()}</td>
+                                                <td className="p-3 text-slate-700 dark:text-slate-300">{payment.method}</td>
+                                                <td className="p-3 text-slate-500 dark:text-slate-400">{payment.reference || '-'}</td>
+                                                <td className="p-3 text-right font-bold text-slate-800 dark:text-slate-200">${payment.amount.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-600">
+                                <p className="text-sm">No se han registrado pagos.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Right Column - Sidebar */}
+                <div className="lg:col-span-1 space-y-6">
+                    
+                    {/* Financial Summary */}
+                     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">Resumen</h3>
+                        <div className="flex justify-between text-sm text-slate-600 dark:text-slate-300">
+                            <span>Subtotal</span>
+                            <span>${(order.subtotal || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-slate-600 dark:text-slate-300">
+                            <span>IVA</span>
+                            <span>${(order.tax || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                        </div>
+                        <div className="flex justify-between text-lg font-bold text-indigo-600 dark:text-indigo-400 border-t border-slate-100 dark:border-slate-700 pt-2 mt-2">
+                            <span>Total</span>
+                            <span>${(order.total || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                        </div>
+                         <div className="flex justify-between text-sm text-green-600 dark:text-green-400 font-semibold pt-2">
+                            <span>Pagado</span>
+                            <span>${(order.paidAmount || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                        </div>
+                         <div className="flex justify-between text-sm text-red-500 dark:text-red-400 font-semibold">
+                            <span>Por Pagar</span>
+                            <span>${((order.total || 0) - (order.paidAmount || 0)).toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                        </div>
+                    </div>
+                    
+                    {/* Quote Attachments (Multiple) */}
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">COTIZACIONES DEL PROVEEDOR</h3>
+                        
+                        <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                            {allQuoteAttachments.map((att) => (
+                                <div key={att.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-100 dark:border-slate-600 group">
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        <span className="material-symbols-outlined text-red-500 text-lg">picture_as_pdf</span>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{att.name}</p>
+                                            <p className="text-[10px] text-slate-400">{(att.size / 1024).toFixed(1)} KB</p>
+                                        </div>
+                                    </div>
+                                    <a 
+                                        href={att.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="px-2 py-1 text-xs font-semibold text-indigo-600 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-500 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                                    >
+                                        Ver
+                                    </a>
+                                </div>
+                            ))}
+                            {allQuoteAttachments.length === 0 && (
+                                <p className="text-sm text-slate-400 text-center py-4">No hay cotizaciones adjuntas.</p>
+                            )}
+                        </div>
+
+                         {/* Add Button */}
+                         <div className="mt-4 text-center">
+                             <input 
+                                type="file" 
+                                ref={fileInputRef}
+                                className="hidden" 
+                                accept="image/*,.pdf"
+                                onChange={handleQuoteFileUpload}
+                                disabled={isUploading}
+                            />
+                            <button 
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                                className="text-sm font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 flex flex-col items-center w-full p-4 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                            >
+                                {isUploading ? (
+                                    <Spinner />
+                                ) : (
+                                    <>
+                                        <span className="material-symbols-outlined text-2xl mb-1">cloud_upload</span>
+                                        Añadir Cotización
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    <NotesSection 
+                        entityId={id || ''}
+                        entityType="salesOrder" // Reusing type for notes
+                        notes={notesForSection}
+                        onNoteAdded={handleNoteAdded}
+                    />
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Main Info */}
-                <div className="lg:col-span-2 space-y-6">
-                    
-                    {activeTab === 'General' ? (
-                        <>
-                            {/* Supplier & Details Card */}
-                            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-indigo-500">factory</span>
-                                    Detalles de la Orden
-                                </h3>
-                                <div className="grid grid-cols-2 gap-6 text-sm">
-                                    <div>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Proveedor</p>
-                                        <p className="font-semibold text-slate-800 dark:text-slate-200 text-base mt-1">{supplier?.name || 'Desconocido'}</p>
-                                        <p className="text-slate-600 dark:text-slate-400">{supplier?.address?.city}, {supplier?.address?.state}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Empresa Compradora</p>
-                                        <p className="text-slate-800 dark:text-slate-200 mt-1 font-medium">{issuingCompany?.name || 'No especificada'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Responsable Interno</p>
-                                        <p className="text-slate-800 dark:text-slate-200 mt-1">{responsible?.name || 'N/A'}</p>
-                                    </div>
-                                     <div>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Entrega Estimada</p>
-                                        <p className="text-slate-800 dark:text-slate-200 mt-1">{order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toLocaleDateString() : 'Pendiente'}</p>
-                                    </div>
-                                </div>
+             {/* Drawers / Modals */}
+            
+            {/* Payment Drawer */}
+            <Drawer isOpen={isPaymentDrawerOpen} onClose={() => setIsPaymentDrawerOpen(false)} title="Registrar Pago">
+                 <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Monto</label>
+                         <div className="relative">
+                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span className="material-symbols-outlined h-5 w-5 text-gray-400">attach_money</span>
                             </div>
+                            <input 
+                                type="number" 
+                                value={paymentForm.amount} 
+                                onChange={e => setPaymentForm({...paymentForm, amount: parseFloat(e.target.value)})}
+                                className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-700"
+                            />
+                        </div>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha de Pago</label>
+                        <input 
+                            type="date" 
+                            value={paymentForm.date} 
+                            onChange={e => setPaymentForm({...paymentForm, date: e.target.value})}
+                            className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-700"
+                        />
+                    </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Método</label>
+                             <select 
+                                value={paymentForm.method} 
+                                onChange={e => setPaymentForm({...paymentForm, method: e.target.value})}
+                                className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-700"
+                             >
+                                 <option>Transferencia</option>
+                                 <option>Cheque</option>
+                                 <option>Tarjeta Crédito</option>
+                                 <option>Efectivo</option>
+                             </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Referencia</label>
+                             <input 
+                                type="text" 
+                                value={paymentForm.reference} 
+                                onChange={e => setPaymentForm({...paymentForm, reference: e.target.value})}
+                                className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-700"
+                                placeholder="Folio bancario..."
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Notas</label>
+                         <textarea 
+                            value={paymentForm.notes} 
+                            onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})}
+                            rows={3}
+                            className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-700"
+                        />
+                    </div>
+                    <div className="pt-4 flex justify-end gap-2 border-t border-slate-200 dark:border-slate-700">
+                        <button onClick={() => setIsPaymentDrawerOpen(false)} className="px-4 py-2 text-sm bg-white border border-slate-300 rounded-lg">Cancelar</button>
+                        <button onClick={handleAddPayment} className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg">Guardar Pago</button>
+                    </div>
+                 </div>
+            </Drawer>
 
-                            {/* Items Table */}
-                            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-                                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-indigo-500">list_alt</span>
-                                    Productos
-                                </h3>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead className="bg-slate-50 dark:bg-slate-700/50 text-left text-slate-500 dark:text-slate-400 uppercase text-xs">
-                                            <tr>
-                                                <th className="p-3 rounded-l-lg">Producto</th>
-                                                <th className="p-3 text-right">Cant.</th>
-                                                <th className="p-3 text-right">Costo Unit.</th>
-                                                <th className="p-3 rounded-r-lg text-right">Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                            {order.items.map((item, index) => (
-                                                <tr key={index}>
-                                                    <td className="p-3 font-medium text-slate-800 dark:text-slate-200">{item.productName || 'Producto'}</td>
-                                                    <td className="p-3 text-right text-slate-600 dark:text-slate-300">{item.qty} {item.unit}</td>
-                                                    <td className="p-3 text-right text-slate-600 dark:text-slate-300">${item.unitCost.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                                                    <td className="p-3 text-right font-bold text-slate-800 dark:text-slate-200">${item.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </>
-                    ) : (
-                         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-indigo-500">payments</span>
-                                    Historial de Pagos
-                                </h3>
-                                <button onClick={() => setIsPaymentDrawerOpen(true)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 flex items-center gap-2 text-sm">
-                                    <span className="material-symbols-outlined text-base">add</span> Registrar Pago
-                                </button>
-                            </div>
-                            
-                            {order.payments && order.payments.length > 0 ? (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead className="bg-slate-50 dark:bg-slate-700/50 text-left text-slate-500 dark:text-slate-400 uppercase text-xs">
-                                            <tr>
-                                                <th className="p-3 rounded-l-lg">Fecha</th>
-                                                <th className="p-3">Método</th>
-                                                <th className="p-3">Referencia</th>
-                                                <th className="p-3 rounded-r-lg text-right">Monto</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                            {order.payments.map((payment) => (
-                                                <tr key={payment.id}>
-                                                    <td className="p-3 text-slate-700 dark:text-slate-300">{new Date(payment.date).toLocaleDateString()}</td>
-                                                    <td className="p-3 text-slate-700 dark:text-slate-300">{payment.method}</td>
-                                                    <td className="p-3 text-slate-5
+            {/* Invoice Upload Modal */}
+            {isInvoiceModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+                         <div className="text-center mb-6">
+                             <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600 dark:text-blue-400">
+                                 <span className="material-symbols-outlined text-3xl">receipt_long</span>
+                             </div>
+                             <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">Subir Factura Fiscal</h3>
+                             <p className="text-sm text-slate-500 mt-2">Para marcar como <strong>Facturada</strong>, es obligatorio adjuntar el archivo XML o PDF.</p>
+                         </div>
+                         
+                         <div 
+                            className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-8 text-center hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer transition-colors"
+                            onClick={() => invoiceInputRef.current?.click()}
+                        >
+                            <input 
+                                type="file" 
+                                ref={invoiceInputRef}
+                                className="hidden" 
+                                accept=".pdf,.xml"
+                                onChange={handleInvoiceFileChange}
+                            />
+                             {invoiceFile ? (
+                                 <div className="flex items-center justify-center gap-2 text-green-600 font-medium">
+                                     <span className="material-symbols-outlined">check_circle</span>
+                                     {invoiceFile.name}
+                                 </div>
+                             ) : (
+                                 <div className="text-slate-500">
+                                     <span className="material-symbols-outlined text-3xl mb-2">upload_file</span>
+                                     <p className="text-sm font-medium">Haz clic para seleccionar archivo</p>
+                                 </div>
+                             )}
+                         </div>
+
+                         <div className="flex gap-3 mt-6">
+                             <button 
+                                onClick={() => { setIsInvoiceModalOpen(false); setInvoiceFile(null); }}
+                                className="flex-1 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={handleInvoiceUploadAndClose}
+                                disabled={!invoiceFile || isUploading}
+                                className="flex-1 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                            >
+                                {isUploading && <Spinner />}
+                                {isUploading ? 'Subiendo...' : 'Guardar y Cerrar'}
+                            </button>
+                         </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default PurchaseOrderDetailPage;

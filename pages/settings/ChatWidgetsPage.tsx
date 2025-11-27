@@ -173,7 +173,11 @@ const ChatWidgetsPage: React.FC = () => {
     }, [dbWidgets]);
 
     const handleEdit = (widget: ChatWidgetConfig) => {
-        setCurrentWidget(widget);
+        // Merge defaults in case existing records miss fields
+        setCurrentWidget({
+            ...defaultWidgetState,
+            ...widget
+        });
         setIsEditing(true);
     };
 
@@ -197,7 +201,7 @@ const ChatWidgetsPage: React.FC = () => {
 
             // For debugging/demonstration: log the theoretical payload
             const payload = buildGeminiRequest("Test Message", widgetData as ChatWidgetConfig);
-            console.log("Prepared Gemini Payload:", payload);
+            console.log("Prepared Gemini Payload (Test):", payload);
 
             if (currentWidget.id) {
                  await api.updateDoc('chatWidgets', currentWidget.id, widgetData);

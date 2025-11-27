@@ -438,6 +438,7 @@ export enum SampleStatus {
 
 export interface PurchaseOrder {
     id: string;
+    folio?: string;
     supplierId: string;
     issuingCompanyId?: string;
     responsibleId: string;
@@ -907,12 +908,13 @@ export interface ChatWidgetConfig {
     position: 'bottom-right' | 'bottom-left';
     launcherIcon: string;
     ctaText?: string;
-    aiModel: string;
+    logoUrl?: string;
+    createdById: string;
+    // Advanced AI Settings
+    aiModel?: string;
     temperature?: number;
     maxTokens?: number;
     frequencyPenalty?: number;
-    logoUrl?: string;
-    createdById: string;
 }
 
 export interface ChatSession {

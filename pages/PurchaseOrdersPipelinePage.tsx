@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PURCHASE_ORDERS_PIPELINE_COLUMNS } from '../constants';
-import { PurchaseOrder, PurchaseOrderStatus, ActivityLog, Supplier } from '../types';
+import { PurchaseOrder, PurchaseOrderStatus, ActivityLog, Supplier, Attachment } from '../types';
 import PurchaseOrderCard from '../components/purchase/PurchaseOrderCard';
 import { useCollection } from '../hooks/useCollection';
 import ViewSwitcher, { ViewOption } from '../components/ui/ViewSwitcher';
@@ -125,6 +125,13 @@ const PurchaseOrdersPipelinePage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
+  // Invoice Upload Modal State
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [orderToInvoice, setOrderToInvoice] = useState<PurchaseOrder | null>(null);
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const invoiceInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (poData) {
       setPurchaseOrders(poData);
@@ -149,15 +156,6 @@ const PurchaseOrdersPipelinePage: React.FC = () => {
       });
   }, [purchaseOrders, searchTerm, statusFilter, suppliersMap]);
   
-  const pipelineActivities = useMemo(() => {
-    if (!activities) return [];
-    // Simple filter for activity logs related to purchasing? Currently logs structure might need adaptation but filtering by generic types.
-    // For this example, we assume activity log doesn't specifically link to purchaseOrderId yet in `types` except generic `salesOrderId`.
-    // We will just show all relevant changes if we add `purchaseOrderId` to ActivityLog in future.
-    // For now returning empty for history view or simple list.
-    return [];
-  }, [activities]);
-
   const groupedColumns = useMemo(() => {
     return PURCHASE_ORDERS_PIPELINE_COLUMNS.reduce((acc, column) => {
       const group = column.group;
@@ -189,7 +187,21 @@ const PurchaseOrdersPipelinePage: React.FC = () => {
     const originalOrder = purchaseOrders.find(o => o.id === itemId);
     if (!originalOrder || originalOrder.status === targetStage) return;
 
-    // Optimistic update
+    // --- PIPELINE LOCK LOGIC ---
+    if (targetStage === PurchaseOrderStatus.Facturada) {
+        // Check if fully paid
+        if (originalOrder.paidAmount < originalOrder.total) {
+            showToast('warning', `La orden no está pagada completamente. Saldo pendiente: $${(originalOrder.total - originalOrder.paidAmount).toFixed(2)}`);
+            return;
+        }
+        
+        // If paid, open drawer to upload invoice
+        setOrderToInvoice(originalOrder);
+        setIsInvoiceModalOpen(true);
+        return; // Stop here, modal handles the rest
+    }
+
+    // Optimistic update for other stages
     setPurchaseOrders(prevItems => prevItems.map(p => p.id === itemId ? { ...p, status: targetStage } : p));
     
     try {
@@ -198,6 +210,54 @@ const PurchaseOrdersPipelinePage: React.FC = () => {
     } catch (error) {
         showToast('error', 'No se pudo actualizar la etapa.');
         setPurchaseOrders(prev => prev.map(p => p.id === itemId ? originalOrder : p));
+    }
+  };
+
+  const handleInvoiceUploadAndClose = async () => {
+    if (!invoiceFile || !orderToInvoice) {
+        showToast('warning', 'Debes seleccionar el archivo de la factura.');
+        return;
+    }
+
+    setIsUploading(true);
+    try {
+        const url = await api.uploadFile(invoiceFile, `purchase_orders/${orderToInvoice.id}/invoice`);
+        const attachment: Attachment = {
+            id: `inv-${Date.now()}`,
+            name: invoiceFile.name,
+            size: invoiceFile.size,
+            url: url
+        };
+
+        // Update order with Invoice AND Status
+        await api.updateDoc('purchaseOrders', orderToInvoice.id, { 
+            invoiceAttachment: attachment,
+            status: PurchaseOrderStatus.Facturada
+        });
+
+        // Update local state
+        setPurchaseOrders(prev => prev.map(p => 
+            p.id === orderToInvoice.id 
+            ? { ...p, status: PurchaseOrderStatus.Facturada, invoiceAttachment: attachment } 
+            : p
+        ));
+
+        showToast('success', 'Factura subida y orden cerrada exitosamente.');
+        setIsInvoiceModalOpen(false);
+        setOrderToInvoice(null);
+        setInvoiceFile(null);
+
+    } catch (error) {
+        console.error("Error uploading invoice:", error);
+        showToast('error', 'Error al subir la factura.');
+    } finally {
+        setIsUploading(false);
+    }
+  };
+
+  const handleInvoiceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        setInvoiceFile(e.target.files[0]);
     }
   };
   
@@ -315,6 +375,62 @@ const PurchaseOrdersPipelinePage: React.FC = () => {
                 )}
             </div>
         </div>
+
+        {/* Invoice Upload Modal for Pipeline Lock */}
+        {isInvoiceModalOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600 dark:text-blue-400">
+                                <span className="material-symbols-outlined text-3xl">receipt_long</span>
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">Cerrar Orden (Facturada)</h3>
+                            <p className="text-sm text-slate-500 mt-2">Para mover a <strong>Facturada</strong>, la orden debe estar pagada y es obligatorio adjuntar el archivo fiscal.</p>
+                        </div>
+                        
+                        <div 
+                        className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-8 text-center hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer transition-colors"
+                        onClick={() => invoiceInputRef.current?.click()}
+                    >
+                        <input 
+                            type="file" 
+                            ref={invoiceInputRef}
+                            className="hidden" 
+                            accept=".pdf,.xml"
+                            onChange={handleInvoiceFileChange}
+                        />
+                            {invoiceFile ? (
+                                <div className="flex items-center justify-center gap-2 text-green-600 font-medium">
+                                    <span className="material-symbols-outlined">check_circle</span>
+                                    {invoiceFile.name}
+                                </div>
+                            ) : (
+                                <div className="text-slate-500">
+                                    <span className="material-symbols-outlined text-3xl mb-2">upload_file</span>
+                                    <p className="text-sm font-medium">Haz clic para seleccionar archivo</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-3 mt-6">
+                            <button 
+                            onClick={() => { setIsInvoiceModalOpen(false); setInvoiceFile(null); setOrderToInvoice(null); }}
+                            className="flex-1 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            onClick={handleInvoiceUploadAndClose}
+                            disabled={!invoiceFile || isUploading}
+                            className="flex-1 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                        >
+                            {isUploading && <Spinner />}
+                            {isUploading ? 'Guardando...' : 'Confirmar'}
+                        </button>
+                        </div>
+                </div>
+            </div>
+        )}
 
       {renderContent()}
     </div>

@@ -3,7 +3,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDoc } from '../../hooks/useDoc';
 import { useCollection } from '../../hooks/useCollection';
-import { PurchaseOrder, Supplier, PurchaseOrderStatus, User, Attachment, InternalCompany, PurchasePayment, Note, Notification } from '../../types';
+import { PurchaseOrder, Supplier, PurchaseOrderStatus, User, Attachment, InternalCompany, PurchasePayment, Note, Notification, Task, TaskStatus, Priority } from '../../types';
 import Spinner from '../../components/ui/Spinner';
 import Badge from '../../components/ui/Badge';
 import { api } from '../../api/firebaseApi';
@@ -37,18 +37,16 @@ const PurchaseOrderDetailPage: React.FC = () => {
     const [order, setOrder] = useState<PurchaseOrder | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const invoiceInputRef = useRef<HTMLInputElement>(null); // Ref for sidebar invoice upload
     
     // Payment Drawer State
     const [isPaymentDrawerOpen, setIsPaymentDrawerOpen] = useState(false);
     const [paymentForm, setPaymentForm] = useState({ amount: 0, date: new Date().toISOString().split('T')[0], method: 'Transferencia', reference: '', notes: '' });
 
-    // Invoice Upload Modal State
+    // Invoice Modal State (For Status Change Interception)
     const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
     const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
-    const invoiceInputRef = useRef<HTMLInputElement>(null);
-
-    // Active Tab
-    const [activeTab, setActiveTab] = useState<'General' | 'Pagos'>('General');
+    const modalInvoiceInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (initialOrder) setOrder(initialOrder);
@@ -61,7 +59,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
     const approver = useMemo(() => users?.find(u => u.id === order?.approverId), [order, users]);
     const issuingCompany = useMemo(() => internalCompanies?.find(c => c.id === order?.issuingCompanyId), [order, internalCompanies]);
 
-    // Use salesOrderId field in Note for purchase order ID for simplicity
+    // Notes logic - reuse salesOrderId field for ID
     const notesForSection = useMemo(() => {
         if (!allNotes || !id) return [];
         return allNotes.filter(n => n.salesOrderId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -81,59 +79,106 @@ const PurchaseOrderDetailPage: React.FC = () => {
         try {
             await api.updateDoc('purchaseOrders', id, { status: newStatus });
             setOrder({ ...order, status: newStatus });
-            showToast('success', `Estado actualizado a: ${newStatus}`);
+            
+            // --- AUTOMATION: APPROVAL REQUEST ---
+            if (newStatus === PurchaseOrderStatus.PorAprobar && order.approverId) {
+                
+                // 1. Create Task for Approver
+                const approvalTask: Omit<Task, 'id'> = {
+                    title: `Aprobar Orden de Compra ${order.id}`,
+                    description: `Se requiere tu aprobación para la OC del proveedor ${supplier?.name || 'N/A'}.\nMonto Total: $${order.total.toLocaleString()}.\nEnlace: #/purchase/orders/${id}`,
+                    status: TaskStatus.PorHacer,
+                    priority: Priority.Alta,
+                    assignees: [order.approverId],
+                    watchers: [currentUser?.id || ''],
+                    createdById: currentUser?.id,
+                    createdAt: new Date().toISOString(),
+                    dueAt: new Date().toISOString(), // Due Today
+                    links: { purchaseOrderId: id }
+                };
+                await api.addDoc('tasks', approvalTask);
+
+                // 2. Create Notification for Approver
+                const notification: Omit<Notification, 'id'> = {
+                    userId: order.approverId,
+                    title: 'Solicitud de Aprobación',
+                    message: `Se requiere tu aprobación para la Orden de Compra ${order.id}`,
+                    type: 'task',
+                    link: `/purchase/orders/${id}`,
+                    isRead: false,
+                    createdAt: new Date().toISOString()
+                };
+                await api.addDoc('notifications', notification);
+
+                showToast('success', 'Solicitud de aprobación enviada (Tarea y Notificación creadas).');
+            } else {
+                showToast('success', `Estado actualizado a: ${newStatus}`);
+            }
+
         } catch (error) {
             console.error("Error updating status:", error);
             showToast('error', "Error al actualizar el estado.");
         }
     };
 
-    // --- INVOICE UPLOAD & CLOSE ---
-    const handleInvoiceUploadAndClose = async () => {
-        if (!invoiceFile || !order || !id) {
-            showToast('warning', 'Debes seleccionar el archivo de la factura.');
-            return;
-        }
-
+    // --- INVOICE UPLOAD LOGIC (SIDEBAR & MODAL) ---
+    
+    // Generic uploader
+    const uploadInvoiceFile = async (file: File) => {
+        if(!id) return;
         setIsUploading(true);
         try {
-            const url = await api.uploadFile(invoiceFile, `purchase_orders/${id}/invoice`);
+            const url = await api.uploadFile(file, `purchase_orders/${id}/invoice`);
             const attachment: Attachment = {
                 id: `inv-${Date.now()}`,
-                name: invoiceFile.name,
-                size: invoiceFile.size,
+                name: file.name,
+                size: file.size,
                 url: url
             };
 
-            // Update order with Invoice AND Status
-            await api.updateDoc('purchaseOrders', id, { 
-                invoiceAttachment: attachment,
-                status: PurchaseOrderStatus.Facturada
-            });
-
-            setOrder(prev => prev ? ({ 
-                ...prev, 
-                invoiceAttachment: attachment, 
-                status: PurchaseOrderStatus.Facturada 
-            }) : null);
-
-            showToast('success', 'Factura subida y orden cerrada exitosamente.');
-            setIsInvoiceModalOpen(false);
-            setInvoiceFile(null);
-
+            // Update order
+            await api.updateDoc('purchaseOrders', id, { invoiceAttachment: attachment });
+            
+            setOrder(prev => prev ? ({ ...prev, invoiceAttachment: attachment }) : null);
+            showToast('success', 'Factura fiscal subida correctamente.');
+            return attachment;
         } catch (error) {
-            console.error("Error uploading invoice:", error);
-            showToast('error', 'Error al subir la factura.');
+             console.error("Error uploading invoice:", error);
+             showToast('error', 'Error al subir la factura.');
+             throw error;
         } finally {
             setIsUploading(false);
         }
     };
 
-    const handleInvoiceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 1. Sidebar Upload Handler
+    const handleSidebarInvoiceChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setInvoiceFile(e.target.files[0]);
+            await uploadInvoiceFile(e.target.files[0]);
+            e.target.value = ''; // Reset
         }
     };
+
+    // 2. Modal Upload & Close Handler
+    const handleInvoiceUploadAndClose = async () => {
+        if (!invoiceFile || !order || !id) {
+            showToast('warning', 'Debes seleccionar el archivo de la factura.');
+            return;
+        }
+        try {
+            const attachment = await uploadInvoiceFile(invoiceFile);
+             // Also update status to Facturada since it came from the modal
+            await api.updateDoc('purchaseOrders', id, { status: PurchaseOrderStatus.Facturada });
+            setOrder(prev => prev ? ({ ...prev, status: PurchaseOrderStatus.Facturada }) : null);
+            
+            setIsInvoiceModalOpen(false);
+            setInvoiceFile(null);
+            showToast('success', 'Orden marcada como Facturada.');
+        } catch (e) {
+            // Error handled in uploadInvoiceFile
+        }
+    };
+
 
     // --- APPROVAL LOGIC ---
     const isApprover = currentUser?.id === order?.approverId || currentUser?.role === 'Admin';
@@ -279,7 +324,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
                         </>
                     ) : (
                          order.status === PurchaseOrderStatus.Borrador && (
-                             <button onClick={() => handleStatusChange(PurchaseOrderStatus.PorAprobar)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 shadow-sm">
+                             <button onClick={() => handleStatusChange(PurchaseOrderStatus.PorAprobar)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 shadow-sm flex items-center gap-2">
                                 Solicitar Aprobación
                              </button>
                          )
@@ -455,6 +500,56 @@ const PurchaseOrderDetailPage: React.FC = () => {
                         </div>
                     </div>
                     
+                     {/* Invoice Upload Section (RESTORED) */}
+                     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-base">receipt_long</span>
+                            FACTURA FISCAL
+                        </h3>
+                         <div 
+                            className="p-3 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-center hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                            onClick={() => invoiceInputRef.current?.click()}
+                         >
+                            <input 
+                                type="file" 
+                                ref={invoiceInputRef}
+                                className="hidden" 
+                                accept="image/*,.pdf,.xml"
+                                onChange={handleSidebarInvoiceChange}
+                                disabled={isUploading}
+                            />
+                             {isUploading ? (
+                                 <Spinner />
+                             ) : (
+                                <>
+                                    <span className="material-symbols-outlined text-xl text-slate-400">upload_file</span>
+                                    <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                                        {order.invoiceAttachment ? 'Reemplazar Factura' : 'Subir Factura (PDF/XML)'}
+                                    </span>
+                                </>
+                             )}
+                         </div>
+                         {order.invoiceAttachment && (
+                             <div className="flex justify-between items-center mt-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-2 rounded-lg">
+                                 <div className="flex items-center gap-2 overflow-hidden">
+                                     <span className="material-symbols-outlined text-blue-600">description</span>
+                                     <div className="flex flex-col min-w-0">
+                                         <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[120px]">{order.invoiceAttachment.name}</span>
+                                         <span className="text-xs text-slate-500">{(order.invoiceAttachment.size / 1024).toFixed(1)} KB</span>
+                                     </div>
+                                 </div>
+                                 <a 
+                                    href={order.invoiceAttachment.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-medium"
+                                >
+                                    Ver
+                                </a>
+                             </div>
+                         )}
+                     </div>
+
                     {/* Quote Attachments (Multiple) */}
                     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                         <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">COTIZACIONES DEL PROVEEDOR</h3>
@@ -589,28 +684,32 @@ const PurchaseOrderDetailPage: React.FC = () => {
                  </div>
             </Drawer>
 
-            {/* Invoice Upload Modal */}
+            {/* Invoice Upload Modal (Confirm & Close) */}
             {isInvoiceModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
                     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-                         <div className="text-center mb-6">
-                             <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600 dark:text-blue-400">
-                                 <span className="material-symbols-outlined text-3xl">receipt_long</span>
-                             </div>
-                             <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">Subir Factura Fiscal</h3>
-                             <p className="text-sm text-slate-500 mt-2">Para marcar como <strong>Facturada</strong>, es obligatorio adjuntar el archivo XML o PDF.</p>
-                         </div>
-                         
-                         <div 
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600 dark:text-blue-400">
+                                <span className="material-symbols-outlined text-3xl">receipt_long</span>
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">Cerrar Orden (Facturada)</h3>
+                            <p className="text-sm text-slate-500 mt-2">Para mover a <strong>Facturada</strong>, la orden debe estar pagada y es obligatorio adjuntar el archivo fiscal.</p>
+                        </div>
+                        
+                        <div 
                             className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-8 text-center hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer transition-colors"
-                            onClick={() => invoiceInputRef.current?.click()}
+                            onClick={() => modalInvoiceInputRef.current?.click()}
                         >
                             <input 
                                 type="file" 
-                                ref={invoiceInputRef}
+                                ref={modalInvoiceInputRef}
                                 className="hidden" 
                                 accept=".pdf,.xml"
-                                onChange={handleInvoiceFileChange}
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        setInvoiceFile(e.target.files[0]);
+                                    }
+                                }}
                             />
                              {invoiceFile ? (
                                  <div className="flex items-center justify-center gap-2 text-green-600 font-medium">

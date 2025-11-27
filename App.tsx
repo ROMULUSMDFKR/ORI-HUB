@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useEffect, lazy, Suspense, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -83,8 +82,8 @@ const ProductCategoriesPage = lazy(() => import('./pages/ProductCategoriesPage')
 
 // Purchases
 const PurchasesDashboardPage = lazy(() => import('./pages/purchase/PurchasesDashboardPage'));
-// Use the new Pipeline page instead of the old list page
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPipelinePage'));
+const PurchaseOrderListPage = lazy(() => import('./pages/purchase/PurchaseOrderListPage')); // New List Page
 const NewPurchaseOrderPage = lazy(() => import('./pages/purchase/NewPurchaseOrderPage'));
 const PurchaseOrderDetailPage = lazy(() => import('./pages/purchase/PurchaseOrderDetailPage'));
 const SuppliersPage = lazy(() => import('./pages/purchase/SuppliersPage'));
@@ -120,7 +119,7 @@ const InternalChatPage = lazy(() => import('./pages/InternalChatPage'));
 const EmailsPage = lazy(() => import('./pages/EmailsPage'));
 const AiAssistantPage = lazy(() => import('./pages/AiAssistantPage'));
 const AllNotificationsPage = lazy(() => import('./pages/AllNotificationsPage'));
-const ChatInboxPage = lazy(() => import('./pages/communication/ChatInboxPage')); // NEW
+const ChatInboxPage = lazy(() => import('./pages/communication/ChatInboxPage'));
 
 // Finance
 const BillingPage = lazy(() => import('./pages/BillingPage'));
@@ -142,7 +141,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const UserManagementPage = lazy(() => import('./pages/settings/UserManagement'));
 const EditUserPage = lazy(() => import('./pages/EditUserPage'));
-const TeamManagementPage = lazy(() => import('./pages/settings/TeamManagement'));
+const TeamManagement = lazy(() => import('./pages/settings/TeamManagement'));
 const SecuritySettingsPage = lazy(() => import('./pages/settings/SecuritySettings'));
 const EmailSettingsPage = lazy(() => import('./pages/settings/EmailSettings'));
 const EmailAppearancePage = lazy(() => import('./pages/settings/EmailAppearancePage'));
@@ -153,7 +152,7 @@ const RoleManagementPage = lazy(() => import('./pages/settings/RoleManagementPag
 const EditRolePage = lazy(() => import('./pages/settings/EditRolePage'));
 const InternalCompaniesSettings = lazy(() => import('./pages/settings/InternalCompaniesSettings'));
 const SalesGoalsPage = lazy(() => import('./pages/settings/SalesGoalsPage'));
-const ChatWidgetsPage = lazy(() => import('./pages/settings/ChatWidgetsPage')); // NEW
+const ChatWidgetsPage = lazy(() => import('./pages/settings/ChatWidgetsPage'));
 
 // Auth & Onboarding
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -306,6 +305,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             {/* Purchases */}
                             <Route path="/purchase/dashboard" element={<PurchasesDashboardPage />} />
                             <Route path="/purchase/orders" element={<PurchaseOrdersPage />} />
+                            <Route path="/purchase/list" element={<PurchaseOrderListPage />} />
                             <Route path="/purchase/orders/new" element={<NewPurchaseOrderPage />} />
                             <Route path="/purchase/orders/:id" element={<PurchaseOrderDetailPage />} />
                             <Route path="/purchase/suppliers" element={<SuppliersPage />} />
@@ -366,7 +366,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/settings/roles" element={<RoleManagementPage />} />
                             <Route path="/settings/roles/:id/edit" element={<EditRolePage />} />
                             <Route path="/settings/sales-goals" element={<SalesGoalsPage />} />
-                            <Route path="/settings/teams" element={<TeamManagementPage />} />
+                            <Route path="/settings/teams" element={<TeamManagement />} />
                             <Route path="/settings/internal-companies" element={<InternalCompaniesSettings />} />
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />
                             <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />

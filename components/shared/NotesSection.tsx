@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { Note, User } from '../../types';
 import { useCollection } from '../../hooks/useCollection';
@@ -21,7 +22,6 @@ const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes
     const { user: currentUser } = useAuth();
     const { data: allUsers } = useCollection<User>('users');
 
-    // FIX: Ensure usersMap is always of type Map<string, User> to prevent downstream type errors.
     const usersMap = useMemo(() => {
         if (!allUsers) return new Map<string, User>();
         return new Map(allUsers.map(u => [u.id, u]));
@@ -31,24 +31,43 @@ const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes
         const text = e.target.value;
         setNewNote(text);
         
-        const mentionMatch = text.match(/@(\w*)$/);
-        if (mentionMatch) {
-            setShowUserSuggestions(true);
-            setUserSuggestionQuery(mentionMatch[1]);
+        // Detect trigger character '@' followed by characters
+        const lastAtIndex = text.lastIndexOf('@');
+        if (lastAtIndex !== -1) {
+            const query = text.substring(lastAtIndex + 1);
+            // Only show suggestions if we are typing a word immediately after @ (no spaces yet, or handling spaces logic)
+            // Simple logic: Show if there's no space OR if we want to support spaces, we need a more complex regex.
+            // For now, keeping it simple: support typing until a newline.
+            if (!query.includes('\n')) {
+                setShowUserSuggestions(true);
+                setUserSuggestionQuery(query);
+            } else {
+                setShowUserSuggestions(false);
+            }
         } else {
             setShowUserSuggestions(false);
         }
     };
 
     const userSuggestions = useMemo(() => {
-        if (!userSuggestionQuery || !allUsers) return [];
+        if (!userSuggestionQuery && userSuggestionQuery !== '') return []; // Allow empty query to show all initially
+        if (!allUsers) return [];
+        
+        const lowerQuery = userSuggestionQuery.toLowerCase();
+        
         return allUsers.filter(u => 
-            u.name.toLowerCase().startsWith(userSuggestionQuery.toLowerCase()) && !u.name.includes(' ')
+            u.name.toLowerCase().includes(lowerQuery) || 
+            (u.email && u.email.toLowerCase().includes(lowerQuery))
         );
     }, [userSuggestionQuery, allUsers]);
 
     const handleMentionSelect = (userName: string) => {
-        setNewNote(prev => prev.replace(/@\w*$/, `@${userName} `));
+        // Replace the last occurrence of @query with @userName
+        const lastAtIndex = newNote.lastIndexOf('@');
+        const textBefore = newNote.substring(0, lastAtIndex);
+        const textAfter = `@${userName} `; // Add space after mention
+        
+        setNewNote(textBefore + textAfter);
         setShowUserSuggestions(false);
         newNoteInputRef.current?.focus();
     };
@@ -64,6 +83,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes
         } as Note;
         onNoteAdded(note);
         setNewNote('');
+        setShowUserSuggestions(false);
     };
 
     return (
@@ -77,29 +97,39 @@ const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes
                         onChange={handleNoteChange} 
                         rows={3} 
                         placeholder="Escribe una nueva nota... (@ para mencionar)" 
-                        className="w-full"
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-200"
                     />
+                    
+                    {/* Suggestions Dropdown */}
                     {showUserSuggestions && userSuggestions.length > 0 && (
-                        <div className="absolute bottom-full left-0 mb-1 w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+                        <div className="absolute bottom-full left-0 mb-1 w-full max-w-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto">
+                            <div className="p-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Sugerencias</p>
+                            </div>
                             <ul>
                                 {userSuggestions.map(user => (
                                     <li 
                                         key={user.id} 
                                         onClick={() => handleMentionSelect(user.name)}
-                                        className="flex items-center gap-2 p-2 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                                        className="flex items-center gap-3 p-3 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 cursor-pointer border-b border-slate-100 dark:border-slate-700/50 last:border-0 transition-colors"
                                     >
-                                        <img src={user.avatarUrl} alt={user.name} className="w-6 h-6 rounded-full" />
-                                        <span className="text-sm text-slate-800 dark:text-slate-200">{user.name}</span>
+                                        <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.name}`} alt={user.name} className="w-8 h-8 rounded-full object-cover bg-slate-200" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{user.name}</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">{user.email}</p>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
                         </div>
                     )}
+                    
                     <div className="text-right mt-2">
-                        <button onClick={handleAddNote} className="bg-indigo-600 text-white font-semibold py-2 px-3 rounded-lg text-sm shadow-sm hover:bg-indigo-700">Agregar Nota</button>
+                        <button onClick={handleAddNote} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow-sm hover:bg-indigo-700 transition-colors">Agregar Nota</button>
                     </div>
                 </div>
-                <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700 max-h-96 overflow-y-auto pr-2">
+                
+                <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                     {notes.length > 0 ? notes.map(note => (
                         <NoteCard 
                             key={note.id} 
@@ -109,7 +139,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({ entityId, entityType, notes
                             onDelete={onNoteDeleted}
                         />
                     ))
-                    : <p className="text-sm text-center text-slate-500 dark:text-slate-400 py-4">No hay notas para este registro.</p>}
+                    : <div className="text-center py-8 text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">No hay notas registradas.</div>}
                 </div>
             </div>
         </div>

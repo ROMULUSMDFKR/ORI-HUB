@@ -183,14 +183,24 @@ const NewPurchaseOrderPage: React.FC = () => {
             }
         }
         
-        // Generate ID for folder structure immediately
-        const tempId = `PO-${Date.now()}`;
+        // Generate Smart ID: [ProductSKU]-[SupplierShort]-[Date]
+        const supplierName = suppliers?.find(s => s.id === supplierId)?.name.substring(0, 3).toUpperCase() || 'SUP';
+        let productSku = 'GEN';
+        if (items.length > 0 && items[0].productId) {
+            const product = products?.find(p => p.id === items[0].productId);
+            if (product) {
+                productSku = product.sku.substring(0, 4).toUpperCase(); // Taking first 4 chars of SKU
+            }
+        }
+        const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
+        const newId = `${productSku}-${supplierName}-${dateStr}`;
+        
         let quoteAttachment: Attachment | undefined = undefined;
 
         try {
             // Upload file if exists
             if (quoteFile) {
-                const url = await api.uploadFile(quoteFile, `purchase_orders/${tempId}`);
+                const url = await api.uploadFile(quoteFile, `purchase_orders/${newId}`);
                 quoteAttachment = {
                     id: `att-${Date.now()}`,
                     name: quoteFile.name,
@@ -217,8 +227,9 @@ const NewPurchaseOrderPage: React.FC = () => {
                 payments: []
             };
 
-            await api.addDoc('purchaseOrders', newPO);
-            showToast('success', 'Orden de Compra creada con éxito.');
+            // Using setDoc with custom ID instead of addDoc to use the smart ID
+            await api.setDoc('purchaseOrders', newId, newPO);
+            showToast('success', `Orden de Compra ${newId} creada con éxito.`);
             navigate('/purchase/orders');
         } catch (error) {
             console.error("Error creating purchase order:", error);

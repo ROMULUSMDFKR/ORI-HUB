@@ -52,6 +52,7 @@ export const NAV_LINKS = [
     sublinks: [
         { name: 'Dashboard de Compras', path: '/purchase/dashboard', icon: 'dashboard' },
         { name: 'Pipeline de Compras', path: '/purchase/orders', icon: 'view_kanban' },
+        { name: 'Lista de Compras', path: '/purchase/list', icon: 'list_alt' },
         { name: 'Proveedores', path: '/purchase/suppliers', icon: 'factory' },
     ]
   },
@@ -419,7 +420,8 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
     },
     'Compras': { 
         'Dashboard de Compras': ['view'],
-        'Pipeline de Compras': ['view', 'create', 'edit', 'delete'], 
+        'Pipeline de Compras': ['view', 'create', 'edit', 'delete'],
+        'Lista de Compras': ['view', 'create', 'edit', 'delete'], 
         'Proveedores': ['view', 'create', 'edit', 'delete'] 
     },
     'Inventario': { 

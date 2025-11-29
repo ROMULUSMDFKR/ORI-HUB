@@ -220,12 +220,15 @@ const ChatWidgetsPage: React.FC = () => {
         }
     };
     
-    const generateSnippet = (widgetId: string) => {
+    const generateSnippet = (widgetId: string, config: Partial<ChatWidgetConfig>) => {
+        // IMPORTANTE: La URL apunta al archivo widget.js que debes subir a la raíz de tu public_html en cPanel
+        const widgetUrl = "/widget.js"; 
+        
         return `
 <!-- ORI Chat Widget -->
 <script>
   (function() {
-    // Tracking Logic
+    // Generación de ID de visitante único
     function getVisitorId() {
         let vid = localStorage.getItem('ori_visitor_id');
         if (!vid) {
@@ -237,18 +240,20 @@ const ChatWidgetsPage: React.FC = () => {
 
     window.oriConfig = {
       widgetId: "${widgetId}",
-      visitorId: getVisitorId(), // Identifies returning users
-      apiBase: "https://api.ori-crm.com/v1/chat" 
+      visitorId: getVisitorId(), 
+      brandColor: "${config.brandColor || '#6366f1'}",
+      position: "${config.position || 'bottom-right'}",
+      apiBase: "https://api.ori-crm.com/v1/chat" // URL base de la API (si la tienes configurada)
     };
   })();
 </script>
-<script src="https://cdn.ori-crm.com/widget.js" async></script>
+<script src="${widgetUrl}" async></script>
 <!-- End ORI Chat Widget -->
         `.trim();
     };
 
-    const copySnippet = (id: string) => {
-        navigator.clipboard.writeText(generateSnippet(id));
+    const copySnippet = (widgetId: string, config: Partial<ChatWidgetConfig>) => {
+        navigator.clipboard.writeText(generateSnippet(widgetId, config));
         showToast('success', 'Código copiado al portapapeles.');
     }
 
@@ -489,10 +494,10 @@ const ChatWidgetsPage: React.FC = () => {
                         <div className="w-full md:w-1/2 bg-slate-900 rounded-lg p-4 relative group">
                             <p className="text-xs text-slate-400 mb-2 font-mono">Código de Inserción (Pegar en &lt;body&gt;)</p>
                             <code className="text-xs text-green-400 font-mono block overflow-x-auto whitespace-pre bg-black/30 p-2 rounded border border-slate-700">
-                                {generateSnippet(widget.id).split('\n')[4]}...
+                                {generateSnippet(widget.id, widget).split('\n')[4]}...
                             </code>
                             <button 
-                                onClick={() => copySnippet(widget.id)}
+                                onClick={() => copySnippet(widget.id, widget)}
                                 className="absolute top-2 right-2 p-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                             >
                                 <span className="material-symbols-outlined !text-sm">content_copy</span> Copiar
@@ -524,6 +529,7 @@ const ChatWidgetsPage: React.FC = () => {
                 <ol className="list-decimal list-inside text-sm text-indigo-700 dark:text-indigo-300 space-y-2">
                     <li>Copia el código del widget que deseas instalar.</li>
                     <li>Ve a tu panel de administración de WordPress o cPanel.</li>
+                    <li>Sube el archivo <code>widget.js</code> a la raíz de tu sitio público (<code>public_html</code>).</li>
                     <li>Si usas WordPress, instala el plugin "Insert Headers and Footers" o edita el archivo <code>footer.php</code> de tu tema.</li>
                     <li>Pega el código justo antes de la etiqueta de cierre <code>&lt;/body&gt;</code>.</li>
                     <li>¡Listo! El chat aparecerá automáticamente y la IA comenzará a responder.</li>

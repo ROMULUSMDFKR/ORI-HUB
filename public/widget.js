@@ -1,13 +1,29 @@
 
+import { GoogleGenAI } from "https://esm.run/@google/genai";
+
 (function() {
     // 1. Configuración
-    // Buscamos la configuración global definida en el HTML o usamos valores por defecto
     var config = window.oriConfig || {};
-    var apiBase = config.apiBase || 'https://api.ori-crm.com/v1'; // URL simulada para este ejemplo
+    
+    // VALIDACIÓN CRÍTICA: Verificar si la API Key está presente
+    if (!config.apiKey || config.apiKey.includes("PEGAR_TU_API_KEY")) {
+        console.warn("ORI Widget: No se ha configurado la API Key de Gemini correctamente. El chat no responderá.");
+    }
+
     var widgetId = config.widgetId;
-    var brandColor = config.brandColor || '#6366f1'; // Color Indigo por defecto
-    var position = config.position || 'bottom-right'; // 'bottom-right' o 'bottom-left'
-    var welcomeMessage = "¡Hola! 👋 Bienvenido a Trade Aitirik. ¿En qué podemos ayudarte hoy?";
+    var brandColor = config.brandColor || '#6366f1'; 
+    var position = config.position || 'bottom-right'; 
+    var welcomeMessage = config.welcomeMessage || "¡Hola! 👋 ¿En qué podemos ayudarte hoy?";
+    
+    // Inicializar cliente de Gemini
+    let aiClient = null;
+    try {
+        if (config.apiKey && !config.apiKey.includes("PEGAR_TU_API_KEY")) {
+            aiClient = new GoogleGenAI({ apiKey: config.apiKey });
+        }
+    } catch (e) {
+        console.error("ORI Widget: Error inicializando Gemini Client", e);
+    }
 
     // 2. Estilos CSS Inyectados
     var styles = `
@@ -22,7 +38,6 @@
             align-items: ${position === 'bottom-left' ? 'flex-start' : 'flex-end'};
         }
         
-        /* Botón flotante (Launcher) */
         .ori-launcher {
             width: 60px;
             height: 60px;
@@ -44,7 +59,6 @@
             fill: white;
         }
 
-        /* Ventana del Chat */
         .ori-window {
             width: 350px;
             height: 500px;
@@ -52,7 +66,7 @@
             background: white;
             border-radius: 16px;
             box-shadow: 0 5px 40px rgba(0,0,0,0.16);
-            display: none; /* Oculto por defecto */
+            display: none;
             flex-direction: column;
             overflow: hidden;
             margin-bottom: 16px;
@@ -67,7 +81,6 @@
             transform: translateY(0) scale(1);
         }
 
-        /* Cabecera */
         .ori-header {
             background-color: ${brandColor};
             color: white;
@@ -76,38 +89,12 @@
             justify-content: space-between;
             align-items: center;
         }
-        .ori-header-info h3 {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 600;
-        }
-        .ori-header-info p {
-            margin: 2px 0 0;
-            font-size: 12px;
-            opacity: 0.9;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .ori-status-dot {
-            width: 8px;
-            height: 8px;
-            background-color: #4ade80;
-            border-radius: 50%;
-        }
-        .ori-close-btn {
-            background: none;
-            border: none;
-            color: white;
-            cursor: pointer;
-            font-size: 20px;
-            padding: 4px;
-            line-height: 1;
-            opacity: 0.8;
-        }
+        .ori-header-info h3 { margin: 0; font-size: 16px; font-weight: 600; }
+        .ori-header-info p { margin: 2px 0 0; font-size: 12px; opacity: 0.9; display: flex; align-items: center; gap: 4px; }
+        .ori-status-dot { width: 8px; height: 8px; background-color: #4ade80; border-radius: 50%; }
+        .ori-close-btn { background: none; border: none; color: white; cursor: pointer; font-size: 20px; padding: 4px; line-height: 1; opacity: 0.8; }
         .ori-close-btn:hover { opacity: 1; }
 
-        /* Cuerpo de mensajes */
         .ori-body {
             flex: 1;
             padding: 16px;
@@ -137,8 +124,10 @@
             align-self: flex-end;
             border-bottom-right-radius: 2px;
         }
+        .ori-typing {
+            font-size: 12px; color: #94a3b8; margin-left: 4px; display: none;
+        }
 
-        /* Pie (Input) */
         .ori-footer {
             padding: 12px;
             background: white;
@@ -156,9 +145,7 @@
             outline: none;
             transition: border-color 0.2s;
         }
-        .ori-input:focus {
-            border-color: ${brandColor};
-        }
+        .ori-input:focus { border-color: ${brandColor}; }
         .ori-send-btn {
             background: transparent;
             border: none;
@@ -170,22 +157,15 @@
             align-items: center;
             justify-content: center;
         }
-        .ori-send-btn:hover {
-            background-color: #f1f5f9;
-        }
-        .ori-send-btn svg {
-            width: 20px;
-            height: 20px;
-            fill: currentColor;
-        }
+        .ori-send-btn:hover { background-color: #f1f5f9; }
+        .ori-send-btn svg { width: 20px; height: 20px; fill: currentColor; }
     `;
 
-    // Inyectar estilos al head
     var styleSheet = document.createElement("style");
     styleSheet.innerText = styles;
     document.head.appendChild(styleSheet);
 
-    // 3. Estructura HTML del Widget
+    // 3. Estructura HTML
     var container = document.createElement('div');
     container.className = 'ori-widget-container';
 
@@ -202,6 +182,7 @@
                 <div class="ori-message bot">
                     ${welcomeMessage}
                 </div>
+                <div class="ori-typing" id="ori-typing">Escribiendo...</div>
             </div>
             <div class="ori-footer">
                 <input type="text" class="ori-input" id="ori-input" placeholder="Escribe un mensaje..." />
@@ -211,9 +192,7 @@
             </div>
         </div>
         <div class="ori-launcher" id="ori-launcher">
-            <!-- Icono de Mensaje -->
             <svg id="ori-icon-chat" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
-            <!-- Icono de Cerrar (oculto inicialmente) -->
             <svg id="ori-icon-close" style="display:none;" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </div>
     `;
@@ -221,7 +200,7 @@
     container.innerHTML = htmlContent;
     document.body.appendChild(container);
 
-    // 4. Lógica de Interacción (JavaScript Puro)
+    // 4. Lógica
     var launcher = document.getElementById('ori-launcher');
     var windowEl = document.getElementById('ori-window');
     var closeBtn = document.getElementById('ori-close');
@@ -230,16 +209,21 @@
     var bodyEl = document.getElementById('ori-body');
     var iconChat = document.getElementById('ori-icon-chat');
     var iconClose = document.getElementById('ori-icon-close');
+    var typingIndicator = document.getElementById('ori-typing');
 
     var isOpen = false;
-
+    
+    // Historial de conversación simple para mantener contexto
+    // Nota: Gemini SDK no maneja historial automáticamente en generateContent, 
+    // pero podemos simular un contexto básico adjuntando instrucciones al prompt.
+    
     function toggleWidget() {
         isOpen = !isOpen;
         if (isOpen) {
             windowEl.classList.add('open');
             iconChat.style.display = 'none';
             iconClose.style.display = 'block';
-            setTimeout(function() { inputEl.focus(); }, 100); // Focus input al abrir
+            setTimeout(function() { inputEl.focus(); }, 100);
         } else {
             windowEl.classList.remove('open');
             iconChat.style.display = 'block';
@@ -250,36 +234,62 @@
     function appendMessage(text, type) {
         var msgDiv = document.createElement('div');
         msgDiv.className = 'ori-message ' + type;
-        msgDiv.innerText = text; // Usar innerText para evitar inyección HTML
-        bodyEl.appendChild(msgDiv);
+        msgDiv.innerText = text;
+        bodyEl.insertBefore(msgDiv, typingIndicator);
         bodyEl.scrollTop = bodyEl.scrollHeight;
     }
 
-    function handleSend() {
+    async function handleSend() {
         var text = inputEl.value.trim();
         if (!text) return;
 
-        // 1. Mostrar mensaje del usuario
         appendMessage(text, 'user');
         inputEl.value = '';
+        
+        // Mostrar "escribiendo..."
+        typingIndicator.style.display = 'block';
+        bodyEl.scrollTop = bodyEl.scrollHeight;
 
-        // 2. Simular respuesta del servidor/IA (Aquí conectarías con tu API real)
-        // Efecto de "escribiendo..."
-        setTimeout(function() {
-            // Respuesta mockeada
-            var response = "Gracias por tu mensaje. Hemos recibido tu consulta sobre '" + text + "'. Un asesor se pondrá en contacto pronto.";
-            appendMessage(response, 'bot');
-        }, 1000);
+        try {
+            if (!aiClient) {
+                throw new Error("Cliente de IA no inicializado. Falta API Key.");
+            }
+
+            // Preparar llamada a Gemini
+            const modelId = config.aiModel || 'gemini-2.5-flash';
+            
+            // Prompt System Instruction + User Message
+            const response = await aiClient.models.generateContent({
+                model: modelId,
+                contents: [
+                    { 
+                        role: 'user', 
+                        parts: [
+                            { text: "Instrucciones del sistema: " + (config.aiPersonality || "Eres un asistente útil.") },
+                            { text: text }
+                        ] 
+                    } 
+                ]
+            });
+            
+            const reply = response.text || "Lo siento, no pude procesar tu respuesta.";
+            
+            typingIndicator.style.display = 'none';
+            appendMessage(reply, 'bot');
+
+        } catch (error) {
+            console.error("Error llamando a Gemini:", error);
+            typingIndicator.style.display = 'none';
+            appendMessage("Lo siento, hubo un error de conexión. Por favor verifica la configuración.", 'bot');
+        }
     }
 
-    // Event Listeners
     launcher.addEventListener('click', toggleWidget);
     closeBtn.addEventListener('click', toggleWidget);
-    
     sendBtn.addEventListener('click', handleSend);
     inputEl.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') handleSend();
     });
 
-    console.log("ORI Widget cargado correctamente.");
+    console.log("ORI Widget v2.0 (ESM) cargado correctamente.");
 })();

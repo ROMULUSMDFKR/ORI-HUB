@@ -199,10 +199,6 @@ const ChatWidgetsPage: React.FC = () => {
                 isActive: currentWidget.isActive ?? true,
             };
 
-            // For debugging/demonstration: log the theoretical payload
-            const payload = buildGeminiRequest("Test Message", widgetData as ChatWidgetConfig);
-            console.log("Prepared Gemini Payload (Test):", payload);
-
             if (currentWidget.id) {
                  await api.updateDoc('chatWidgets', currentWidget.id, widgetData);
                  // Optimistic update
@@ -222,13 +218,13 @@ const ChatWidgetsPage: React.FC = () => {
     
     const generateSnippet = (widgetId: string, config: Partial<ChatWidgetConfig>) => {
         // IMPORTANTE: La URL apunta al archivo widget.js que debes subir a la raíz de tu public_html en cPanel
+        // Usamos una ruta relativa absoluta para mayor flexibilidad
         const widgetUrl = "/widget.js"; 
         
         return `
 <!-- ORI Chat Widget -->
 <script>
   (function() {
-    // Generación de ID de visitante único
     function getVisitorId() {
         let vid = localStorage.getItem('ori_visitor_id');
         if (!vid) {
@@ -239,15 +235,18 @@ const ChatWidgetsPage: React.FC = () => {
     }
 
     window.oriConfig = {
+      apiKey: "PEGAR_TU_API_KEY_DE_GOOGLE_AQUI", // <--- IMPORTANTE: REEMPLAZA ESTO CON TU API KEY
       widgetId: "${widgetId}",
       visitorId: getVisitorId(), 
       brandColor: "${config.brandColor || '#6366f1'}",
       position: "${config.position || 'bottom-right'}",
-      apiBase: "https://api.ori-crm.com/v1/chat" // URL base de la API (si la tienes configurada)
+      welcomeMessage: "${config.welcomeMessage || '¡Hola! ¿En qué puedo ayudarte?'}",
+      aiPersonality: "${(config.aiPersonality || '').replace(/\n/g, ' ')}",
+      aiModel: "${config.aiModel || 'gemini-2.5-flash'}"
     };
   })();
 </script>
-<script src="${widgetUrl}" async></script>
+<script type="module" src="${widgetUrl}" async></script>
 <!-- End ORI Chat Widget -->
         `.trim();
     };
@@ -494,7 +493,7 @@ const ChatWidgetsPage: React.FC = () => {
                         <div className="w-full md:w-1/2 bg-slate-900 rounded-lg p-4 relative group">
                             <p className="text-xs text-slate-400 mb-2 font-mono">Código de Inserción (Pegar en &lt;body&gt;)</p>
                             <code className="text-xs text-green-400 font-mono block overflow-x-auto whitespace-pre bg-black/30 p-2 rounded border border-slate-700">
-                                {generateSnippet(widget.id, widget).split('\n')[4]}...
+                                {generateSnippet(widget.id, widget).split('\n')[8]}...
                             </code>
                             <button 
                                 onClick={() => copySnippet(widget.id, widget)}
@@ -527,11 +526,12 @@ const ChatWidgetsPage: React.FC = () => {
                     ¿Cómo instalar en HostGator / WordPress?
                 </h3>
                 <ol className="list-decimal list-inside text-sm text-indigo-700 dark:text-indigo-300 space-y-2">
-                    <li>Copia el código del widget que deseas instalar.</li>
+                    <li>Copia el código del widget que deseas instalar usando el botón "Copiar".</li>
+                    <li>Asegúrate de reemplazar <code>PEGAR_TU_API_KEY_DE_GOOGLE_AQUI</code> con tu clave real de Gemini API.</li>
                     <li>Ve a tu panel de administración de WordPress o cPanel.</li>
                     <li>Sube el archivo <code>widget.js</code> a la raíz de tu sitio público (<code>public_html</code>).</li>
                     <li>Si usas WordPress, instala el plugin "Insert Headers and Footers" o edita el archivo <code>footer.php</code> de tu tema.</li>
-                    <li>Pega el código justo antes de la etiqueta de cierre <code>&lt;/body&gt;</code>.</li>
+                    <li>Pega el código copiado justo antes de la etiqueta de cierre <code>&lt;/body&gt;</code>.</li>
                     <li>¡Listo! El chat aparecerá automáticamente y la IA comenzará a responder.</li>
                 </ol>
             </div>

@@ -25,6 +25,7 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
     }, [isOpen]);
 
     const handleSave = async () => {
+        // TRIM INPUTS to avoid common copy-paste errors with whitespace
         const cleanGrantId = grantId.trim();
         const cleanApiKey = apiKey.trim();
 
@@ -49,8 +50,9 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                console.error("Nylas API Error Details:", errorData);
-                throw new Error(`Error ${response.status}: ${errorData.message || response.statusText || 'Credenciales inválidas'}`);
+                console.error("Nylas API Error Details:", JSON.stringify(errorData, null, 2)); // Improved logging
+                const errorMessage = errorData.message || errorData.requestId || response.statusText || 'Credenciales inválidas';
+                throw new Error(`Error ${response.status}: ${errorMessage}`);
             }
             
             const data = await response.json();

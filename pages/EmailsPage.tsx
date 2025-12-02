@@ -40,6 +40,60 @@ const getSafeContactEmail = (contact: any): string => {
     return contact.email || '';
 };
 
+// Componente para renderizar el email en un iframe aislado (Sandboxed)
+const SafeEmailFrame: React.FC<{ htmlContent: string }> = ({ htmlContent }) => {
+    const iframeRef = useRef<HTMLIFrameElement>(null);
+
+    useEffect(() => {
+        if (iframeRef.current) {
+            const doc = iframeRef.current.contentDocument;
+            if (doc) {
+                doc.open();
+                // Detectar si es texto plano (sin etiquetas HTML comunes) y convertir saltos de línea
+                // Esto arregla correos de sistema o rebotes que vienen como texto plano
+                let safeContent = htmlContent;
+                if (!/<[a-z][\s\S]*>/i.test(htmlContent)) {
+                    // Es texto plano, convertir \n a <br>
+                    safeContent = htmlContent.replace(/\r\n/g, '<br/>').replace(/\n/g, '<br/>');
+                }
+
+                doc.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; color: #334155; word-wrap: break-word; font-size: 14px; line-height: 1.6; }
+                            a { color: #4f46e5; }
+                            img { max-width: 100%; height: auto; }
+                            pre { white-space: pre-wrap; font-family: inherit; margin: 0; }
+                            /* Scrollbar styling for the iframe content */
+                            ::-webkit-scrollbar { width: 8px; height: 8px; }
+                            ::-webkit-scrollbar-track { background: transparent; }
+                            ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+                            ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+                        </style>
+                        <base target="_blank">
+                    </head>
+                    <body>
+                        ${safeContent}
+                    </body>
+                    </html>
+                `);
+                doc.close();
+            }
+        }
+    }, [htmlContent]);
+
+    return (
+        <iframe 
+            ref={iframeRef}
+            title="Email Content"
+            className="w-full h-full border-none bg-white"
+            sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" 
+        />
+    );
+};
+
 const EmailListItem: React.FC<{ email: Email; isSelected: boolean; onSelect: () => void }> = ({ email, isSelected, onSelect }) => {
     const isUnread = email.status === 'unread';
     
@@ -62,6 +116,9 @@ const EmailListItem: React.FC<{ email: Email; isSelected: boolean; onSelect: () 
         displayContact = getSafeContactName(email.from);
     }
 
+    // Calcular snippet si no viene de Nylas
+    const displaySnippet = email.snippet || (email.body ? email.body.replace(/<[^>]*>?/gm, '').substring(0, 100) : 'Sin contenido');
+
     return (
         <li 
             onClick={onSelect} 
@@ -82,7 +139,7 @@ const EmailListItem: React.FC<{ email: Email; isSelected: boolean; onSelect: () 
                 {email.subject || '(Sin asunto)'}
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 truncate pr-2">
-                {email.snippet || (email.body ? email.body.replace(/<[^>]*>?/gm, '') : 'Sin contenido')}
+                {displaySnippet}
             </p>
         </li>
     );
@@ -236,11 +293,10 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
 
 
 const EmailsPage: React.FC = () => {
-    // Using standard hook for other data, but manual fetch for Nylas emails
     const { data: allAccounts, loading: accountsLoading } = useCollection<ConnectedEmailAccount>('connectedAccounts');
     const [nylasEmails, setNylasEmails] = useState<Email[]>([]);
     const [isNylasLoading, setIsNylasLoading] = useState(false);
-    const [nylasError, setNylasError] = useState<string | null>(null); // New error state
+    const [nylasError, setNylasError] = useState<string | null>(null);
     
     const [selectedFolder, setSelectedFolder] = useState<EmailFolder>('inbox');
     const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
@@ -273,54 +329,71 @@ const EmailsPage: React.FC = () => {
             if (!account || account.provider !== 'nylas' || !account.nylasConfig) return;
 
             setIsNylasLoading(true);
-            setNylasError(null); // Reset error on new fetch
+            setNylasError(null);
+            
+            // Clean keys to ensure no spaces
+            const grantId = account.nylasConfig.grantId.trim();
+            const apiKey = account.nylasConfig.apiKey.trim();
+
             try {
                 // Nylas API v3 Fetch
-                const limit = 20;
+                const limit = 50;
                 let query = `limit=${limit}`;
+                
+                // Nylas folder filtering logic
+                // Note: Gmail uses labels (e.g., 'INBOX', 'SENT'), others use folders.
+                // v3 often infers standard folders from 'in' param.
                 if (selectedFolder === 'sent') query += '&in=sent';
                 else if (selectedFolder === 'trash') query += '&in=trash';
-                else query += '&in=inbox';
+                // Default or inbox
+                // else query += '&in=inbox'; // Sometimes removing this helps see ALL, then filter client-side if needed. But try without first.
+                
+                // Fallback if 'in=' param is problematic: fetch all and filter client side if needed, but better to filter server side.
+                // For 'inbox', usually no param or '&in=inbox' works.
 
-                const response = await fetch(`https://api.us.nylas.com/v3/grants/${account.nylasConfig.grantId}/messages?${query}`, {
+                const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/messages?${query}`, {
                     headers: {
-                        'Authorization': `Bearer ${account.nylasConfig.apiKey}`,
-                        'Content-Type': 'application/json'
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     }
                 });
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || `Error ${response.status}: No autorizado`);
+                    console.error("Nylas API Error Response:", errorData);
+                    throw new Error(errorData.message || `Error ${response.status}: No se pudo conectar con Nylas`);
                 }
                 
                 const data = await response.json();
+                console.log("Nylas Data Received:", data); // Debugging
                 
                 // Map Nylas Message to App Email Interface
                 const mappedEmails: Email[] = (data.data || []).map((msg: any) => ({
-                    id: msg.id,
+                    id: msg.id, // Nylas ID or Message-ID
                     subject: msg.subject,
-                    body: msg.body,
+                    body: msg.body, 
                     snippet: msg.snippet,
                     from: msg.from?.[0] || { name: 'Desconocido', email: '' },
                     to: msg.to || [],
                     cc: msg.cc || [],
                     bcc: msg.bcc || [],
+                    // Nylas returns Unix Timestamp (seconds), convert to ms
                     timestamp: new Date(msg.date * 1000).toISOString(),
                     status: msg.unread ? 'unread' : 'read',
-                    folder: selectedFolder, // Assume folder based on query
+                    folder: selectedFolder, 
                     attachments: (msg.attachments || []).map((att: any) => ({
                         id: att.id,
                         name: att.filename || 'Adjunto',
                         size: att.size || 0,
-                        url: '#' // Need separate endpoint to download
+                        url: '#' 
                     }))
                 }));
 
                 setNylasEmails(mappedEmails);
             } catch (error: any) {
-                console.error("Nylas Fetch Error:", error);
-                setNylasError(error.message || 'Error al conectar con Nylas');
+                console.error("Nylas Logic Error:", error);
+                setNylasError(error.message || 'Error al procesar correos');
                 setNylasEmails([]);
             } finally {
                 setIsNylasLoading(false);
@@ -349,16 +422,12 @@ const EmailsPage: React.FC = () => {
     }, [selectedEmailId, filteredEmails]);
 
     const handleRefresh = () => {
-        // Trigger re-fetch by toggling or calling logic again
-        const account = userAccounts.find(a => a.id === selectedAccountId);
-        if (account?.provider === 'nylas') {
-             // Force re-fetch by temporarily clearing selection or similar, 
-             // or ideally just call fetchNylasEmails directly if it was extracted.
-             // Here we toggle folder to force effect re-run as a quick fix.
-             const current = selectedFolder;
-             setSelectedFolder('trash'); 
-             setTimeout(() => setSelectedFolder(current), 10);
-        }
+        // Trigger re-fetch by toggling state slightly or reloading
+        // In a real app, extract fetch logic to a useCallback and call it here.
+        // For now, toggle folder to force refresh
+        const current = selectedFolder;
+        setSelectedFolder(prev => prev === 'inbox' ? 'sent' : 'inbox'); // Temp toggle
+        setTimeout(() => setSelectedFolder(current), 50);
     };
 
     const handleOpenCompose = (mode: ComposeMode, baseEmail?: Email) => {
@@ -369,14 +438,14 @@ const EmailsPage: React.FC = () => {
             data = {
                 to: [baseEmail.from],
                 subject: `Re: ${baseEmail.subject}`,
-                body: `<br /><br />${fullSignatureAndFooter}<br /><br /><div style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 5px;">---- Mensaje Original ----<br />De: ${getSafeContactName(baseEmail.from)} &lt;${getSafeContactEmail(baseEmail.from)}&gt;<br />Enviado: ${new Date(baseEmail.timestamp).toLocaleString('es-ES')}<br />Asunto: ${baseEmail.subject}<br /><br />${baseEmail.body.replace(/\n/g, '<br />')}</div>`,
+                body: `<br /><br />${fullSignatureAndFooter}<br /><br /><div style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 5px;">---- Mensaje Original ----<br />De: ${getSafeContactName(baseEmail.from)} &lt;${getSafeContactEmail(baseEmail.from)}&gt;<br />Enviado: ${new Date(baseEmail.timestamp).toLocaleString('es-ES')}<br />Asunto: ${baseEmail.subject}<br /><br />${baseEmail.body}</div>`,
             };
         } else if (mode === 'forward' && baseEmail) {
             const toString = Array.isArray(baseEmail.to) ? baseEmail.to.map(t => getSafeContactEmail(t)).join(', ') : '';
             data = {
                 to: [],
                 subject: `Fwd: ${baseEmail.subject}`,
-                body: `<br /><br />${fullSignatureAndFooter}<br /><br /><div style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 5px;">---------- Mensaje reenviado ----------<br />De: ${getSafeContactName(baseEmail.from)} &lt;${getSafeContactEmail(baseEmail.from)}&gt;<br />Fecha: ${new Date(baseEmail.timestamp).toLocaleString('es-ES')}<br />Asunto: ${baseEmail.subject}<br />Para: ${toString}<br /><br />${baseEmail.body.replace(/\n/g, '<br />')}</div>`,
+                body: `<br /><br />${fullSignatureAndFooter}<br /><br /><div style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 5px;">---------- Mensaje reenviado ----------<br />De: ${getSafeContactName(baseEmail.from)} &lt;${getSafeContactEmail(baseEmail.from)}&gt;<br />Fecha: ${new Date(baseEmail.timestamp).toLocaleString('es-ES')}<br />Asunto: ${baseEmail.subject}<br />Para: ${toString}<br /><br />${baseEmail.body}</div>`,
             };
         }
         setComposeInitialData(data);
@@ -394,7 +463,8 @@ const EmailsPage: React.FC = () => {
         try {
             if (currentAccount.provider === 'nylas' && currentAccount.nylasConfig) {
                  // Send via Nylas API
-                 const { grantId, apiKey } = currentAccount.nylasConfig;
+                 const grantId = currentAccount.nylasConfig.grantId.trim();
+                 const apiKey = currentAccount.nylasConfig.apiKey.trim();
                  
                  const payload = {
                      subject: emailData.subject,
@@ -510,16 +580,16 @@ const EmailsPage: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                            <div 
-                                className="flex-1 p-8 overflow-y-auto text-sm leading-relaxed text-slate-800 dark:text-slate-200 prose dark:prose-invert max-w-none"
-                                dangerouslySetInnerHTML={{ __html: selectedEmail.body ? selectedEmail.body.replace(/\n/g, '<br />') : '' }}
-                            />
+                            <div className="flex-1 p-0 overflow-y-auto bg-white relative">
+                                {/* Use Iframe for safe and accurate HTML rendering */}
+                                <SafeEmailFrame htmlContent={selectedEmail.body} />
+                            </div>
                             {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
-                                <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+                                <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
                                     <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-3">Archivos Adjuntos ({selectedEmail.attachments.length})</h4>
                                     <div className="flex flex-wrap gap-2">
                                         {selectedEmail.attachments.map(att => ( 
-                                            <a key={att.id} href={att.url} download={att.name} className="flex items-center gap-2 p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 transition-colors text-sm max-w-xs">
+                                            <a key={att.id} href={att.url} download={att.name} className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 transition-colors text-sm max-w-xs">
                                                 <span className="material-symbols-outlined text-slate-500 dark:text-slate-400">attach_file</span>
                                                 <div className="overflow-hidden">
                                                     <p className="font-medium text-slate-800 dark:text-slate-200 truncate">{att.name}</p>

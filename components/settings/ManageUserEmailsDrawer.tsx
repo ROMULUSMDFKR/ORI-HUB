@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { User, ConnectedEmailAccount, SignatureTemplate } from '../../types';
 import { useCollection } from '../../hooks/useCollection';
 import { api } from '../../api/firebaseApi';
@@ -18,35 +18,22 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
     const { data: allAccounts, loading: accountsLoading } = useCollection<ConnectedEmailAccount>('connectedAccounts');
     const { data: templates, loading: templatesLoading } = useCollection<SignatureTemplate>('signatureTemplates');
     
-    const [userAccounts, setUserAccounts] = useState<ConnectedEmailAccount[]>([]);
     const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
-    // Load accounts initially, but don't auto-reset if we are modifying locally
-    useEffect(() => {
-        if (user && allAccounts) {
-            // Only set if we haven't set them yet or if the count differs significantly (external update)
-            // This simple check prevents the list from "flicking" back to the old state during deletion
-            const filtered = allAccounts.filter(acc => acc.userId === user.id);
-            // Simple comparison to avoid overwriting local state unnecessarily during quick operations
-            if (userAccounts.length === 0 && filtered.length > 0) {
-                 setUserAccounts(filtered);
-            } else if (userAccounts.length !== filtered.length && !deletingId) {
-                 setUserAccounts(filtered);
-            }
-        } else if (!user) {
-            setUserAccounts([]);
-        }
-        // Removing userAccounts from dependency array to prevent loop, strictly syncing on allAccounts change
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Derived state: Filter accounts for the current user directly from the source of truth
+    // This eliminates synchronization issues between local state and Firestore updates
+    const userAccounts = useMemo(() => {
+        if (!user || !allAccounts) return [];
+        return allAccounts.filter(acc => acc.userId === user.id);
     }, [user, allAccounts]);
 
     const handleSaveNewAccount = async (account: ConnectedEmailAccount) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id, ...accountData } = account;
         try {
-            const addedAccount = await api.addDoc('connectedAccounts', accountData);
-            setUserAccounts(prev => [...prev, addedAccount]);
+            await api.addDoc('connectedAccounts', accountData);
+            // No need to update local state, useCollection hook handles it
             setIsAddDrawerOpen(false);
         } catch (e) {
             console.error(e);
@@ -56,16 +43,13 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
 
     const handleDeleteAccount = async (e: React.MouseEvent, accountId: string) => {
         e.preventDefault();
-        e.stopPropagation();
+        e.stopPropagation(); // Stop event bubbling
 
         if (window.confirm('¿Estás seguro de que quieres eliminar esta cuenta de correo?')) {
             setDeletingId(accountId);
             try {
-                // 1. Delete from Firestore
                 await api.deleteDoc('connectedAccounts', accountId);
-                
-                // 2. Immediately update local UI
-                setUserAccounts(prev => prev.filter(acc => acc.id !== accountId));
+                // No need to update local state, useCollection hook handles it
             } catch (error) {
                 console.error("Error deleting account:", error);
                 alert("Error al eliminar la cuenta. Intenta de nuevo.");
@@ -78,7 +62,6 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
     const handleAssignTemplate = async (accountId: string, templateId: string) => {
         try {
             await api.updateDoc('connectedAccounts', accountId, { signatureTemplate: templateId });
-            setUserAccounts(prev => prev.map(acc => acc.id === accountId ? { ...acc, signatureTemplate: templateId } : acc));
         } catch (error) {
             console.error("Error updating template:", error);
             alert("Error al actualizar la plantilla.");

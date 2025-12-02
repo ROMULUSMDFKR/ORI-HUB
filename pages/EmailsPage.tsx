@@ -240,6 +240,7 @@ const EmailsPage: React.FC = () => {
     const { data: allAccounts, loading: accountsLoading } = useCollection<ConnectedEmailAccount>('connectedAccounts');
     const [nylasEmails, setNylasEmails] = useState<Email[]>([]);
     const [isNylasLoading, setIsNylasLoading] = useState(false);
+    const [nylasError, setNylasError] = useState<string | null>(null); // New error state
     
     const [selectedFolder, setSelectedFolder] = useState<EmailFolder>('inbox');
     const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
@@ -272,12 +273,10 @@ const EmailsPage: React.FC = () => {
             if (!account || account.provider !== 'nylas' || !account.nylasConfig) return;
 
             setIsNylasLoading(true);
+            setNylasError(null); // Reset error on new fetch
             try {
                 // Nylas API v3 Fetch
                 const limit = 20;
-                // Map folder concept (simple approach for v3)
-                // Note: Nylas v3 uses labels or folders depending on provider. 
-                // For simplicity we fetch general messages and filter client side if needed, or use search query
                 let query = `limit=${limit}`;
                 if (selectedFolder === 'sent') query += '&in=sent';
                 else if (selectedFolder === 'trash') query += '&in=trash';
@@ -290,7 +289,11 @@ const EmailsPage: React.FC = () => {
                     }
                 });
 
-                if (!response.ok) throw new Error('Error fetching from Nylas');
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `Error ${response.status}: No autorizado`);
+                }
+                
                 const data = await response.json();
                 
                 // Map Nylas Message to App Email Interface
@@ -315,9 +318,9 @@ const EmailsPage: React.FC = () => {
                 }));
 
                 setNylasEmails(mappedEmails);
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Nylas Fetch Error:", error);
-                // Fallback to empty
+                setNylasError(error.message || 'Error al conectar con Nylas');
                 setNylasEmails([]);
             } finally {
                 setIsNylasLoading(false);
@@ -349,12 +352,12 @@ const EmailsPage: React.FC = () => {
         // Trigger re-fetch by toggling or calling logic again
         const account = userAccounts.find(a => a.id === selectedAccountId);
         if (account?.provider === 'nylas') {
-             // Re-run effect logic manually or force update
-             // Ideally refactor fetch logic to a function and call it here
-             // Quick hack: toggle folder to refresh
+             // Force re-fetch by temporarily clearing selection or similar, 
+             // or ideally just call fetchNylasEmails directly if it was extracted.
+             // Here we toggle folder to force effect re-run as a quick fix.
              const current = selectedFolder;
-             setSelectedFolder('trash'); // flicker
-             setTimeout(() => setSelectedFolder(current), 50);
+             setSelectedFolder('trash'); 
+             setTimeout(() => setSelectedFolder(current), 10);
         }
     };
 
@@ -440,27 +443,43 @@ const EmailsPage: React.FC = () => {
         }
     };
 
-    const loading = accountsLoading || isNylasLoading;
+    const loading = accountsLoading;
 
     const renderContent = () => {
         if (loading) return <div className="flex-1 flex justify-center items-center"><Spinner /></div>;
+        
         return (
             <>
                 <div className="w-1/3 border-r border-slate-200 dark:border-slate-700 flex flex-col">
                     <div className="p-4 border-b border-slate-200 dark:border-slate-700">
                         <h2 className="text-lg font-semibold capitalize text-slate-800 dark:text-slate-200">{FOLDER_CONFIG.find(f=>f.id === selectedFolder)?.name} ({filteredEmails.length})</h2>
                     </div>
-                    <ul className="overflow-y-auto flex-1">
-                        {filteredEmails.map(email => (
-                            <EmailListItem key={email.id} email={email} isSelected={selectedEmailId === email.id} onSelect={() => setSelectedEmailId(email.id)} />
-                        ))}
-                         {filteredEmails.length === 0 && (
-                            <li className="flex flex-col items-center justify-center h-full p-8 text-center text-slate-400">
-                                <span className="material-symbols-outlined text-4xl mb-2">inbox</span>
-                                <p className="text-sm">Carpeta vacía</p>
-                            </li>
-                        )}
-                    </ul>
+                    
+                    {nylasError ? (
+                        <div className="p-4 m-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm text-center">
+                            <span className="material-symbols-outlined text-2xl mb-1 block">error</span>
+                            <p className="font-bold">Error de conexión</p>
+                            <p>{nylasError}</p>
+                            <p className="text-xs mt-2">Verifica tus credenciales en Configuración.</p>
+                        </div>
+                    ) : isNylasLoading ? (
+                         <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+                            <Spinner />
+                            <p className="text-sm mt-2">Sincronizando...</p>
+                         </div>
+                    ) : (
+                        <ul className="overflow-y-auto flex-1">
+                            {filteredEmails.map(email => (
+                                <EmailListItem key={email.id} email={email} isSelected={selectedEmailId === email.id} onSelect={() => setSelectedEmailId(email.id)} />
+                            ))}
+                             {filteredEmails.length === 0 && (
+                                <li className="flex flex-col items-center justify-center h-full p-8 text-center text-slate-400">
+                                    <span className="material-symbols-outlined text-4xl mb-2">inbox</span>
+                                    <p className="text-sm">Carpeta vacía</p>
+                                </li>
+                            )}
+                        </ul>
+                    )}
                 </div>
 
                 <div className="w-2/3 flex flex-col bg-white dark:bg-slate-800">

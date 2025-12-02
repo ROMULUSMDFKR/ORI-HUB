@@ -8,7 +8,6 @@ import Header from './components/layout/Header';
 import PrimarySidebar from './components/layout/PrimarySidebar';
 import ContentLayout from './components/layout/ContentLayout';
 import { NAV_LINKS } from './constants';
-import SecondarySidebar from './components/layout/SecondarySidebar';
 import { User, Task } from './types';
 import { api } from './api/firebaseApi';
 import { ToastProvider } from './contexts/ToastContext';
@@ -184,46 +183,6 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
         }
     }, [user.theme]);
 
-    const secondarySidebarContent = useMemo(() => {
-        const currentTopLevelPath = `/${location.pathname.split('/')[1]}`;
-        const mainLink = NAV_LINKS.find(link => 
-            (link.sublinks && link.sublinks.some(sub => sub.path.startsWith(currentTopLevelPath))) ||
-            (link.path && link.path.startsWith(currentTopLevelPath))
-        );
-
-        if (mainLink?.path === '/today') return null;
-
-        if (mainLink && mainLink.sublinks) {
-            // Filter sublinks based on user permissions
-            const allowedSublinks = mainLink.sublinks.filter(sublink => {
-                // Special case: Profile and Archives might not be in the permissions config structure directly or are always allowed
-                if (mainLink.name === 'Configuración' && user.permissions?.pages?.['Configuración']) {
-                     const pagePerms = user.permissions.pages['Configuración'][sublink.name];
-                     // If permission is undefined (new page), allow it. If defined, check 'view'.
-                     return pagePerms === undefined ? true : pagePerms.includes('view');
-                }
-                
-                // Default permission check
-                if (user.permissions?.pages?.[mainLink.name]) {
-                     const pagePerms = user.permissions.pages[mainLink.name][sublink.name];
-                     // If permission is undefined (new page), allow it. If defined, check 'view'.
-                     return pagePerms === undefined ? true : pagePerms.includes('view');
-                }
-                
-                // Fallback if permission structure is missing (e.g. new module) or for 'open' modules
-                return true; 
-            });
-
-            if (allowedSublinks.length === 0) return null;
-
-            return {
-                title: mainLink.name,
-                sublinks: allowedSublinks,
-            };
-        }
-        return null;
-    }, [location.pathname, user.permissions]);
-
     useLayoutEffect(() => {
         const currentTopLevelPath = `/${location.pathname.split('/')[1]}`;
         const mainLink = NAV_LINKS.find(link => link.path === currentTopLevelPath || (link.sublinks && link.sublinks.some(sub => sub.path.startsWith(currentTopLevelPath))));
@@ -246,9 +205,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
     return (
         <div className="flex h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden">
             <PrimarySidebar user={user} />
-            {secondarySidebarContent && (
-                <SecondarySidebar title={secondarySidebarContent.title} sublinks={secondarySidebarContent.sublinks} />
-            )}
+            
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 <Header user={user} onLogout={onLogout} pageTitle={headerTitle} />
                 <ContentLayout>

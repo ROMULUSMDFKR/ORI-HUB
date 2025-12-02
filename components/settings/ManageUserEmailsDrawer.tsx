@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, ConnectedEmailAccount, SignatureTemplate } from '../../types';
 import { useCollection } from '../../hooks/useCollection';
 import { api } from '../../api/firebaseApi';
@@ -15,25 +15,47 @@ interface ManageUserEmailsDrawerProps {
 }
 
 const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, onClose }) => {
-    const { data: allAccounts, loading: accountsLoading } = useCollection<ConnectedEmailAccount>('connectedAccounts');
+    // Use local state for accounts to handle updates manually and avoid stale data
+    const [accounts, setAccounts] = useState<ConnectedEmailAccount[]>([]);
+    const [loadingAccounts, setLoadingAccounts] = useState(false);
+    
     const { data: templates, loading: templatesLoading } = useCollection<SignatureTemplate>('signatureTemplates');
     
     const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
-    // Derived state: Filter accounts for the current user directly from the source of truth
-    // This eliminates synchronization issues between local state and Firestore updates
-    const userAccounts = useMemo(() => {
-        if (!user || !allAccounts) return [];
-        return allAccounts.filter(acc => acc.userId === user.id);
-    }, [user, allAccounts]);
+    // Fetch accounts whenever the drawer opens for a specific user
+    useEffect(() => {
+        const fetchAccounts = async () => {
+            if (!user) {
+                setAccounts([]);
+                return;
+            }
+            
+            setLoadingAccounts(true);
+            try {
+                // Fetch all accounts and filter (or fetch by query if API supported it directly)
+                const allData = await api.getCollection('connectedAccounts');
+                const userAccs = allData.filter((acc: ConnectedEmailAccount) => acc.userId === user.id);
+                setAccounts(userAccs);
+            } catch (error) {
+                console.error("Error fetching accounts:", error);
+            } finally {
+                setLoadingAccounts(false);
+            }
+        };
+
+        fetchAccounts();
+    }, [user]);
 
     const handleSaveNewAccount = async (account: ConnectedEmailAccount) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id, ...accountData } = account;
         try {
-            await api.addDoc('connectedAccounts', accountData);
-            // No need to update local state, useCollection hook handles it
+            const newDoc = await api.addDoc('connectedAccounts', accountData);
+            // Update local list immediately
+            setAccounts(prev => [...prev, newDoc]);
+            alert("Cuenta guardada correctamente.");
             setIsAddDrawerOpen(false);
         } catch (e) {
             console.error(e);
@@ -43,16 +65,17 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
 
     const handleDeleteAccount = async (e: React.MouseEvent, accountId: string) => {
         e.preventDefault();
-        e.stopPropagation(); // Stop event bubbling
+        e.stopPropagation();
 
         if (window.confirm('¿Estás seguro de que quieres eliminar esta cuenta de correo?')) {
             setDeletingId(accountId);
             try {
                 await api.deleteDoc('connectedAccounts', accountId);
-                // No need to update local state, useCollection hook handles it
+                // Remove from local list immediately
+                setAccounts(prev => prev.filter(acc => acc.id !== accountId));
             } catch (error) {
                 console.error("Error deleting account:", error);
-                alert("Error al eliminar la cuenta. Intenta de nuevo.");
+                alert("Error al eliminar la cuenta.");
             } finally {
                 setDeletingId(null);
             }
@@ -62,6 +85,8 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
     const handleAssignTemplate = async (accountId: string, templateId: string) => {
         try {
             await api.updateDoc('connectedAccounts', accountId, { signatureTemplate: templateId });
+             // Update local state
+            setAccounts(prev => prev.map(acc => acc.id === accountId ? { ...acc, signatureTemplate: templateId } : acc));
         } catch (error) {
             console.error("Error updating template:", error);
             alert("Error al actualizar la plantilla.");
@@ -82,7 +107,7 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
         return [{ value: '', name: 'Ninguna' }, ...templates.map(t => ({ value: t.id, name: t.name }))];
     }, [templates]);
 
-    const loading = accountsLoading || templatesLoading;
+    const loading = loadingAccounts || templatesLoading;
 
     return (
         <>
@@ -91,9 +116,9 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
                     <div className="space-y-6">
                         <div>
                             <h4 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Cuentas Conectadas</h4>
-                            {userAccounts.length > 0 ? (
+                            {accounts.length > 0 ? (
                                 <ul className="space-y-3">
-                                    {userAccounts.map(acc => (
+                                    {accounts.map(acc => (
                                         <li key={acc.id} className="p-4 bg-slate-50 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600 rounded-xl transition-all hover:shadow-sm">
                                             <div className="flex justify-between items-start mb-3">
                                                 <div className="flex items-center gap-3">

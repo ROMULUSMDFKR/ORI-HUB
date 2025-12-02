@@ -258,7 +258,6 @@ export interface ProductLot {
     receptionDate: string;
     initialQty: number;
     status: LotStatus;
-    minSellPrice?: number;
     pricing: { min: number };
     stock: { locationId: string; qty: number }[];
 }
@@ -715,10 +714,12 @@ export interface Email {
     body: string;
     timestamp: string;
     status: 'read' | 'unread';
-    folder: 'inbox' | 'sent' | 'drafts' | 'trash';
+    folder: 'inbox' | 'sent' | 'drafts' | 'trash' | 'archived';
     attachments: Attachment[];
     deliveryStatus?: 'pending' | 'sent' | 'error'; 
     snippet?: string; // For Nylas preview
+    isStarred?: boolean;
+    isArchived?: boolean;
 }
 
 export interface Attachment {

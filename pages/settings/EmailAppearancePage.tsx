@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { api } from '../../api/firebaseApi';
@@ -62,7 +63,9 @@ const EmailAppearancePage: React.FC = () => {
                     name,
                     htmlContent
                 };
+                // addDoc automatically generates an ID
                 const doc = await api.addDoc('signatureTemplates', newTemplate);
+                // Update selected ID to the new document ID so subsequent saves update it
                 setSelectedTemplateId(doc.id);
             } else if (selectedTemplateId) {
                 await api.updateDoc('signatureTemplates', selectedTemplateId, { name, htmlContent });

@@ -9,14 +9,14 @@ import CustomSelect from '../components/ui/CustomSelect';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/firebaseApi';
 
-type EmailFolder = 'inbox' | 'sent' | 'drafts' | 'trash';
+type EmailFolder = 'inbox' | 'sent' | 'drafts' | 'archived';
 type ComposeMode = 'new' | 'reply' | 'forward';
 
 const FOLDER_CONFIG: { id: EmailFolder; name: string; icon: string }[] = [
     { id: 'inbox', name: 'Recibidos', icon: 'inbox' },
     { id: 'sent', name: 'Enviados', icon: 'send' },
     { id: 'drafts', name: 'Borradores', icon: 'drafts' },
-    { id: 'trash', name: 'Papelera', icon: 'delete' },
+    { id: 'archived', name: 'Archivados', icon: 'archive' },
 ];
 
 const formatBytes = (bytes: number, decimals = 2): string => {
@@ -39,6 +39,57 @@ const getSafeContactEmail = (contact: any): string => {
     if (!contact) return '';
     if (typeof contact === 'string') return contact;
     return contact.email || '';
+};
+
+// Attachment Preview Modal
+const AttachmentModal: React.FC<{ 
+    isOpen: boolean; 
+    onClose: () => void; 
+    attachment: Attachment | null; 
+}> = ({ isOpen, onClose, attachment }) => {
+    if (!isOpen || !attachment) return null;
+
+    const isImage = attachment.name.match(/\.(jpeg|jpg|gif|png|webp)$/i);
+
+    return (
+        <div className="fixed inset-0 bg-black/80 z-[100] flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-zoom-in" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                    <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-slate-500">{isImage ? 'image' : 'description'}</span>
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-md">{attachment.name}</h3>
+                        <span className="text-xs text-slate-500">({formatBytes(attachment.size)})</span>
+                    </div>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                        <span className="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                
+                <div className="flex-1 p-6 overflow-auto flex items-center justify-center bg-slate-100 dark:bg-black/50 min-h-[300px]">
+                    {isImage ? (
+                        <img src={attachment.url} alt={attachment.name} className="max-w-full max-h-full object-contain rounded shadow-lg" />
+                    ) : (
+                        <div className="text-center">
+                            <span className="material-symbols-outlined text-6xl text-slate-400 mb-4">insert_drive_file</span>
+                            <p className="text-slate-500 dark:text-slate-400 mb-6">Este archivo no tiene vista previa disponible.</p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end bg-white dark:bg-slate-800">
+                    <a 
+                        href={attachment.url} 
+                        download={attachment.name} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                    >
+                        <span className="material-symbols-outlined">download</span> Descargar
+                    </a>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 // Componente para renderizar el email en un iframe aislado (Sandboxed)
@@ -145,6 +196,7 @@ const EmailListItem: React.FC<{ email: Email; isSelected: boolean; onSelect: () 
                             {displayContact}
                         </p>
                         <div className="flex items-center gap-1 shrink-0 opacity-70 text-xs">
+                            {email.isStarred && <span className="material-symbols-outlined text-[14px] text-amber-400 mr-1" style={{fontVariationSettings: "'FILL' 1"}}>star</span>}
                             {getDeliveryIcon()}
                             <span className={`${isUnread ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-400'}`}>
                                 {email.timestamp ? new Date(email.timestamp).toLocaleDateString(undefined, {month: 'short', day: 'numeric'}) : ''}
@@ -356,6 +408,9 @@ const EmailsPage: React.FC = () => {
     
     const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
+    // Attachment Modal State
+    const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+
     const { user: currentUser } = useAuth();
     const userSignature = (currentUser as any)?.signature || '';
 
@@ -390,7 +445,7 @@ const EmailsPage: React.FC = () => {
                 let query = `limit=${limit}`;
                 
                 if (selectedFolder === 'sent') query += '&in=sent';
-                else if (selectedFolder === 'trash') query += '&in=trash';
+                else if (selectedFolder === 'archived') query += '&in=archive'; // Or whatever 'All Mail' equivalent
                 // For 'inbox', default behavior usually works best or '&in=inbox'
 
                 const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/messages?${query}`, {
@@ -427,7 +482,8 @@ const EmailsPage: React.FC = () => {
                         name: att.filename || 'Adjunto',
                         size: att.size || 0,
                         url: '#' 
-                    }))
+                    })),
+                    isStarred: msg.starred || false
                 }));
 
                 setNylasEmails(mappedEmails);
@@ -452,6 +508,9 @@ const EmailsPage: React.FC = () => {
         if (currentAccount?.provider === 'nylas') {
             emails = nylasEmails;
         }
+        
+        // Apply folder logic for non-API local filtering simulation if needed, 
+        // but currently API does it.
         
         if (searchQuery) {
             const lowerQuery = searchQuery.toLowerCase();
@@ -501,6 +560,24 @@ const EmailsPage: React.FC = () => {
     const handleCloseCompose = () => {
         setComposeMode(null);
         setComposeInitialData({});
+    };
+
+    const handleToggleStar = async (emailId: string, currentStarred: boolean) => {
+        // Optimistic Update
+        setNylasEmails(prev => prev.map(e => e.id === emailId ? { ...e, isStarred: !currentStarred } : e));
+        // Note: Real implementation requires Nylas PUT to update message labels or metadata
+        // For this mock/hybrid, we just update local state visualization
+    };
+
+    const handleArchiveEmail = async (emailId: string) => {
+         // Optimistic Update: Remove from current view (unless view is archived)
+         if (selectedFolder !== 'archived') {
+             setNylasEmails(prev => prev.filter(e => e.id !== emailId));
+         }
+         if (selectedEmailId === emailId) setSelectedEmailId(null);
+
+         // Note: Real implementation requires Nylas PUT to update folders/labels
+         alert("Correo archivado (simulación).");
     };
 
      const handleSendEmail = async (emailData: { to: string; cc?: string; bcc?: string; subject: string; body: string; attachments: File[] }) => {
@@ -654,7 +731,16 @@ const EmailsPage: React.FC = () => {
                             {/* Email Header */}
                             <div className="p-6 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-0 z-10 shadow-sm">
                                 <div className="flex justify-between items-start gap-4 mb-4">
-                                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">{selectedEmail.subject || '(Sin asunto)'}</h2>
+                                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white leading-tight flex items-center gap-2">
+                                        <button 
+                                            onClick={() => handleToggleStar(selectedEmail.id, !!selectedEmail.isStarred)}
+                                            className={`p-1 rounded-full transition-colors ${selectedEmail.isStarred ? 'text-amber-400' : 'text-slate-300 hover:text-amber-400'}`}
+                                            title={selectedEmail.isStarred ? "Quitar destacado" : "Marcar como destacado"}
+                                        >
+                                            <span className="material-symbols-outlined text-2xl" style={{fontVariationSettings: `'FILL' ${selectedEmail.isStarred ? 1 : 0}`}}>star</span>
+                                        </button>
+                                        {selectedEmail.subject || '(Sin asunto)'}
+                                    </h2>
                                     <div className="flex gap-2 shrink-0">
                                         {selectedEmail.deliveryStatus === 'pending' && (
                                             <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
@@ -662,14 +748,14 @@ const EmailsPage: React.FC = () => {
                                             </span>
                                         )}
                                         <div className="flex gap-1">
-                                             <button onClick={() => handleOpenCompose('reply', selectedEmail)} className="bg-slate-100 dark:bg-slate-700 hover:bg-indigo-100 hover:text-indigo-600 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1">
+                                             <button onClick={() => handleOpenCompose('reply', selectedEmail)} className="bg-slate-100 dark:bg-slate-700 hover:bg-indigo-100 hover:text-indigo-600 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors flex items-center gap-1">
                                                 <span className="material-symbols-outlined !text-lg">reply</span> Responder
                                             </button>
-                                            <button onClick={() => handleOpenCompose('forward', selectedEmail)} className="bg-slate-100 dark:bg-slate-700 hover:bg-indigo-100 hover:text-indigo-600 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1">
+                                            <button onClick={() => handleOpenCompose('forward', selectedEmail)} className="bg-slate-100 dark:bg-slate-700 hover:bg-indigo-100 hover:text-indigo-600 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors flex items-center gap-1">
                                                 <span className="material-symbols-outlined !text-lg">forward</span> Reenviar
                                             </button>
-                                            <button className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 transition-colors">
-                                                <span className="material-symbols-outlined">more_vert</span>
+                                            <button onClick={() => handleArchiveEmail(selectedEmail.id)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-red-500 transition-colors" title="Archivar">
+                                                <span className="material-symbols-outlined">archive</span>
                                             </button>
                                         </div>
                                     </div>
@@ -716,16 +802,22 @@ const EmailsPage: React.FC = () => {
                                     </h4>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                                         {selectedEmail.attachments.map(att => ( 
-                                            <a key={att.id} href={att.url} download={att.name} className="flex flex-col p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all shadow-sm group text-center">
+                                            <div 
+                                                key={att.id} 
+                                                onClick={() => setPreviewAttachment(att)}
+                                                className="flex flex-col p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all shadow-sm group text-center cursor-pointer"
+                                            >
                                                 <div className="h-10 flex items-center justify-center text-indigo-500 mb-2">
-                                                     <span className="material-symbols-outlined text-3xl">description</span>
+                                                     <span className="material-symbols-outlined text-3xl">
+                                                        {att.name.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? 'image' : 'description'}
+                                                     </span>
                                                 </div>
                                                 <p className="font-medium text-slate-800 dark:text-slate-200 truncate text-xs w-full" title={att.name}>{att.name}</p>
                                                 <p className="text-[10px] text-slate-400 mt-1">{formatBytes(att.size)}</p>
                                                 <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600 w-full flex justify-center">
-                                                     <span className="material-symbols-outlined text-slate-400 group-hover:text-indigo-500 text-sm">download</span>
+                                                     <span className="material-symbols-outlined text-slate-400 group-hover:text-indigo-500 text-sm">visibility</span>
                                                 </div>
-                                            </a>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
@@ -768,6 +860,12 @@ const EmailsPage: React.FC = () => {
                     onSend={handleSendEmail}
                 />
             )}
+
+            <AttachmentModal 
+                isOpen={!!previewAttachment} 
+                onClose={() => setPreviewAttachment(null)} 
+                attachment={previewAttachment} 
+            />
         </div>
     );
 };

@@ -27,16 +27,63 @@ const formatBytes = (bytes: number, decimals = 2): string => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
+// Helper seguro para mostrar remitente/destinatario independientemente del formato de Make
+const getSafeContactName = (contact: any): string => {
+    if (!contact) return 'Desconocido';
+    if (typeof contact === 'string') return contact;
+    return contact.name || contact.email || 'Desconocido';
+};
+
+const getSafeContactEmail = (contact: any): string => {
+    if (!contact) return '';
+    if (typeof contact === 'string') return contact;
+    return contact.email || '';
+};
+
 const EmailListItem: React.FC<{ email: Email; isSelected: boolean; onSelect: () => void }> = ({ email, isSelected, onSelect }) => {
     const isUnread = email.status === 'unread';
+    
+    const getDeliveryIcon = () => {
+        if (email.folder !== 'sent') return null;
+        if (email.deliveryStatus === 'pending') return <span className="material-symbols-outlined text-[14px] text-amber-500 ml-1" title="En cola de envío">schedule</span>;
+        if (email.deliveryStatus === 'sent') return <span className="material-symbols-outlined text-[14px] text-green-500 ml-1" title="Enviado correctamente">check_circle</span>;
+        if (email.deliveryStatus === 'error') return <span className="material-symbols-outlined text-[14px] text-red-500 ml-1" title="Error al enviar">error</span>;
+        return null;
+    };
+
+    let displayContact = 'Desconocido';
+    if (email.folder === 'sent') {
+        if (Array.isArray(email.to) && email.to.length > 0) {
+            displayContact = `Para: ${getSafeContactName(email.to[0])}`;
+        } else {
+             displayContact = `Para: ${getSafeContactName(email.to)}`;
+        }
+    } else {
+        displayContact = getSafeContactName(email.from);
+    }
+
     return (
-        <li onClick={onSelect} className={`p-4 border-b border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 ${isSelected ? 'bg-indigo-100 dark:bg-indigo-500/10' : ''}`}>
+        <li 
+            onClick={onSelect} 
+            className={`p-4 border-b border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500 pl-[12px]' : 'border-l-4 border-transparent pl-4'}`}
+        >
             <div className="flex justify-between items-start">
-                <p className={`text-sm font-semibold ${isUnread ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>{email.from.name}</p>
-                <p className={`text-xs ${isUnread ? 'text-slate-800 dark:text-slate-200 font-semibold' : 'text-slate-500 dark:text-slate-400'}`}>{new Date(email.timestamp).toLocaleDateString()}</p>
+                <p className={`text-sm font-semibold truncate pr-2 max-w-[70%] ${isUnread ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
+                    {displayContact}
+                </p>
+                <div className="flex items-center gap-1 shrink-0">
+                    {getDeliveryIcon()}
+                    <p className={`text-xs ${isUnread ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-400'}`}>
+                        {email.timestamp ? new Date(email.timestamp).toLocaleDateString(undefined, {day: 'numeric', month: 'short'}) : ''}
+                    </p>
+                </div>
             </div>
-            <p className={`text-sm mt-1 truncate ${isUnread ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>{email.subject}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">{email.body}</p>
+            <p className={`text-sm mt-0.5 truncate ${isUnread ? 'text-slate-800 dark:text-slate-200 font-medium' : 'text-slate-500 dark:text-slate-400'}`}>
+                {email.subject || '(Sin asunto)'}
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 truncate pr-2">
+                {email.snippet || (email.body ? email.body.replace(/<[^>]*>?/gm, '') : 'Sin contenido')}
+            </p>
         </li>
     );
 };
@@ -71,9 +118,12 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
 
     useEffect(() => {
         if (isOpen) {
-            setTo(initialData.to?.map(r => r.email).join(', ') || '');
-            setCc(initialData.cc?.map(r => r.email).join(', ') || '');
-            setBcc(initialData.bcc?.map(r => r.email).join(', ') || '');
+            const safeMap = (arr: any) => Array.isArray(arr) ? arr.map((r: any) => getSafeContactEmail(r)).join(', ') : '';
+            
+            setTo(safeMap(initialData.to));
+            setCc(safeMap(initialData.cc));
+            setBcc(safeMap(initialData.bcc));
+            
             setSubject(initialData.subject || '');
             const newBody = initialData.body || '';
             setBody(newBody);
@@ -81,7 +131,7 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
                 bodyRef.current.innerHTML = newBody;
             }
             setShowCcBcc(!!(initialData.cc || initialData.bcc));
-            setAttachments([]); // Reset attachments when modal opens
+            setAttachments([]); 
         }
     }, [isOpen, initialData]);
     
@@ -124,29 +174,29 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
                 <div className="p-6 space-y-3 overflow-y-auto">
                     <div className="flex items-center">
                         <label className="w-16 text-sm font-medium text-slate-500 dark:text-slate-400">Para</label>
-                        <div className="flex-1 flex items-center border border-slate-300 dark:border-slate-600 rounded-lg px-3">
-                            <input type="email" value={to} onChange={(e) => setTo(e.target.value)} placeholder="destinatario@ejemplo.com" className="flex-1 !border-none !ring-0 !shadow-none !p-0" />
-                            <button onClick={() => setShowCcBcc(!showCcBcc)} className="ml-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold">Cc/Cco</button>
+                        <div className="flex-1 flex items-center border border-slate-300 dark:border-slate-600 rounded-lg px-3 bg-white dark:bg-slate-900">
+                            <input type="email" value={to} onChange={(e) => setTo(e.target.value)} placeholder="destinatario@ejemplo.com" className="flex-1 border-none ring-0 shadow-none p-2 bg-transparent text-slate-800 dark:text-slate-200 focus:outline-none" />
+                            <button onClick={() => setShowCcBcc(!showCcBcc)} className="ml-2 text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Cc/Cco</button>
                         </div>
                     </div>
                     {showCcBcc && (
                         <>
                             <div className="flex items-center">
                                 <label className="w-16 text-sm font-medium text-slate-500 dark:text-slate-400">Cc</label>
-                                <input type="email" value={cc} onChange={(e) => setCc(e.target.value)} className="flex-1" />
+                                <input type="email" value={cc} onChange={(e) => setCc(e.target.value)} className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500" />
                             </div>
                              <div className="flex items-center">
                                 <label className="w-16 text-sm font-medium text-slate-500 dark:text-slate-400">Cco</label>
-                                <input type="email" value={bcc} onChange={(e) => setBcc(e.target.value)} className="flex-1" />
+                                <input type="email" value={bcc} onChange={(e) => setBcc(e.target.value)} className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500" />
                             </div>
                         </>
                     )}
-                    <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Asunto" className="w-full" />
+                    <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Asunto" className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500" />
                     <div
                         ref={bodyRef}
                         contentEditable
                         onInput={e => setBody(e.currentTarget.innerHTML)}
-                        className="w-full h-64 p-3 border border-slate-300 dark:border-slate-600 rounded-lg overflow-y-auto focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        className="w-full h-64 p-3 border border-slate-300 dark:border-slate-600 rounded-lg overflow-y-auto focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
                     />
 
                     {attachments.length > 0 && (
@@ -169,14 +219,14 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
                     )}
                 </div>
 
-                <div className="flex justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
+                <div className="flex justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0 bg-slate-50 dark:bg-slate-800 rounded-b-xl">
                     <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
-                    <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Adjuntar archivo">
                         <span className="material-symbols-outlined">attach_file</span>
                     </button>
-                    <button onClick={handleSend} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 flex items-center gap-2">
+                    <button onClick={handleSend} className="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-lg shadow-lg hover:bg-indigo-700 flex items-center gap-2 transition-all transform hover:scale-105">
                         Enviar
-                        <span className="material-symbols-outlined !text-base">send</span>
+                        <span className="material-symbols-outlined !text-lg">send</span>
                     </button>
                 </div>
             </div>
@@ -186,77 +236,128 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
 
 
 const EmailsPage: React.FC = () => {
-    const { data: allEmails, loading: emailsLoading } = useCollection<Email>('emails');
+    // Using standard hook for other data, but manual fetch for Nylas emails
     const { data: allAccounts, loading: accountsLoading } = useCollection<ConnectedEmailAccount>('connectedAccounts');
-    const [allEmailsState, setAllEmailsState] = useState<Email[] | null>(null);
+    const [nylasEmails, setNylasEmails] = useState<Email[]>([]);
+    const [isNylasLoading, setIsNylasLoading] = useState(false);
+    
     const [selectedFolder, setSelectedFolder] = useState<EmailFolder>('inbox');
     const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
     
     const [composeMode, setComposeMode] = useState<ComposeMode | null>(null);
     const [composeInitialData, setComposeInitialData] = useState<Partial<Email>>({});
     
-    const [selectedAccountEmail, setSelectedAccountEmail] = useState<string | null>(null);
-    const [isSyncing, setIsSyncing] = useState(false);
+    const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
     const { user: currentUser } = useAuth();
     const userSignature = (currentUser as any)?.signature || '';
 
-    useEffect(() => {
-        if (allEmails) {
-            setAllEmailsState(allEmails);
-        }
-    }, [allEmails]);
-    
+    // Get user accounts
     const userAccounts = useMemo(() => {
         if (!allAccounts || !currentUser) return [];
         return allAccounts.filter(acc => acc.userId === currentUser.id);
     }, [allAccounts, currentUser]);
 
+    // Select first account by default
     useEffect(() => {
-        if (userAccounts.length > 0 && !selectedAccountEmail) {
-            setSelectedAccountEmail(userAccounts[0].email);
+        if (userAccounts.length > 0 && !selectedAccountId) {
+            setSelectedAccountId(userAccounts[0].id);
         }
-    }, [userAccounts, selectedAccountEmail]);
+    }, [userAccounts, selectedAccountId]);
 
-    // Robust filtering logic
-    const filteredEmails = useMemo(() => {
-        if (!allEmailsState || !selectedAccountEmail) return [];
-        const selectedEmailLower = selectedAccountEmail.toLowerCase();
+    // Fetch Emails from Nylas when account selected
+    useEffect(() => {
+        const fetchNylasEmails = async () => {
+            const account = userAccounts.find(a => a.id === selectedAccountId);
+            if (!account || account.provider !== 'nylas' || !account.nylasConfig) return;
 
-        return allEmailsState
-            .filter(email => {
-                if (email.folder !== selectedFolder) return false;
+            setIsNylasLoading(true);
+            try {
+                // Nylas API v3 Fetch
+                const limit = 20;
+                // Map folder concept (simple approach for v3)
+                // Note: Nylas v3 uses labels or folders depending on provider. 
+                // For simplicity we fetch general messages and filter client side if needed, or use search query
+                let query = `limit=${limit}`;
+                if (selectedFolder === 'sent') query += '&in=sent';
+                else if (selectedFolder === 'trash') query += '&in=trash';
+                else query += '&in=inbox';
 
-                if (selectedFolder === 'inbox') {
-                    // Check TO, CC, BCC safely
-                    const isInTo = Array.isArray(email.to) && email.to.some(r => r?.email?.toLowerCase() === selectedEmailLower);
-                    const isInCc = Array.isArray(email.cc) && email.cc.some(r => r?.email?.toLowerCase() === selectedEmailLower);
-                    const isInBcc = Array.isArray(email.bcc) && email.bcc.some(r => r?.email?.toLowerCase() === selectedEmailLower);
-                    return isInTo || isInCc || isInBcc;
-                }
+                const response = await fetch(`https://api.us.nylas.com/v3/grants/${account.nylasConfig.grantId}/messages?${query}`, {
+                    headers: {
+                        'Authorization': `Bearer ${account.nylasConfig.apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) throw new Error('Error fetching from Nylas');
+                const data = await response.json();
                 
-                // For sent, drafts, trash
-                return email.from?.email?.toLowerCase() === selectedEmailLower;
-            })
-            .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    }, [allEmailsState, selectedFolder, selectedAccountEmail]);
+                // Map Nylas Message to App Email Interface
+                const mappedEmails: Email[] = (data.data || []).map((msg: any) => ({
+                    id: msg.id,
+                    subject: msg.subject,
+                    body: msg.body,
+                    snippet: msg.snippet,
+                    from: msg.from?.[0] || { name: 'Desconocido', email: '' },
+                    to: msg.to || [],
+                    cc: msg.cc || [],
+                    bcc: msg.bcc || [],
+                    timestamp: new Date(msg.date * 1000).toISOString(),
+                    status: msg.unread ? 'unread' : 'read',
+                    folder: selectedFolder, // Assume folder based on query
+                    attachments: (msg.attachments || []).map((att: any) => ({
+                        id: att.id,
+                        name: att.filename || 'Adjunto',
+                        size: att.size || 0,
+                        url: '#' // Need separate endpoint to download
+                    }))
+                }));
+
+                setNylasEmails(mappedEmails);
+            } catch (error) {
+                console.error("Nylas Fetch Error:", error);
+                // Fallback to empty
+                setNylasEmails([]);
+            } finally {
+                setIsNylasLoading(false);
+            }
+        };
+
+        if (selectedAccountId) {
+            fetchNylasEmails();
+        }
+    }, [selectedAccountId, selectedFolder, userAccounts]);
+
+    // Helper to get current account object
+    const currentAccount = useMemo(() => userAccounts.find(a => a.id === selectedAccountId), [userAccounts, selectedAccountId]);
+
+    const filteredEmails = useMemo(() => {
+        if (currentAccount?.provider === 'nylas') {
+            return nylasEmails;
+        }
+        // Fallback for legacy Firestore emails (if any remain)
+        return []; 
+    }, [currentAccount, nylasEmails]);
 
     const selectedEmail = useMemo(() => {
-        if (!selectedEmailId || !allEmailsState) return null;
-        return allEmailsState.find(e => e.id === selectedEmailId);
-    }, [selectedEmailId, allEmailsState]);
+        if (!selectedEmailId || !filteredEmails) return null;
+        return filteredEmails.find(e => e.id === selectedEmailId);
+    }, [selectedEmailId, filteredEmails]);
 
-    useEffect(() => {
-        if (filteredEmails.length > 0) {
-            const isSelectedEmailVisible = filteredEmails.some(e => e.id === selectedEmailId);
-            if (!isSelectedEmailVisible) {
-                setSelectedEmailId(filteredEmails[0].id);
-            }
-        } else {
-            setSelectedEmailId(null);
+    const handleRefresh = () => {
+        // Trigger re-fetch by toggling or calling logic again
+        const account = userAccounts.find(a => a.id === selectedAccountId);
+        if (account?.provider === 'nylas') {
+             // Re-run effect logic manually or force update
+             // Ideally refactor fetch logic to a function and call it here
+             // Quick hack: toggle folder to refresh
+             const current = selectedFolder;
+             setSelectedFolder('trash'); // flicker
+             setTimeout(() => setSelectedFolder(current), 50);
         }
-    }, [filteredEmails, selectedEmailId]);
-    
+    };
+
     const handleOpenCompose = (mode: ComposeMode, baseEmail?: Email) => {
         const fullSignatureAndFooter = `${userSignature}<br /><br />${emailFooterHtml}`;
         let data: Partial<Email> = { body: `<br /><br />${fullSignatureAndFooter}` };
@@ -265,13 +366,14 @@ const EmailsPage: React.FC = () => {
             data = {
                 to: [baseEmail.from],
                 subject: `Re: ${baseEmail.subject}`,
-                body: `<br /><br />${fullSignatureAndFooter}<br /><br /><div style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 5px;">---- Mensaje Original ----<br />De: ${baseEmail.from.name} &lt;${baseEmail.from.email}&gt;<br />Enviado: ${new Date(baseEmail.timestamp).toLocaleString('es-ES')}<br />Asunto: ${baseEmail.subject}<br /><br />${baseEmail.body.replace(/\n/g, '<br />')}</div>`,
+                body: `<br /><br />${fullSignatureAndFooter}<br /><br /><div style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 5px;">---- Mensaje Original ----<br />De: ${getSafeContactName(baseEmail.from)} &lt;${getSafeContactEmail(baseEmail.from)}&gt;<br />Enviado: ${new Date(baseEmail.timestamp).toLocaleString('es-ES')}<br />Asunto: ${baseEmail.subject}<br /><br />${baseEmail.body.replace(/\n/g, '<br />')}</div>`,
             };
         } else if (mode === 'forward' && baseEmail) {
+            const toString = Array.isArray(baseEmail.to) ? baseEmail.to.map(t => getSafeContactEmail(t)).join(', ') : '';
             data = {
                 to: [],
                 subject: `Fwd: ${baseEmail.subject}`,
-                body: `<br /><br />${fullSignatureAndFooter}<br /><br /><div style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 5px;">---------- Mensaje reenviado ----------<br />De: ${baseEmail.from.name} &lt;${baseEmail.from.email}&gt;<br />Fecha: ${new Date(baseEmail.timestamp).toLocaleString('es-ES')}<br />Asunto: ${baseEmail.subject}<br />Para: ${baseEmail.to.map(t => t.email).join(', ')}<br /><br />${baseEmail.body.replace(/\n/g, '<br />')}</div>`,
+                body: `<br /><br />${fullSignatureAndFooter}<br /><br /><div style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 5px;">---------- Mensaje reenviado ----------<br />De: ${getSafeContactName(baseEmail.from)} &lt;${getSafeContactEmail(baseEmail.from)}&gt;<br />Fecha: ${new Date(baseEmail.timestamp).toLocaleString('es-ES')}<br />Asunto: ${baseEmail.subject}<br />Para: ${toString}<br /><br />${baseEmail.body.replace(/\n/g, '<br />')}</div>`,
             };
         }
         setComposeInitialData(data);
@@ -284,98 +386,64 @@ const EmailsPage: React.FC = () => {
     };
 
      const handleSendEmail = async (emailData: { to: string; cc?: string; bcc?: string; subject: string; body: string; attachments: File[] }) => {
-        if (!selectedAccountEmail || !currentUser) return;
-        
-        const newAttachments: Attachment[] = emailData.attachments.map(file => ({
-            id: `att-${Date.now()}-${file.name}`,
-            name: file.name,
-            size: file.size,
-            url: '#'
-        }));
-
-        const newEmail: Omit<Email, 'id'> = {
-            from: { name: currentUser.name, email: selectedAccountEmail },
-            to: stringToRecipients(emailData.to),
-            cc: stringToRecipients(emailData.cc || ''),
-            bcc: stringToRecipients(emailData.bcc || ''),
-            subject: emailData.subject,
-            body: emailData.body,
-            timestamp: new Date().toISOString(),
-            status: 'read',
-            folder: 'sent',
-            attachments: newAttachments,
-        };
+        if (!currentAccount || !currentUser) return;
 
         try {
-            const addedEmail = await api.addDoc('emails', newEmail);
-            setAllEmailsState(prev => (prev ? [...prev, addedEmail] : [addedEmail]));
-            handleCloseCompose();
-            setSelectedFolder('sent');
-            setTimeout(() => setSelectedEmailId(addedEmail.id), 0);
+            if (currentAccount.provider === 'nylas' && currentAccount.nylasConfig) {
+                 // Send via Nylas API
+                 const { grantId, apiKey } = currentAccount.nylasConfig;
+                 
+                 const payload = {
+                     subject: emailData.subject,
+                     body: emailData.body,
+                     to: stringToRecipients(emailData.to),
+                     cc: stringToRecipients(emailData.cc || ''),
+                     bcc: stringToRecipients(emailData.bcc || '')
+                 };
+
+                 const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/messages/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error('Failed to send via Nylas');
+                
+                alert("Correo enviado exitosamente vía Nylas.");
+                handleCloseCompose();
+                setSelectedFolder('sent');
+
+            } else {
+                // Fallback to Firestore logic (Legacy)
+                const newEmail: Omit<Email, 'id'> = {
+                    from: { name: currentUser.name, email: currentAccount.email },
+                    to: stringToRecipients(emailData.to),
+                    subject: emailData.subject,
+                    body: emailData.body,
+                    timestamp: new Date().toISOString(),
+                    status: 'read',
+                    folder: 'sent',
+                    attachments: [],
+                    deliveryStatus: 'pending'
+                };
+                await api.addDoc('emails', newEmail);
+                alert("Correo en cola de envío.");
+                handleCloseCompose();
+            }
+
         } catch (error) {
             console.error("Error sending email:", error);
             alert("Error al enviar el correo.");
         }
     };
 
-    const handleSimulateSync = async () => {
-        if (!selectedAccountEmail || !currentUser) {
-            alert("Por favor selecciona una cuenta primero.");
-            return;
-        }
-        setIsSyncing(true);
-
-        // Generate Mock Data specifically for the SELECTED account
-        const mocks: Omit<Email, 'id'>[] = [
-            {
-                from: { name: "Soporte Google", email: "support@google.com" },
-                to: [{ name: currentUser.name, email: selectedAccountEmail }],
-                subject: "Alerta de seguridad crítica (Simulacro)",
-                body: `Este es un correo simulado para la cuenta ${selectedAccountEmail}. Se ha detectado un nuevo inicio de sesión.`,
-                timestamp: new Date().toISOString(),
-                status: 'unread',
-                folder: 'inbox',
-                cc: [],
-                bcc: [],
-                attachments: []
-            },
-            {
-                from: { name: "Cliente Importante", email: "ceo@bigcorp.com" },
-                to: [{ name: currentUser.name, email: selectedAccountEmail }],
-                subject: "Propuesta Revisada",
-                body: "Hola, he revisado la propuesta y tengo algunos comentarios. ¿Podemos agendar una llamada?",
-                timestamp: new Date(Date.now() - 3600000).toISOString(),
-                status: 'read',
-                folder: 'inbox',
-                cc: [],
-                bcc: [],
-                attachments: []
-            }
-        ];
-
-        try {
-            const addedEmails: Email[] = [];
-            for (const mock of mocks) {
-                const res = await api.addDoc('emails', mock);
-                addedEmails.push(res);
-            }
-            
-            // IMPORTANT: Force update local state to see changes immediately without relying on useCollection re-fetch
-            setAllEmailsState(prev => prev ? [...prev, ...addedEmails] : addedEmails);
-            
-            alert(`Sincronización simulada completada para ${selectedAccountEmail}.`);
-        } catch (error) {
-            console.error("Sync error:", error);
-            alert("Error al sincronizar correos.");
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
-    const loading = emailsLoading || accountsLoading;
+    const loading = accountsLoading || isNylasLoading;
 
     const renderContent = () => {
-        if (loading && !allEmailsState) return <div className="flex-1 flex justify-center items-center"><Spinner /></div>;
+        if (loading) return <div className="flex-1 flex justify-center items-center"><Spinner /></div>;
         return (
             <>
                 <div className="w-1/3 border-r border-slate-200 dark:border-slate-700 flex flex-col">
@@ -387,7 +455,10 @@ const EmailsPage: React.FC = () => {
                             <EmailListItem key={email.id} email={email} isSelected={selectedEmailId === email.id} onSelect={() => setSelectedEmailId(email.id)} />
                         ))}
                          {filteredEmails.length === 0 && (
-                            <li className="text-center text-sm text-slate-500 dark:text-slate-400 p-8">No hay correos en esta carpeta. Haz clic en el botón de sincronizar.</li>
+                            <li className="flex flex-col items-center justify-center h-full p-8 text-center text-slate-400">
+                                <span className="material-symbols-outlined text-4xl mb-2">inbox</span>
+                                <p className="text-sm">Carpeta vacía</p>
+                            </li>
                         )}
                     </ul>
                 </div>
@@ -395,37 +466,61 @@ const EmailsPage: React.FC = () => {
                 <div className="w-2/3 flex flex-col bg-white dark:bg-slate-800">
                     {selectedEmail ? (
                         <>
-                            <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">{selectedEmail.subject}</h3>
-                                <div className="flex items-start mt-2 text-sm text-slate-500 dark:text-slate-400">
-                                    <span className="material-symbols-outlined text-lg mr-2 mt-0.5">person</span>
-                                    <div>
-                                        <p>De: <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedEmail.from.name}</span> &lt;{selectedEmail.from.email}&gt;</p>
-                                        <p>Para: {selectedEmail.to.map(t => t.name).join(', ')}</p>
-                                        {selectedEmail.cc && selectedEmail.cc.length > 0 && (
-                                            <p>Cc: {selectedEmail.cc.map(t => t.name).join(', ')}</p>
+                            <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+                                <div className="flex justify-between items-start">
+                                    <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 leading-tight">{selectedEmail.subject}</h3>
+                                    {selectedEmail.deliveryStatus === 'pending' && (
+                                        <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                                            <span className="material-symbols-outlined !text-xs">schedule</span> Enviando...
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-start mt-4 text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/30 p-3 rounded-lg">
+                                    <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center mr-3 text-slate-500 dark:text-slate-300 font-bold">
+                                        {getSafeContactName(selectedEmail.from).charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between">
+                                            <p className="text-slate-900 dark:text-white font-semibold">{getSafeContactName(selectedEmail.from)} <span className="text-slate-500 dark:text-slate-400 font-normal">&lt;{getSafeContactEmail(selectedEmail.from)}&gt;</span></p>
+                                            <p className="text-xs">{selectedEmail.timestamp ? new Date(selectedEmail.timestamp).toLocaleString() : ''}</p>
+                                        </div>
+                                        <p className="mt-1">Para: {Array.isArray(selectedEmail.to) ? selectedEmail.to.map(t => getSafeContactName(t) || getSafeContactEmail(t)).join(', ') : getSafeContactName(selectedEmail.to)}</p>
+                                        {selectedEmail.cc && Array.isArray(selectedEmail.cc) && selectedEmail.cc.length > 0 && (
+                                            <p>Cc: {selectedEmail.cc.map(t => getSafeContactName(t)).join(', ')}</p>
                                         )}
                                     </div>
                                 </div>
                             </div>
                             <div 
-                                className="flex-1 p-6 overflow-y-auto text-sm leading-relaxed text-slate-800 dark:text-slate-200 prose dark:prose-invert max-w-none"
-                                dangerouslySetInnerHTML={{ __html: selectedEmail.body.replace(/\n/g, '<br />') }}
+                                className="flex-1 p-8 overflow-y-auto text-sm leading-relaxed text-slate-800 dark:text-slate-200 prose dark:prose-invert max-w-none"
+                                dangerouslySetInnerHTML={{ __html: selectedEmail.body ? selectedEmail.body.replace(/\n/g, '<br />') : '' }}
                             />
                             {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
                                 <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-                                    <h4 className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-2">Archivos Adjuntos ({selectedEmail.attachments.length})</h4>
-                                    <div className="space-y-2">{selectedEmail.attachments.map(att => ( <a key={att.id} href={att.url} download={att.name} className="flex items-center gap-3 p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"><span className="material-symbols-outlined text-slate-500 dark:text-slate-400">attach_file</span><div className="flex-1"><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{att.name}</p><p className="text-xs text-slate-500 dark:text-slate-400">{formatBytes(att.size)}</p></div><span className="material-symbols-outlined text-slate-500 dark:text-slate-400">download</span></a>))}</div>
+                                    <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-3">Archivos Adjuntos ({selectedEmail.attachments.length})</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedEmail.attachments.map(att => ( 
+                                            <a key={att.id} href={att.url} download={att.name} className="flex items-center gap-2 p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 transition-colors text-sm max-w-xs">
+                                                <span className="material-symbols-outlined text-slate-500 dark:text-slate-400">attach_file</span>
+                                                <div className="overflow-hidden">
+                                                    <p className="font-medium text-slate-800 dark:text-slate-200 truncate">{att.name}</p>
+                                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{formatBytes(att.size)}</p>
+                                                </div>
+                                                <span className="material-symbols-outlined text-slate-500 dark:text-slate-400 ml-auto">download</span>
+                                            </a>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
-                            <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center gap-2">
-                                <button onClick={() => handleOpenCompose('reply', selectedEmail)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-100 dark:hover:bg-slate-600 flex items-center"><span className="material-symbols-outlined mr-2 text-base">reply</span>Responder</button>
-                                <button onClick={() => handleOpenCompose('forward', selectedEmail)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-100 dark:hover:bg-slate-600 flex items-center"><span className="material-symbols-outlined mr-2 text-base">forward</span>Reenviar</button>
+                            <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center gap-3">
+                                <button onClick={() => handleOpenCompose('reply', selectedEmail)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-100 dark:hover:bg-slate-600 flex items-center transition-colors"><span className="material-symbols-outlined mr-2 text-base">reply</span>Responder</button>
+                                <button onClick={() => handleOpenCompose('forward', selectedEmail)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-100 dark:hover:bg-slate-600 flex items-center transition-colors"><span className="material-symbols-outlined mr-2 text-base">forward</span>Reenviar</button>
                             </div>
                         </>
                     ) : (
-                        <div className="flex-1 flex items-center justify-center text-slate-500 dark:text-slate-400">
-                           {filteredEmails.length > 0 ? 'Selecciona un correo para leerlo' : 'No hay correos en esta carpeta'}
+                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                           <span className="material-symbols-outlined text-6xl mb-2 opacity-20">email</span>
+                           <p>{filteredEmails.length > 0 ? 'Selecciona un correo para leerlo' : 'No hay correos en esta carpeta'}</p>
                         </div>
                     )}
                 </div>
@@ -434,40 +529,48 @@ const EmailsPage: React.FC = () => {
     };
 
     return (
-        <div className="flex h-[calc(100vh-120px)] bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
-            <div className="w-64 border-r border-slate-200 dark:border-slate-700 flex flex-col bg-slate-50 dark:bg-slate-900/50">
-                <div className="p-4"><button onClick={() => handleOpenCompose('new')} className="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center shadow-sm hover:opacity-90 transition-colors"><span className="material-symbols-outlined mr-2">edit</span>Redactar</button></div>
-                
-                <div className="px-4 py-2 border-y border-slate-200 dark:border-slate-700 flex items-end gap-2">
-                    <div className="flex-1">
-                        <CustomSelect
-                            label="Cuenta"
-                            options={userAccounts.map(acc => ({ value: acc.email, name: acc.email }))}
-                            value={selectedAccountEmail || ''}
-                            onChange={(val) => setSelectedAccountEmail(val)}
-                            placeholder="Seleccionar..."
-                        />
-                    </div>
-                    <button 
-                        onClick={handleSimulateSync}
-                        disabled={isSyncing} 
-                        className="p-2 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 mb-[2px]"
-                        title="Sincronizar ahora"
-                    >
-                        <span className={`material-symbols-outlined text-base ${isSyncing ? 'animate-spin' : ''}`}>sync</span>
-                    </button>
-                </div>
-
-                <nav className="flex-1 px-2 py-2">
-                    {FOLDER_CONFIG.map(folder => (
-                        <button key={folder.id} onClick={() => setSelectedFolder(folder.id)} className={`w-full flex items-center p-3 rounded-lg text-left transition-colors duration-200 ${selectedFolder === folder.id ? 'bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-semibold' : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}>
-                            <span className="material-symbols-outlined w-6 h-6 mr-3">{folder.icon}</span>
-                            <span>{folder.name}</span>
+        <div className="flex h-[calc(100vh-120px)] bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex-col relative overflow-hidden">
+            <div className="flex flex-1 overflow-hidden relative">
+                <div className="w-64 border-r border-slate-200 dark:border-slate-700 flex flex-col bg-slate-50 dark:bg-slate-900/50">
+                    <div className="p-4">
+                        <button onClick={() => handleOpenCompose('new')} className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-all transform hover:scale-[1.02]">
+                            <span className="material-symbols-outlined mr-2">edit</span>Redactar
                         </button>
-                    ))}
-                </nav>
+                    </div>
+                    
+                    <div className="px-4 py-2 border-y border-slate-200 dark:border-slate-700 flex items-end gap-2 bg-white dark:bg-slate-800">
+                        <div className="flex-1">
+                            <CustomSelect
+                                label="Cuenta"
+                                options={userAccounts.map(acc => ({ value: acc.id, name: acc.email }))}
+                                value={selectedAccountId || ''}
+                                onChange={(val) => setSelectedAccountId(val)}
+                                placeholder="Seleccionar..."
+                                buttonClassName="w-full text-xs p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded"
+                            />
+                        </div>
+                        <button 
+                            onClick={handleRefresh}
+                            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 mb-[2px] transition-colors"
+                            title="Sincronizar correos ahora"
+                        >
+                            <span className="material-symbols-outlined text-base">sync</span>
+                        </button>
+                    </div>
+
+                    <nav className="flex-1 px-3 py-4 space-y-1">
+                        {FOLDER_CONFIG.map(folder => (
+                            <button key={folder.id} onClick={() => setSelectedFolder(folder.id)} className={`w-full flex items-center justify-between p-3 rounded-xl text-left transition-all duration-200 ${selectedFolder === folder.id ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold' : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium'}`}>
+                                <div className="flex items-center">
+                                    <span className={`material-symbols-outlined w-6 h-6 mr-3 ${selectedFolder === folder.id ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500'}`}>{folder.icon}</span>
+                                    <span>{folder.name}</span>
+                                </div>
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+                {renderContent()}
             </div>
-            {renderContent()}
 
             {composeMode && (
                 <ComposeEmailModal 

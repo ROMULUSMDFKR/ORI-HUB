@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { User, ConnectedEmailAccount } from '../../types';
 import Drawer from '../ui/Drawer';
 import Spinner from '../ui/Spinner';
-import ToggleSwitch from '../ui/ToggleSwitch';
 
 interface AddEmailAccountDrawerProps {
   isOpen: boolean;
@@ -13,200 +12,159 @@ interface AddEmailAccountDrawerProps {
 }
 
 const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, onClose, onSave, user }) => {
-    const [email, setEmail] = useState('roberto@tradeaitirik.com.mx');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [showAdvanced, setShowAdvanced] = useState(true);
-
-    // Pre-fill with user's provided data
-    const [incomingServer, setIncomingServer] = useState('mail.tradeaitirik.com.mx');
-    const [imapPort, setImapPort] = useState('993');
-    const [useSslImap, setUseSslImap] = useState(true);
-    const [outgoingServer, setOutgoingServer] = useState('mail.tradeaitirik.com.mx');
-    const [smtpPort, setSmtpPort] = useState('465');
-    const [useSslSmtp, setUseSslSmtp] = useState(true);
-
-    const [isConnecting, setIsConnecting] = useState(false);
-    const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
-    const [statusMessage, setStatusMessage] = useState('');
+    const [grantId, setGrantId] = useState('');
+    const [apiKey, setApiKey] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (!isOpen) {
-            setPassword('');
-            setIsConnecting(false);
-            setConnectionStatus('idle');
-            setStatusMessage('');
+            setGrantId('');
+            setApiKey('');
+            setIsSaving(false);
         }
     }, [isOpen]);
 
-    const handleConnect = async () => {
-        if (!email || !password || !incomingServer || !outgoingServer) {
-            alert("Por favor completa todos los campos.");
+    const handleSave = async () => {
+        const cleanGrantId = grantId.trim();
+        const cleanApiKey = apiKey.trim();
+
+        if (!cleanGrantId || !cleanApiKey) {
+            alert("Por favor ingresa el Grant ID y la API Key de Nylas.");
             return;
         }
-        setIsConnecting(true);
-        setConnectionStatus('idle');
-        setStatusMessage('Conectando con el servidor...');
+        setIsSaving(true);
+        
+        let emailToSave = '';
+        let verificationFailed = false;
+        
+        // Verify Nylas Credentials (Basic check)
+        try {
+            const response = await fetch(`https://api.us.nylas.com/v3/grants/${cleanGrantId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${cleanApiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            });
 
-        await new Promise(resolve => setTimeout(resolve, 2500));
-
-        if (email === 'roberto@tradeaitirik.com.mx' && password.length > 0) {
-            setConnectionStatus('success');
-            setStatusMessage('¡Conexión exitosa! Guardando configuración...');
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            if (user) {
-                const newAccount: ConnectedEmailAccount = {
-                    id: `acc-${Date.now()}`,
-                    userId: user.id,
-                    email: email,
-                    status: 'Conectado',
-                };
-                onSave(newAccount);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error("Nylas API Error Details:", errorData);
+                throw new Error(`Error ${response.status}: ${errorData.message || response.statusText || 'Credenciales inválidas'}`);
             }
-            onClose();
-        } else {
-            setConnectionStatus('error');
-            setStatusMessage('Error de conexión. Verifica tus credenciales e información del servidor.');
+            
+            const data = await response.json();
+            emailToSave = data.data.email; // Nylas v3 returns data wrapper
+
+        } catch (error: any) {
+            console.error("Nylas Error:", error);
+            verificationFailed = true;
+            
+            // Allow user to bypass verification if they are sure
+            const proceed = window.confirm(
+                `No se pudo verificar la conexión con Nylas.\n\nDetalle: ${error.message}\n\n¿Deseas guardar estas credenciales de todas formas? (Esto puede causar errores al leer correos)`
+            );
+
+            if (!proceed) {
+                setIsSaving(false);
+                return;
+            }
+
+            // Fallback email if verification failed
+            emailToSave = user?.email || 'cuenta-nylas@pendiente.com';
         }
 
-        setIsConnecting(false);
+        if (user) {
+            const newAccount: ConnectedEmailAccount = {
+                id: `acc-${Date.now()}`,
+                userId: user.id,
+                email: emailToSave,
+                status: verificationFailed ? 'Error de autenticación' : 'Conectado',
+                provider: 'nylas',
+                nylasConfig: {
+                    grantId: cleanGrantId,
+                    apiKey: cleanApiKey
+                }
+            };
+            onSave(newAccount);
+        }
+        
+        setIsSaving(false);
+        onClose();
     };
 
     return (
-        <Drawer isOpen={isOpen} onClose={onClose} title="Conectar Nueva Cuenta de Correo">
+        <Drawer isOpen={isOpen} onClose={onClose} title="Conectar Cuenta (Nylas)" size="lg">
             <div className="space-y-6">
                 
-                {/* Email Input - Safe Pattern */}
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Dirección de correo</label>
-                    <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span className="material-symbols-outlined h-5 w-5 text-gray-400">email</span>
+                <div className="bg-gradient-to-br from-blue-600 to-cyan-500 p-6 rounded-xl text-white shadow-lg">
+                    <div className="flex items-start gap-4">
+                        <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
+                            <span className="material-symbols-outlined text-3xl">cloud_sync</span>
                         </div>
-                        <input 
-                            type="email" 
-                            value={email} 
-                            onChange={e => setEmail(e.target.value)} 
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                            placeholder="ejemplo@empresa.com"
-                        />
+                        <div>
+                            <h3 className="text-xl font-bold mb-2">Conexión Directa Nylas v3</h3>
+                            <p className="text-blue-50 text-sm leading-relaxed">
+                                Conecta Gmail, Outlook, Exchange o IMAP al instante usando el motor de Nylas. 
+                                Tus correos se sincronizarán automáticamente sin servidores intermedios.
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                {/* Password Input - Safe Pattern */}
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Contraseña</label>
-                    <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span className="material-symbols-outlined h-5 w-5 text-gray-400">lock</span>
-                        </div>
+                <div className="space-y-4">
+                    <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-indigo-500">key</span>
+                        Credenciales de API
+                    </h4>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nylas API Key</label>
                         <input 
-                            type={showPassword ? "text" : "password"} 
-                            value={password} 
-                            onChange={e => setPassword(e.target.value)} 
-                            className="block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                            type="password" 
+                            value={apiKey} 
+                            onChange={e => setApiKey(e.target.value)} 
+                            className="block w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="nyk_v1_..."
                         />
-                        <button 
-                            type="button" 
-                            onClick={() => setShowPassword(!showPassword)} 
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        >
-                            <span className="material-symbols-outlined h-5 w-5">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                        </button>
+                         <p className="text-xs text-slate-500 mt-1">Copia esto desde tu Dashboard de Nylas &gt; Developer Settings.</p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Grant ID (ID de Cuenta)</label>
+                        <input 
+                            type="text" 
+                            value={grantId} 
+                            onChange={e => setGrantId(e.target.value)} 
+                            className="block w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                            placeholder="e.g. 85800b..."
+                        />
+                        <p className="text-xs text-slate-500 mt-1">El ID generado al conectar una cuenta en el Dashboard de Nylas (sección Grants).</p>
                     </div>
                 </div>
 
-                <div className="pt-2">
-                    <button onClick={() => setShowAdvanced(!showAdvanced)} className="flex justify-between items-center w-full text-left font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                        Configuración Avanzada
-                        <span className="material-symbols-outlined transition-transform" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)'}}>expand_more</span>
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300">
+                    <strong>¿Cómo obtener estos datos?</strong>
+                    <ol className="list-decimal list-inside mt-2 space-y-1 text-xs">
+                        <li>Ve a <a href="https://dashboard.nylas.com" target="_blank" rel="noreferrer" className="text-indigo-500 underline">dashboard.nylas.com</a></li>
+                        <li>Copia la <b>API Key</b> de la sección principal.</li>
+                        <li>Ve a la sección <b>Connect</b> y conecta tu cuenta de Gmail/Outlook.</li>
+                        <li>Copia el <b>Grant ID</b> que aparece junto a tu correo conectado.</li>
+                    </ol>
+                </div>
+
+                {/* Footer Action */}
+                <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
+                    <button 
+                        onClick={handleSave} 
+                        disabled={isSaving}
+                        className="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isSaving ? <Spinner /> : <span className="material-symbols-outlined text-2xl">link</span>}
+                        <span>{isSaving ? 'Verificando...' : 'Conectar Cuenta'}</span>
                     </button>
                 </div>
 
-                {showAdvanced && (
-                    <div className="space-y-6 p-5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                        
-                        {/* Incoming Server */}
-                        <div>
-                            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Servidor Entrante (IMAP)</h4>
-                            <div className="grid grid-cols-3 gap-3">
-                                <div className="col-span-2">
-                                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Host</label>
-                                    <div className="relative">
-                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <span className="material-symbols-outlined h-4 w-4 text-gray-400 text-xs">dns</span>
-                                        </div>
-                                        <input 
-                                            type="text" 
-                                            value={incomingServer} 
-                                            onChange={e => setIncomingServer(e.target.value)} 
-                                            className="block w-full pl-8 pr-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-700"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Puerto</label>
-                                    <input 
-                                        type="text" 
-                                        value={imapPort} 
-                                        onChange={e => setImapPort(e.target.value)} 
-                                        className="block w-full px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-700"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex items-center justify-between mt-3">
-                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span>
-                                <ToggleSwitch enabled={useSslImap} onToggle={() => setUseSslImap(prev => !prev)} />
-                            </div>
-                        </div>
-
-                        {/* Outgoing Server */}
-                        <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-                            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Servidor Saliente (SMTP)</h4>
-                            <div className="grid grid-cols-3 gap-3">
-                                <div className="col-span-2">
-                                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Host</label>
-                                     <div className="relative">
-                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <span className="material-symbols-outlined h-4 w-4 text-gray-400 text-xs">dns</span>
-                                        </div>
-                                        <input 
-                                            type="text" 
-                                            value={outgoingServer} 
-                                            onChange={e => setOutgoingServer(e.target.value)} 
-                                            className="block w-full pl-8 pr-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-700"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Puerto</label>
-                                    <input 
-                                        type="text" 
-                                        value={smtpPort} 
-                                        onChange={e => setSmtpPort(e.target.value)} 
-                                        className="block w-full px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-700"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex items-center justify-between mt-3">
-                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Usar SSL/TLS</span>
-                                <ToggleSwitch enabled={useSslSmtp} onToggle={() => setUseSslSmtp(prev => !prev)} />
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-             <div className="mt-8 pt-4 border-t border-slate-200 dark:border-slate-700">
-                <button onClick={handleConnect} disabled={isConnecting} className="w-full bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:bg-indigo-700 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait transition-all">
-                    {isConnecting ? <Spinner /> : <span className="material-symbols-outlined">sync</span>}
-                    {isConnecting ? 'Probando...' : 'Probar Conexión y Guardar'}
-                </button>
-                {statusMessage && (
-                     <div className={`mt-3 p-3 rounded-lg text-sm font-medium text-center ${connectionStatus === 'error' ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'}`}>
-                        {statusMessage}
-                    </div>
-                )}
             </div>
         </Drawer>
     );

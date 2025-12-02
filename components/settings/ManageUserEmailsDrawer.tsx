@@ -20,31 +20,57 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
     
     const [userAccounts, setUserAccounts] = useState<ConnectedEmailAccount[]>([]);
     const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
+    // Load accounts initially, but don't auto-reset if we are modifying locally
     useEffect(() => {
         if (user && allAccounts) {
-            setUserAccounts(allAccounts.filter(acc => acc.userId === user.id));
+            // Only set if we haven't set them yet or if the count differs significantly (external update)
+            // This simple check prevents the list from "flicking" back to the old state during deletion
+            const filtered = allAccounts.filter(acc => acc.userId === user.id);
+            // Simple comparison to avoid overwriting local state unnecessarily during quick operations
+            if (userAccounts.length === 0 && filtered.length > 0) {
+                 setUserAccounts(filtered);
+            } else if (userAccounts.length !== filtered.length && !deletingId) {
+                 setUserAccounts(filtered);
+            }
         } else if (!user) {
             setUserAccounts([]);
         }
+        // Removing userAccounts from dependency array to prevent loop, strictly syncing on allAccounts change
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, allAccounts]);
 
     const handleSaveNewAccount = async (account: ConnectedEmailAccount) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id, ...accountData } = account;
-        const addedAccount = await api.addDoc('connectedAccounts', accountData);
-        setUserAccounts(prev => [...prev, addedAccount]);
-        setIsAddDrawerOpen(false);
+        try {
+            const addedAccount = await api.addDoc('connectedAccounts', accountData);
+            setUserAccounts(prev => [...prev, addedAccount]);
+            setIsAddDrawerOpen(false);
+        } catch (e) {
+            console.error(e);
+            alert("Error al guardar la cuenta.");
+        }
     };
 
-    const handleDeleteAccount = async (accountId: string) => {
+    const handleDeleteAccount = async (e: React.MouseEvent, accountId: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+
         if (window.confirm('¿Estás seguro de que quieres eliminar esta cuenta de correo?')) {
+            setDeletingId(accountId);
             try {
+                // 1. Delete from Firestore
                 await api.deleteDoc('connectedAccounts', accountId);
+                
+                // 2. Immediately update local UI
                 setUserAccounts(prev => prev.filter(acc => acc.id !== accountId));
             } catch (error) {
                 console.error("Error deleting account:", error);
-                alert("Error al eliminar la cuenta.");
+                alert("Error al eliminar la cuenta. Intenta de nuevo.");
+            } finally {
+                setDeletingId(null);
             }
         }
     };
@@ -70,7 +96,7 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
     
     const templateOptions = useMemo(() => {
         if (!templates) return [{ value: '', name: 'Ninguna' }];
-        return [{ value: '', name: 'Ninguna' }, ...templates.map(t => ({ value: t.htmlContent, name: t.name }))];
+        return [{ value: '', name: 'Ninguna' }, ...templates.map(t => ({ value: t.id, name: t.name }))];
     }, [templates]);
 
     const loading = accountsLoading || templatesLoading;
@@ -85,7 +111,7 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
                             {userAccounts.length > 0 ? (
                                 <ul className="space-y-3">
                                     {userAccounts.map(acc => (
-                                        <li key={acc.id} className="p-4 bg-slate-50 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600 rounded-xl">
+                                        <li key={acc.id} className="p-4 bg-slate-50 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600 rounded-xl transition-all hover:shadow-sm">
                                             <div className="flex justify-between items-start mb-3">
                                                 <div className="flex items-center gap-3">
                                                     {/* App Icon Pattern */}
@@ -97,8 +123,18 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
                                                         <Badge text={acc.status} color={getStatusColor(acc.status)} />
                                                     </div>
                                                 </div>
-                                                <button onClick={() => handleDeleteAccount(acc.id)} className="p-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors">
-                                                    <span className="material-symbols-outlined text-xl">delete</span>
+                                                <button 
+                                                    type="button"
+                                                    onClick={(e) => handleDeleteAccount(e, acc.id)} 
+                                                    disabled={deletingId === acc.id}
+                                                    className="p-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                                                    title="Eliminar cuenta"
+                                                >
+                                                    {deletingId === acc.id ? (
+                                                        <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span>
+                                                    ) : (
+                                                        <span className="material-symbols-outlined text-xl">delete</span>
+                                                    )}
                                                 </button>
                                             </div>
                                             

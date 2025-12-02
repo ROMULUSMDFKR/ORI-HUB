@@ -717,6 +717,8 @@ export interface Email {
     status: 'read' | 'unread';
     folder: 'inbox' | 'sent' | 'drafts' | 'trash';
     attachments: Attachment[];
+    deliveryStatus?: 'pending' | 'sent' | 'error'; 
+    snippet?: string; // For Nylas preview
 }
 
 export interface Attachment {
@@ -732,6 +734,11 @@ export interface ConnectedEmailAccount {
     email: string;
     status: 'Conectado' | 'Desconectado' | 'Error de autenticación';
     signatureTemplate?: string;
+    provider?: 'gmail' | 'outlook' | 'hostgator' | 'nylas' | 'other'; 
+    nylasConfig?: {
+        grantId: string;
+        apiKey: string;
+    };
 }
 
 export interface SignatureTemplate {

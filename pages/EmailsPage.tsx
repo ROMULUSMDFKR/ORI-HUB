@@ -1,5 +1,4 @@
 
-// ... (keep imports)
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
@@ -9,7 +8,6 @@ import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/firebaseApi';
 import { useToast } from '../hooks/useToast';
 
-// ... (keep types and constants)
 type EmailFolder = 'inbox' | 'sent' | 'drafts' | 'archived' | 'trash';
 type ComposeMode = 'new' | 'reply' | 'forward';
 
@@ -29,7 +27,6 @@ const FOLDER_CONFIG: { id: EmailFolder; name: string; icon: string }[] = [
     { id: 'archived', name: 'Archivados', icon: 'archive' },
 ];
 
-// ... (keep existing utils)
 const formatBytes = (bytes: number, decimals = 2): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -56,7 +53,6 @@ const stringToRecipients = (str: string): { name: string; email: string; }[] => 
     return str.split(/[,;]/).map(emailStr => {
         const clean = emailStr.trim();
         if (!clean) return null;
-        // Extract email if format is "Name <email>"
         const match = clean.match(/<([^>]+)>/);
         const email = match ? match[1] : clean;
         const name = match ? clean.replace(match[0], '').trim() : email.split('@')[0];
@@ -80,50 +76,301 @@ const formatDateSmart = (isoDate: string) => {
     return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-// ... (keep existing sub-components)
-const AttachmentModal: React.FC<{ isOpen: boolean; onClose: () => void; attachment: Attachment | null; isLoading?: boolean }> = ({ isOpen, onClose, attachment, isLoading }) => {
-    if (!isOpen || !attachment) return null;
-    const isImage = attachment.name.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i);
+// --- Contact Pill Component ---
+const ContactPill: React.FC<{ 
+    contact: { name: string, email: string } | any, 
+    prefix?: string,
+    onCompose?: (email: string) => void 
+}> = ({ contact, prefix, onCompose }) => {
+    const { showToast } = useToast();
+    const [showTooltip, setShowTooltip] = useState(false);
     
+    const name = getSafeContactName(contact);
+    const email = getSafeContactEmail(contact);
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(email);
+        showToast('success', 'Correo copiado al portapapeles');
+        setShowTooltip(false);
+    };
+
+    const handleComposeClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onCompose) onCompose(email);
+        setShowTooltip(false);
+    };
+
     return (
-        <div className="fixed inset-0 bg-black/90 z-[100] flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[95vh] flex flex-col overflow-hidden animate-zoom-in" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+        <div 
+            className="relative inline-block"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+        >
+            <div className="flex items-center gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer">
+                {prefix && <span className="text-slate-400 dark:text-slate-500 font-normal text-xs mr-0.5">{prefix}</span>}
+                <span className="truncate max-w-[200px]">{name}</span>
+            </div>
+
+            {showTooltip && (
+                <div className="absolute z-50 bottom-full left-0 mb-2 w-max bg-slate-800 dark:bg-slate-700 text-white text-xs rounded-lg shadow-lg py-2 px-3 animate-fade-in">
                     <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-slate-500">{isImage ? 'image' : 'description'}</span>
-                        <div>
-                            <h3 className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-md">{attachment.name}</h3>
-                            <span className="text-xs text-slate-500">{formatBytes(attachment.size)}</span>
-                        </div>
+                        <span className="font-mono">{email}</span>
+                        <div className="h-4 w-px bg-slate-600"></div>
+                        <button 
+                            onClick={handleCopy}
+                            className="hover:text-indigo-300 transition-colors p-1 rounded hover:bg-white/10"
+                            title="Copiar dirección"
+                        >
+                            <span className="material-symbols-outlined !text-sm">content_copy</span>
+                        </button>
+                        {onCompose && (
+                            <button 
+                                onClick={handleComposeClick}
+                                className="hover:text-indigo-300 transition-colors p-1 rounded hover:bg-white/10"
+                                title="Escribir correo"
+                            >
+                                <span className="material-symbols-outlined !text-sm">edit_square</span>
+                            </button>
+                        )}
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><span className="material-symbols-outlined">close</span></button>
+                    <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-slate-800 dark:border-t-slate-700"></div>
                 </div>
-                <div className="flex-1 p-0 overflow-auto flex items-center justify-center bg-slate-100 dark:bg-black/50 min-h-[300px]">
-                    {isLoading ? (
-                        <div className="flex flex-col items-center text-slate-500">
+            )}
+        </div>
+    );
+};
+
+const EmailListItem: React.FC<{ 
+    email: Email; 
+    isSelected: boolean; 
+    currentAccountEmail?: string;
+    onSelect: () => void; 
+    onToggleStar: (e: React.MouseEvent) => void; 
+    onArchive: (e: React.MouseEvent) => void; 
+    onDeleteTag: (tag: string, e: React.MouseEvent) => void;
+    onCompose: (email: string) => void;
+}> = ({ email, isSelected, currentAccountEmail, onSelect, onToggleStar, onArchive, onDeleteTag, onCompose }) => {
+    const isUnread = email.status === 'unread';
+    const displaySnippet = email.snippet || (email.body ? email.body.replace(/<[^>]*>?/gm, '').substring(0, 90) + '...' : '');
+
+    // Improved Outgoing Check Logic: Use Folder as primary truth
+    let isOutgoing = email.folder === 'sent';
+    
+    // Fallback check if folder isn't explicitly 'sent' (e.g. legacy data)
+    if (!isOutgoing && currentAccountEmail) {
+         const senderEmail = getSafeContactEmail(email.from).trim().toLowerCase();
+         const myEmail = currentAccountEmail.trim().toLowerCase();
+         isOutgoing = senderEmail === myEmail;
+    }
+    
+    // If outgoing, show who it was sent TO. If incoming, show who it was FROM.
+    const displayContact = isOutgoing 
+        ? (email.to && email.to.length > 0 ? email.to[0] : { name: 'Sin destinatario', email: '' }) 
+        : email.from;
+        
+    const prefix = isOutgoing ? 'Para: ' : '';
+
+    return (
+        <div 
+            onClick={onSelect} 
+            className={`group flex items-start gap-3 p-4 border-b border-slate-100 dark:border-slate-700 cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-700/50 relative ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-l-indigo-500 pl-3' : 'border-l-4 border-l-transparent pl-3'} ${isUnread ? 'bg-white dark:bg-slate-800' : 'bg-slate-50/30 dark:bg-slate-900/30'}`}
+        >
+             <div className="flex flex-col items-center gap-3 pt-1">
+                <button 
+                    onClick={onToggleStar} 
+                    className={`transition-colors p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 ${email.isStarred ? 'text-amber-400' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500'}`}
+                    title={email.isStarred ? "Quitar destacado" : "Destacar"}
+                >
+                    <span className="material-symbols-outlined text-xl" style={{fontVariationSettings: `'FILL' ${email.isStarred ? 1 : 0}`}}>star</span>
+                </button>
+             </div>
+             
+             <div className="flex-1 min-w-0">
+                 <div className="flex justify-between items-center mb-1">
+                     <div className="max-w-[70%]">
+                        <ContactPill contact={displayContact} prefix={prefix} onCompose={onCompose} />
+                     </div>
+                     <span className={`text-xs whitespace-nowrap ${isUnread ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>
+                         {formatDateSmart(email.timestamp)}
+                     </span>
+                 </div>
+                 
+                 <p className={`text-xs truncate mb-1.5 ${isUnread ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400'}`}>
+                     {email.subject || '(Sin asunto)'}
+                 </p>
+                 <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-2 leading-relaxed">
+                     {displaySnippet}
+                 </p>
+
+                 <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                    {email.attachments && email.attachments.length > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[10px] text-slate-500 font-medium">
+                            <span className="material-symbols-outlined !text-[12px] mr-1">attach_file</span> {email.attachments.length}
+                        </span>
+                    )}
+                    {email.tags && email.tags.map(tag => (
+                        <span key={tag} className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium ${BUSINESS_TAGS[tag] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                            {tag}
+                            <button 
+                                onClick={(e) => onDeleteTag(tag, e)}
+                                className="hover:text-red-600 flex items-center"
+                                title="Eliminar etiqueta"
+                            >
+                                <span className="material-symbols-outlined !text-[10px]">close</span>
+                            </button>
+                        </span>
+                    ))}
+                 </div>
+             </div>
+
+             <div className="absolute right-2 bottom-2 hidden group-hover:flex items-center gap-1 bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-600 rounded-lg p-1 z-10">
+                 <button onClick={onArchive} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors" title="Archivar">
+                     <span className="material-symbols-outlined text-lg">archive</span>
+                 </button>
+             </div>
+        </div>
+    );
+};
+
+const EmailAttachmentTile: React.FC<{ 
+    attachment: Attachment; 
+    nylasConfig?: { grantId: string; apiKey: string };
+}> = ({ attachment, nylasConfig }) => {
+    // State to hold the blob URL
+    const [blobUrl, setBlobUrl] = useState<string | null>(null);
+    const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
+    const isImage = attachment.name.match(/\.(jpeg|jpg|gif|png|webp|svg|bmp)$/i);
+    
+    // Clean up blob URL on unmount
+    useEffect(() => {
+        return () => {
+            if (blobUrl) {
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+    }, [blobUrl]);
+
+    const fetchAttachment = useCallback(async () => {
+        if (!nylasConfig || !nylasConfig.grantId || !nylasConfig.apiKey) {
+            setStatus('error');
+            return;
+        }
+
+        setStatus('loading');
+        
+        try {
+            const { grantId, apiKey } = nylasConfig;
+            const queryParams = attachment.messageId ? `?message_id=${attachment.messageId}` : '';
+            const cleanGrant = grantId.trim();
+            const cleanKey = apiKey.trim();
+
+            const response = await fetch(`https://api.us.nylas.com/v3/grants/${cleanGrant}/attachments/${attachment.id}/download${queryParams}`, {
+                headers: { 'Authorization': `Bearer ${cleanKey}` }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            const newUrl = URL.createObjectURL(blob);
+            setBlobUrl(newUrl);
+            setStatus('success');
+            return newUrl;
+        } catch (err) {
+            console.error("Download failed:", err);
+            setStatus('error');
+            return null;
+        }
+    }, [attachment.id, attachment.messageId, nylasConfig]);
+
+    // Auto-fetch ONLY for images when config is available and we haven't fetched yet
+    useEffect(() => {
+        if (isImage && status === 'idle' && nylasConfig) {
+            fetchAttachment();
+        }
+    }, [isImage, status, nylasConfig, fetchAttachment]);
+
+    const handleDownload = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        
+        if (!nylasConfig) {
+            alert("Falta configuración de la cuenta de correo.");
+            return;
+        }
+
+        let downloadUrl = blobUrl;
+        if (!downloadUrl) {
+            downloadUrl = await fetchAttachment();
+        }
+        
+        if (downloadUrl) {
+             const a = document.createElement('a');
+             a.href = downloadUrl;
+             a.download = attachment.name;
+             document.body.appendChild(a);
+             a.click();
+             document.body.removeChild(a);
+        }
+    };
+    
+    // Retry handler
+    const handleRetry = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        fetchAttachment();
+    };
+
+    return (
+        <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900/50 max-w-sm shadow-sm hover:shadow-md transition-all relative group">
+            {isImage ? (
+                <div className="relative bg-slate-200 dark:bg-slate-800 min-h-[150px] flex items-center justify-center group">
+                    {status === 'success' && blobUrl ? (
+                        <img src={blobUrl} alt={attachment.name} className="w-full h-auto object-contain max-h-[400px]" />
+                    ) : status === 'loading' ? (
+                        <div className="flex flex-col items-center text-slate-400 gap-2 p-4">
                             <Spinner />
-                            <span className="mt-4 text-sm">Descargando archivo...</span>
+                            <span className="text-xs">Cargando...</span>
                         </div>
-                    ) : isImage && attachment.url && attachment.url !== '#' ? (
-                        <img src={attachment.url} alt={attachment.name} className="max-w-full max-h-full object-contain" />
+                    ) : status === 'error' ? (
+                         <div className="flex flex-col items-center text-slate-400 gap-2 p-4 text-center">
+                            <span className="material-symbols-outlined text-red-400">broken_image</span>
+                            <span className="text-xs text-red-400">Error al cargar</span>
+                            <button onClick={handleRetry} className="text-xs underline mt-1 hover:text-indigo-500 cursor-pointer bg-white/50 px-2 py-1 rounded">Reintentar</button>
+                        </div>
                     ) : (
-                        <div className="text-center py-12">
-                            <span className="material-symbols-outlined text-6xl text-slate-400 mb-4">insert_drive_file</span>
-                            <p className="text-slate-500 dark:text-slate-400 mb-6">Vista previa no disponible para este tipo de archivo.</p>
+                        /* Idle / No Config */
+                        <div className="flex flex-col items-center text-slate-400 gap-2 p-4 text-center">
+                             <span className="material-symbols-outlined text-3xl opacity-30">image</span>
+                             {!nylasConfig ? <span className="text-xs opacity-50 text-amber-500">Sin Credenciales</span> : <span className="text-xs opacity-50">Esperando...</span>}
                         </div>
                     )}
                 </div>
-                <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end bg-white dark:bg-slate-800">
-                    <a 
-                        href={attachment.url} 
-                        download={attachment.name} 
-                        target="_blank" 
-                        rel="noreferrer" 
-                        className={`bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center gap-2 ${isLoading || attachment.url === '#' ? 'opacity-50 pointer-events-none' : ''}`}
-                    >
-                        <span className="material-symbols-outlined">download</span> Descargar
-                    </a>
+            ) : (
+                <div className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 text-slate-500">
+                         <span className="material-symbols-outlined">description</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate" title={attachment.name}>{attachment.name}</p>
+                        <p className="text-xs text-slate-500">{formatBytes(attachment.size)}</p>
+                        {status === 'error' && <p className="text-xs text-red-500 mt-1">Error al descargar</p>}
+                    </div>
                 </div>
+            )}
+
+            <div className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 p-2 flex justify-between items-center">
+                {!isImage && <span className="text-xs text-slate-400 ml-2 truncate max-w-[150px]">{attachment.name}</span>}
+                {isImage && <span className="text-xs text-slate-400 ml-2">{formatBytes(attachment.size)}</span>}
+                
+                <button 
+                    onClick={handleDownload} 
+                    className={`p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors ${!nylasConfig ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={!nylasConfig ? "Configuración faltante" : "Descargar"}
+                    disabled={!nylasConfig || status === 'loading'}
+                >
+                    <span className="material-symbols-outlined text-lg">download</span>
+                </button>
             </div>
         </div>
     );
@@ -204,73 +451,6 @@ const SafeEmailFrame: React.FC<{ htmlContent: string; showImages: boolean }> = (
     );
 };
 
-const EmailListItem: React.FC<{ email: Email; isSelected: boolean; onSelect: () => void; onToggleStar: (e: React.MouseEvent) => void; onArchive: (e: React.MouseEvent) => void; onDeleteTag: (tag: string, e: React.MouseEvent) => void; }> = ({ email, isSelected, onSelect, onToggleStar, onArchive, onDeleteTag }) => {
-    const isUnread = email.status === 'unread';
-    let displayContact = email.folder === 'sent' ? `Para: ${getSafeContactName(email.to?.[0])}` : getSafeContactName(email.from);
-    const displaySnippet = email.snippet || (email.body ? email.body.replace(/<[^>]*>?/gm, '').substring(0, 90) + '...' : '');
-
-    return (
-        <div 
-            onClick={onSelect} 
-            className={`group flex items-start gap-3 p-4 border-b border-slate-100 dark:border-slate-700 cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-700/50 relative ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-l-indigo-500 pl-3' : 'border-l-4 border-l-transparent pl-3'} ${isUnread ? 'bg-white dark:bg-slate-800' : 'bg-slate-50/30 dark:bg-slate-900/30'}`}
-        >
-             <div className="flex flex-col items-center gap-3 pt-1">
-                <button 
-                    onClick={onToggleStar} 
-                    className={`transition-colors p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 ${email.isStarred ? 'text-amber-400' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500'}`}
-                    title={email.isStarred ? "Quitar destacado" : "Destacar"}
-                >
-                    <span className="material-symbols-outlined text-xl" style={{fontVariationSettings: `'FILL' ${email.isStarred ? 1 : 0}`}}>star</span>
-                </button>
-             </div>
-             
-             <div className="flex-1 min-w-0">
-                 <div className="flex justify-between items-center mb-1">
-                     <h4 className={`text-sm truncate max-w-[70%] ${isUnread ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-200'}`}>
-                         {displayContact}
-                     </h4>
-                     <span className={`text-xs whitespace-nowrap ${isUnread ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>
-                         {formatDateSmart(email.timestamp)}
-                     </span>
-                 </div>
-                 
-                 <p className={`text-xs truncate mb-1.5 ${isUnread ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400'}`}>
-                     {email.subject || '(Sin asunto)'}
-                 </p>
-                 <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-2 leading-relaxed">
-                     {displaySnippet}
-                 </p>
-
-                 <div className="flex flex-wrap items-center gap-2 mt-2.5">
-                    {email.attachments && email.attachments.length > 0 && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[10px] text-slate-500 font-medium">
-                            <span className="material-symbols-outlined !text-[12px] mr-1">attach_file</span> {email.attachments.length}
-                        </span>
-                    )}
-                    {email.tags && email.tags.map(tag => (
-                        <span key={tag} className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium ${BUSINESS_TAGS[tag] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                            {tag}
-                            <button 
-                                onClick={(e) => onDeleteTag(tag, e)}
-                                className="hover:text-red-600 flex items-center"
-                                title="Eliminar etiqueta"
-                            >
-                                <span className="material-symbols-outlined !text-[10px]">close</span>
-                            </button>
-                        </span>
-                    ))}
-                 </div>
-             </div>
-
-             <div className="absolute right-2 bottom-2 hidden group-hover:flex items-center gap-1 bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-600 rounded-lg p-1 z-10">
-                 <button onClick={onArchive} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors" title="Archivar">
-                     <span className="material-symbols-outlined text-lg">archive</span>
-                 </button>
-             </div>
-        </div>
-    );
-};
-
 const RichTextToolbar: React.FC<{ onCommand: (cmd: string, val?: string) => void }> = ({ onCommand }) => {
     return (
         <div className="flex items-center gap-1 p-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-t-lg">
@@ -286,7 +466,7 @@ interface ComposeEmailModalProps {
     initialData: Partial<Email>;
     isOpen: boolean;
     onClose: () => void;
-    onSend: (data: any) => Promise<void>; // Explicit promise return
+    onSend: (data: any) => Promise<void>;
     defaultSignature?: string;
 }
 
@@ -306,7 +486,12 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
 
     useEffect(() => {
         if (isOpen) {
-            setTo(Array.isArray(initialData.to) ? initialData.to.map((r:any) => getSafeContactEmail(r)).join(', ') : '');
+            if (typeof initialData.to === 'string') {
+                setTo(initialData.to);
+            } else {
+                setTo(Array.isArray(initialData.to) ? initialData.to.map((r:any) => getSafeContactEmail(r)).join(', ') : '');
+            }
+            
             setSubject(initialData.subject || '');
             let initialBody = '';
             if (mode === 'reply' || mode === 'forward') {
@@ -335,12 +520,9 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
             }
             
             await onSend({ to, cc, bcc, subject, body: finalBody, attachments });
-            // If successful, onSend handles closing via state update in parent
         } catch (e) {
             console.error("Send failed in modal", e);
-            // Could show alert here, but parent typically handles notification
         } finally {
-            // Always stop spinner, component might unmount if parent closes it
             setIsSending(false);
         }
     };
@@ -457,12 +639,11 @@ const EmailsPage: React.FC = () => {
     const [showImages, setShowImages] = useState(false);
     const [isTagMenuOpen, setIsTagMenuOpen] = useState(false);
     const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null); 
-    const [isAttachmentLoading, setIsAttachmentLoading] = useState(false);
 
     const [composeMode, setComposeMode] = useState<ComposeMode | null>(null);
-    const [composeData, setComposeData] = useState<Partial<Email>>({});
-    const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
-    
+    const [composeData, setComposeData] = useState<Partial<Email> | { to: string }>({}); 
+    const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
+
     const userAccounts = useMemo(() => {
         if (!allAccounts || !currentUser) return [];
         return allAccounts.filter(acc => acc.userId === currentUser.id);
@@ -510,42 +691,16 @@ const EmailsPage: React.FC = () => {
         }
     };
 
-    const handleViewAttachment = async (attachment: Attachment) => {
-        setPreviewAttachment(attachment);
-        if (attachment.url && attachment.url !== '#') return;
-        if (!currentAccount?.nylasConfig) return;
-
-        setIsAttachmentLoading(true);
-        try {
-            const { grantId, apiKey } = currentAccount.nylasConfig;
-            const queryParams = attachment.messageId ? `?message_id=${attachment.messageId}` : '';
-            const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId.trim()}/attachments/${attachment.id}/download${queryParams}`, {
-                headers: { 'Authorization': `Bearer ${apiKey.trim()}` }
-            });
-            if (!response.ok) throw new Error(`Download failed: ${response.status}`);
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            setPreviewAttachment(prev => prev && prev.id === attachment.id ? { ...prev, url } : prev);
-        } catch (error) {
-            console.error(error);
-            showToast('error', 'Error al descargar el archivo.');
-        } finally {
-            setIsAttachmentLoading(false);
-        }
-    };
-    
-    const handleCloseAttachment = () => {
-        if (previewAttachment?.url && previewAttachment.url.startsWith('blob:')) URL.revokeObjectURL(previewAttachment.url);
-        setPreviewAttachment(null);
-    };
-
     const fetchEmails = useCallback(async () => {
         if (!currentAccount || !currentAccount.nylasConfig) return;
+        const { grantId, apiKey } = currentAccount.nylasConfig;
+        
+        if (!grantId || !apiKey) return;
+
         setIsNylasLoading(true);
         setNylasError(null);
         
         try {
-            const { grantId, apiKey } = currentAccount.nylasConfig;
             const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId.trim()}/messages?limit=50`, {
                 headers: { 'Authorization': `Bearer ${apiKey.trim()}`, 'Content-Type': 'application/json' }
             });
@@ -582,7 +737,13 @@ const EmailsPage: React.FC = () => {
                     timestamp: new Date(msg.date * 1000).toISOString(),
                     status: isRead ? 'read' : 'unread',
                     folder: folder, 
-                    attachments: (msg.attachments || []).map((a: any) => ({ id: a.id, name: a.filename || 'File', size: a.size || 0, url: '#', messageId: msg.id })), 
+                    attachments: (msg.attachments || []).map((a: any) => ({ 
+                        id: a.id, 
+                        name: a.filename || 'File', 
+                        size: a.size || 0, 
+                        url: '#', 
+                        messageId: msg.id 
+                    })), 
                     isStarred: isStarred || false,
                     isArchived: metadata.isArchived || false, 
                     tags: metadata.tags || [] 
@@ -627,6 +788,30 @@ const EmailsPage: React.FC = () => {
     const activeThread = useMemo(() => selectedThreadId ? groupedThreads.find(t => t.id === selectedThreadId) : null, [selectedThreadId, groupedThreads]);
 
     useEffect(() => { setShowImages(false); }, [selectedThreadId]);
+    
+    // Determine Reply-To Address Correctly
+    const getReplyToAddress = (email: Email, myEmail?: string) => {
+        if (!email || !email.from) return '';
+        
+        const myEmailLower = myEmail?.toLowerCase().trim() || '';
+        const senderEmail = email.from.email?.toLowerCase().trim() || '';
+        
+        // If the email is in the 'sent' folder, then I sent it.
+        // OR if the sender is me.
+        // In both cases, reply to the first recipient (not myself).
+        if (email.folder === 'sent' || senderEmail === myEmailLower) {
+             const recipients = email.to || [];
+             return recipients[0]?.email || '';
+        }
+
+        // Default: Reply to sender (Incoming email)
+        return email.from.email;
+    };
+
+    const handleComposeTo = (email: string) => {
+        setComposeMode('new');
+        setComposeData({ to: email });
+    };
 
     const handleSendEmail = async (data: any) => {
         if (!currentAccount || !currentUser) {
@@ -637,6 +822,12 @@ const EmailsPage: React.FC = () => {
         const toRecipients = stringToRecipients(data.to);
         const ccRecipients = stringToRecipients(data.cc || '');
         const bccRecipients = stringToRecipients(data.bcc || '');
+        
+        // Basic validation: at least one recipient
+        if(toRecipients.length === 0) {
+             showToast('warning', 'Debes especificar al menos un destinatario.');
+             return;
+        }
 
         const payload = {
             subject: data.subject || '(Sin asunto)',
@@ -650,40 +841,65 @@ const EmailsPage: React.FC = () => {
         try {
             if (currentAccount.provider === 'nylas' && currentAccount.nylasConfig) {
                  const { grantId, apiKey } = currentAccount.nylasConfig;
-                 const res = await fetch(`https://api.us.nylas.com/v3/grants/${grantId.trim()}/messages/send`, {
-                     method: 'POST',
-                     headers: { 'Authorization': `Bearer ${apiKey.trim()}`, 'Content-Type': 'application/json' },
-                     body: JSON.stringify(payload)
-                 });
-                 if (res.ok) sentViaApi = true;
-                 else console.warn("Nylas API send failed", await res.json());
+                 // Trim credentials to avoid spaces issues
+                 const cleanGrant = grantId.trim();
+                 const cleanKey = apiKey.trim();
+                 
+                 if (cleanGrant && cleanKey) {
+                     const res = await fetch(`https://api.us.nylas.com/v3/grants/${cleanGrant}/messages/send`, {
+                         method: 'POST',
+                         headers: { 'Authorization': `Bearer ${cleanKey}`, 'Content-Type': 'application/json' },
+                         body: JSON.stringify(payload)
+                     });
+                     
+                     if (res.ok) {
+                         sentViaApi = true;
+                     } else {
+                         const errText = await res.text(); 
+                         let message = 'API Error';
+                         try {
+                             const errJson = JSON.parse(errText);
+                             message = errJson.message || message;
+                         } catch (e) {
+                             message = errText || message;
+                         }
+                         console.warn("Nylas API send failed", message);
+                         
+                         // IMPORTANT: If it's a network error or CORS, we might not get here if fetch throws. 
+                         // But if we get a response, it means we connected.
+                         showToast('error', `Error de envío: ${message}`);
+                         return; // Don't fallback if API explicitly rejected it (e.g. bad auth)
+                     }
+                 }
             }
-        } catch (e) { console.error("Error in email logic", e); }
+        } catch (e) { 
+            console.error("Error in email logic (likely network/CORS)", e); 
+            // Fallback proceeds below
+        }
 
         if (!sentViaApi) {
             try {
-                // Create a clean object for Firestore
                 const emailDoc = { 
                     ...payload, 
                     from: { name: currentUser.name || 'Usuario', email: currentAccount.email || 'unknown@domain.com' }, 
                     folder: 'sent', 
                     timestamp: new Date().toISOString(), 
                     status: 'read',
-                    deliveryStatus: 'pending_retry'
+                    deliveryStatus: 'pending_retry' 
                 };
-                // Sanitize to remove any potential undefined values
                 const cleanDoc = JSON.parse(JSON.stringify(emailDoc));
                 await api.addDoc('emails', cleanDoc);
+                
                 showToast('warning', 'Correo guardado localmente (Sin conexión / Error API).');
                 setComposeMode(null);
             } catch (err) {
                 console.error("Failed to save email locally", err);
                 showToast('error', 'Error crítico: No se pudo guardar el correo.');
-                // Do NOT close modal
             }
         } else {
             showToast('success', 'Correo enviado exitosamente.');
             setComposeMode(null);
+            setTimeout(fetchEmails, 2000);
         }
     };
 
@@ -742,7 +958,6 @@ const EmailsPage: React.FC = () => {
          showToast('info', 'Etiqueta eliminada');
          updateLocalMetadata(emailId, { tags: newTags });
     }
-    const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
 
     return (
         <div className="flex h-[calc(100vh-100px)] bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -791,7 +1006,22 @@ const EmailsPage: React.FC = () => {
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     {isNylasLoading ? <div className="py-12 flex justify-center"><Spinner /></div> : nylasError ? <div className="p-6 text-center"><p className="text-red-500 text-sm mb-2">Error de conexión</p><p className="text-xs text-slate-400">{nylasError}</p><button onClick={() => fetchEmails()} className="mt-4 text-xs text-indigo-600 underline">Reintentar</button></div> : groupedThreads.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-slate-400"><span className="material-symbols-outlined text-4xl mb-2">inbox</span><p className="text-sm">No hay conversaciones</p></div> : (
-                        <ul>{groupedThreads.map(thread => <li key={thread.id}><EmailListItem email={thread.latestMessage} isSelected={selectedThreadId === thread.id} onSelect={() => setSelectedThreadId(thread.id)} onToggleStar={(e) => toggleThreadStar(thread.id, e)} onArchive={(e) => archiveThread(thread.id, e)} onDeleteTag={(tag, e) => { e.stopPropagation(); deleteTagFromEmail(thread.latestMessage.id, tag); }} /></li>)}</ul>
+                        <ul>
+                            {groupedThreads.map(thread => (
+                                <li key={thread.id}>
+                                    <EmailListItem 
+                                        email={thread.latestMessage} 
+                                        isSelected={selectedThreadId === thread.id} 
+                                        currentAccountEmail={currentAccount?.email}
+                                        onSelect={() => setSelectedThreadId(thread.id)} 
+                                        onToggleStar={(e) => toggleThreadStar(thread.id, e)} 
+                                        onArchive={(e) => archiveThread(thread.id, e)} 
+                                        onDeleteTag={(tag, e) => { e.stopPropagation(); deleteTagFromEmail(thread.latestMessage.id, tag); }} 
+                                        onCompose={handleComposeTo}
+                                    />
+                                </li>
+                            ))}
+                        </ul>
                     )}
                 </div>
             </div>
@@ -804,8 +1034,33 @@ const EmailsPage: React.FC = () => {
                                 <div className="flex flex-wrap gap-2 mt-1">{activeThread.latestMessage.tags?.map(t => <span key={t} className={`text-[10px] px-2 py-0.5 rounded-full border font-medium flex items-center gap-1 ${BUSINESS_TAGS[t] || 'bg-slate-100 border-slate-200'}`}>{t}<button onClick={() => deleteTagFromEmail(activeThread.latestMessage.id, t)} className="hover:opacity-70"><span className="material-symbols-outlined !text-[10px]">close</span></button></span>)}</div>
                             </div>
                             <div className="flex items-center gap-1 text-slate-500">
-                                <button onClick={() => { setComposeMode('reply'); setComposeData({ to: [activeThread.latestMessage.from], subject: `Re: ${activeThread.latestMessage.subject}`, body: activeThread.latestMessage.body }); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-slate-700" title="Responder"><span className="material-symbols-outlined">reply</span></button>
-                                <button onClick={() => { setComposeMode('forward'); setComposeData({ subject: `Fwd: ${activeThread.latestMessage.subject}`, body: activeThread.latestMessage.body }); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-slate-700" title="Reenviar"><span className="material-symbols-outlined">forward</span></button>
+                                <button 
+                                    onClick={() => { 
+                                        setComposeMode('reply'); 
+                                        setComposeData({ 
+                                            to: getReplyToAddress(activeThread.latestMessage, currentAccount?.email),
+                                            subject: `Re: ${activeThread.latestMessage.subject}`, 
+                                            body: activeThread.latestMessage.body 
+                                        }); 
+                                    }} 
+                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-slate-700" 
+                                    title="Responder"
+                                >
+                                    <span className="material-symbols-outlined">reply</span>
+                                </button>
+                                <button 
+                                    onClick={() => { 
+                                        setComposeMode('forward'); 
+                                        setComposeData({ 
+                                            subject: `Fwd: ${activeThread.latestMessage.subject}`, 
+                                            body: activeThread.latestMessage.body 
+                                        }); 
+                                    }} 
+                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-slate-700" 
+                                    title="Reenviar"
+                                >
+                                    <span className="material-symbols-outlined">forward</span>
+                                </button>
                                 <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
                                 <div className="relative">
                                     <button onClick={() => setIsTagMenuOpen(!isTagMenuOpen)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title="Añadir Etiqueta"><span className="material-symbols-outlined">label</span></button>
@@ -821,17 +1076,45 @@ const EmailsPage: React.FC = () => {
                         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-slate-900/50">
                             {activeThread.messages.map((msg, index) => {
                                 const isLast = index === activeThread.messages.length - 1;
-                                const contactName = getSafeContactName(msg.from);
+                                
+                                // Determine if outgoing based on message content sender
+                                const msgIsOutgoing = !!currentAccount?.email && msg.from.email.trim().toLowerCase() === currentAccount.email.trim().toLowerCase();
+                                const contactName = getSafeContactName(msgIsOutgoing ? (msg.to && msg.to.length > 0 ? msg.to[0] : msg.from) : msg.from);
                                 const initial = contactName.charAt(0).toUpperCase();
+                                
                                 return (
                                     <div key={msg.id} className={`bg-white dark:bg-slate-800 rounded-xl border shadow-sm ${isLast ? 'border-slate-200 dark:border-slate-700' : 'border-transparent opacity-90'}`}>
                                         <div className="p-4 flex gap-4">
                                             <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm shrink-0">{initial}</div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex justify-between items-baseline mb-1"><h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">{contactName} <span className="font-normal text-slate-500 text-xs">&lt;{getSafeContactEmail(msg.from)}&gt;</span></h4><span className="text-xs text-slate-400">{new Date(msg.timestamp).toLocaleString()}</span></div>
-                                                <div className="text-xs text-slate-500 mb-3">Para: {getSafeContactName(msg.to[0])}</div>
+                                                <div className="flex justify-between items-baseline mb-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <ContactPill contact={msg.from} onCompose={handleComposeTo} />
+                                                        <span className="text-xs text-slate-400">&lt;{getSafeContactEmail(msg.from)}&gt;</span>
+                                                    </div>
+                                                    <span className="text-xs text-slate-400">{new Date(msg.timestamp).toLocaleString()}</span>
+                                                </div>
+                                                <div className="text-xs text-slate-500 mb-3 flex items-center gap-1">
+                                                    Para: <ContactPill contact={msg.to?.[0]} onCompose={handleComposeTo} />
+                                                </div>
                                                 <div className="relative w-full text-sm text-slate-700 dark:text-slate-300"><SafeEmailFrame htmlContent={msg.body} showImages={showImages} /></div>
-                                                {msg.attachments.length > 0 && <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-2">{msg.attachments.map(att => <button key={att.id} onClick={() => handleViewAttachment(att)} className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 transition-colors text-xs font-medium"><span className="material-symbols-outlined text-sm text-slate-400">attachment</span><span className="max-w-[150px] truncate">{att.name}</span></button>)}</div>}
+                                                
+                                                {/* ATTACHMENTS: RENDERED AS TILES AT THE BOTTOM OF THE MESSAGE BODY */}
+                                                {msg.attachments.length > 0 && (
+                                                    <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700">
+                                                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Adjuntos ({msg.attachments.length})</h4>
+                                                        <div className="flex flex-wrap gap-4">
+                                                            {msg.attachments.map(att => (
+                                                                <EmailAttachmentTile 
+                                                                    key={att.id} 
+                                                                    attachment={att} 
+                                                                    nylasConfig={currentAccount?.nylasConfig} 
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                             </div>
                                         </div>
                                     </div>
@@ -839,9 +1122,19 @@ const EmailsPage: React.FC = () => {
                             })}
                         </div>
                         <div className="p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-up">
-                            <div onClick={() => { setComposeMode('reply'); setComposeData({ to: [activeThread.latestMessage.from], subject: `Re: ${activeThread.latestMessage.subject}`, body: activeThread.latestMessage.body }); }} className="flex items-center gap-3 p-3 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 cursor-text hover:border-indigo-400 transition-colors bg-slate-50 dark:bg-slate-900/50">
+                            <div 
+                                onClick={() => { 
+                                    setComposeMode('reply'); 
+                                    setComposeData({ 
+                                        to: getReplyToAddress(activeThread.latestMessage, currentAccount?.email),
+                                        subject: `Re: ${activeThread.latestMessage.subject}`, 
+                                        body: activeThread.latestMessage.body 
+                                    }); 
+                                }} 
+                                className="flex items-center gap-3 p-3 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 cursor-text hover:border-indigo-400 transition-colors bg-slate-50 dark:bg-slate-900/50"
+                            >
                                 <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center"><span className="material-symbols-outlined text-lg">reply</span></div>
-                                <span className="text-sm">Responder a {getSafeContactName(activeThread.latestMessage.from)}...</span>
+                                <span className="text-sm">Responder...</span>
                             </div>
                         </div>
                     </>
@@ -853,7 +1146,6 @@ const EmailsPage: React.FC = () => {
                 )}
             </div>
             {composeMode && <ComposeEmailModal mode={composeMode} initialData={composeData} isOpen={!!composeMode} onClose={() => setComposeMode(null)} onSend={handleSendEmail} defaultSignature={currentSignature}/>}
-            <AttachmentModal isOpen={!!previewAttachment} onClose={handleCloseAttachment} attachment={previewAttachment} isLoading={isAttachmentLoading} />
         </div>
     );
 };

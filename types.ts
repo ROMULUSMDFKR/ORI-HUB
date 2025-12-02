@@ -123,7 +123,7 @@ export interface Contact {
     role: string;
     emails?: string[];
     phones?: string[];
-    companyId?: string | null;
+    companyId?: string;
     ownerId: string;
     prospectId?: string;
 }
@@ -437,7 +437,6 @@ export enum SampleStatus {
 
 export interface PurchaseOrder {
     id: string;
-    folio?: string;
     supplierId: string;
     issuingCompanyId?: string;
     responsibleId: string;

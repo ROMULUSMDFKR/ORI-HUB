@@ -4,13 +4,11 @@ import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
 import { Email, Attachment, ConnectedEmailAccount, SignatureTemplate } from '../types';
 import Spinner from '../components/ui/Spinner';
-import { emailFooterHtml } from '../components/emails/EmailFooter';
-import CustomSelect from '../components/ui/CustomSelect';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/firebaseApi';
 import { useToast } from '../hooks/useToast';
 
-type EmailFolder = 'inbox' | 'sent' | 'drafts' | 'archived';
+type EmailFolder = 'inbox' | 'sent' | 'drafts' | 'archived' | 'trash';
 type ComposeMode = 'new' | 'reply' | 'forward';
 
 // BUSINESS TAGS CONFIGURATION
@@ -543,24 +541,33 @@ const EmailsPage: React.FC = () => {
             const data = await response.json();
             
             // Map response to internal Email type
-            const mapped: Email[] = (data.data || []).map((msg: any) => ({
-                id: msg.id,
-                threadId: msg.thread_id || msg.subject,
-                subject: msg.subject || '(Sin asunto)',
-                body: msg.body || '',
-                snippet: msg.snippet || '',
-                from: msg.from?.[0] || { name: 'Desconocido', email: '' },
-                to: msg.to || [],
-                cc: msg.cc || [],
-                bcc: msg.bcc || [],
-                timestamp: new Date(msg.date * 1000).toISOString(),
-                status: msg.unread ? 'unread' : 'read',
-                folder: 'inbox', // Default import as inbox, local logic handles filtering
-                attachments: (msg.attachments || []).map((a: any) => ({ id: a.id, name: a.filename || 'File', size: a.size || 0, url: '#' })),
-                isStarred: msg.starred || false,
-                isArchived: false, 
-                tags: [] 
-            }));
+            const mapped: Email[] = (data.data || []).map((msg: any) => {
+                const folders = msg.folders || [];
+                let folder: EmailFolder = 'inbox';
+                if (folders.some((f: string) => f.toLowerCase().includes('sent'))) folder = 'sent';
+                if (folders.some((f: string) => f.toLowerCase().includes('draft'))) folder = 'drafts';
+                if (folders.some((f: string) => f.toLowerCase().includes('trash'))) folder = 'trash';
+                if (folders.some((f: string) => f.toLowerCase().includes('archive'))) folder = 'archived';
+
+                return {
+                    id: msg.id,
+                    threadId: msg.thread_id || msg.subject,
+                    subject: msg.subject || '(Sin asunto)',
+                    body: msg.body || '',
+                    snippet: msg.snippet || '',
+                    from: msg.from?.[0] || { name: 'Desconocido', email: '' },
+                    to: msg.to || [],
+                    cc: msg.cc || [],
+                    bcc: msg.bcc || [],
+                    timestamp: new Date(msg.date * 1000).toISOString(),
+                    status: msg.unread ? 'unread' : 'read',
+                    folder: folder, 
+                    attachments: (msg.attachments || []).map((a: any) => ({ id: a.id, name: a.filename || 'File', size: a.size || 0, url: '#' })),
+                    isStarred: msg.starred || false,
+                    isArchived: false, 
+                    tags: [] 
+                };
+            });
             
             setNylasEmails(mapped);
         } catch (e: any) {
@@ -583,11 +590,13 @@ const EmailsPage: React.FC = () => {
         const filtered = nylasEmails.filter(e => {
             // 1. Archive Filter
             if (selectedFolder === 'archived') {
-                if (!e.isArchived) return false;
+                if (!e.isArchived && e.folder !== 'archived') return false;
             } else if (selectedFolder === 'inbox') {
-                if (e.isArchived) return false; // Hide archived from inbox
+                if (e.isArchived || e.folder === 'archived' || e.folder === 'trash') return false; // Hide archived from inbox
+                 if (e.folder !== 'inbox' && e.folder !== 'sent') return false; // Keep mainly inbox, allow sent if conversation
+            } else {
+                 if (e.folder !== selectedFolder) return false;
             }
-            // Note: Sent and Drafts would need specific logic based on 'from' address or API folder properties
             
             // 2. Search Filter
             if (searchQuery) {

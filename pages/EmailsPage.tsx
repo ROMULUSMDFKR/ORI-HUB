@@ -82,9 +82,10 @@ const formatDateSmart = (isoDate: string) => {
 
 // --- SUB-COMPONENTS ---
 
-const AttachmentModal: React.FC<{ isOpen: boolean; onClose: () => void; attachment: Attachment | null; }> = ({ isOpen, onClose, attachment }) => {
+const AttachmentModal: React.FC<{ isOpen: boolean; onClose: () => void; attachment: Attachment | null; isLoading?: boolean }> = ({ isOpen, onClose, attachment, isLoading }) => {
     if (!isOpen || !attachment) return null;
-    const isImage = attachment.name.match(/\.(jpeg|jpg|gif|png|webp)$/i);
+    const isImage = attachment.name.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i);
+    
     return (
         <div className="fixed inset-0 bg-black/90 z-[100] flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[95vh] flex flex-col overflow-hidden animate-zoom-in" onClick={e => e.stopPropagation()}>
@@ -99,10 +100,30 @@ const AttachmentModal: React.FC<{ isOpen: boolean; onClose: () => void; attachme
                     <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><span className="material-symbols-outlined">close</span></button>
                 </div>
                 <div className="flex-1 p-0 overflow-auto flex items-center justify-center bg-slate-100 dark:bg-black/50 min-h-[300px]">
-                    {isImage ? <img src={attachment.url} alt={attachment.name} className="max-w-full max-h-full object-contain" /> : <div className="text-center py-12"><span className="material-symbols-outlined text-6xl text-slate-400 mb-4">insert_drive_file</span><p className="text-slate-500 dark:text-slate-400 mb-6">Vista previa no disponible.</p></div>}
+                    {isLoading ? (
+                        <div className="flex flex-col items-center text-slate-500">
+                            <Spinner />
+                            <span className="mt-4 text-sm">Descargando archivo...</span>
+                        </div>
+                    ) : isImage && attachment.url && attachment.url !== '#' ? (
+                        <img src={attachment.url} alt={attachment.name} className="max-w-full max-h-full object-contain" />
+                    ) : (
+                        <div className="text-center py-12">
+                            <span className="material-symbols-outlined text-6xl text-slate-400 mb-4">insert_drive_file</span>
+                            <p className="text-slate-500 dark:text-slate-400 mb-6">Vista previa no disponible para este tipo de archivo.</p>
+                        </div>
+                    )}
                 </div>
                 <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end bg-white dark:bg-slate-800">
-                    <a href={attachment.url} download={attachment.name} target="_blank" rel="noreferrer" className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center gap-2"><span className="material-symbols-outlined">download</span> Descargar</a>
+                    <a 
+                        href={attachment.url} 
+                        download={attachment.name} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className={`bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center gap-2 ${isLoading || attachment.url === '#' ? 'opacity-50 pointer-events-none' : ''}`}
+                    >
+                        <span className="material-symbols-outlined">download</span> Descargar
+                    </a>
                 </div>
             </div>
         </div>
@@ -134,7 +155,6 @@ const SafeEmailFrame: React.FC<{ htmlContent: string; showImages: boolean }> = (
         }
 
         // Inject base styles for consistent rendering
-        // UPDATED: Changed default body color to #0f172a (slate-900) for darker, sharper text
         return `
             <!DOCTYPE html>
             <html>
@@ -302,6 +322,7 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
     const [body, setBody] = useState('');
     const [showCc, setShowCc] = useState(false);
     const [useSignature, setUseSignature] = useState(true);
+    const [isSending, setIsSending] = useState(false);
     
     const [attachments, setAttachments] = useState<File[]>([]);
     const fileRef = useRef<HTMLInputElement>(null);
@@ -312,10 +333,13 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
             setTo(Array.isArray(initialData.to) ? initialData.to.map((r:any) => getSafeContactEmail(r)).join(', ') : '');
             setSubject(initialData.subject || '');
             
-            // Body setup: include quote if reply
-            let initialBody = initialData.body || '';
+            // Body setup: include quote if reply or forward
+            let initialBody = '';
             if (mode === 'reply' || mode === 'forward') {
-                initialBody = `<br><br><hr><blockquote>${initialData.body}</blockquote>`;
+                // Use blockquote for professional styling
+                initialBody = `<br><br><div class="gmail_quote">${initialData.body || ''}</div>`;
+            } else {
+                initialBody = initialData.body || '';
             }
             setBody(initialBody);
             
@@ -331,15 +355,17 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
         document.execCommand(cmd, false, val);
     };
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (!to) return alert('Por favor, especifica al menos un destinatario.');
         
+        setIsSending(true);
         let finalBody = bodyRef.current?.innerHTML || '';
         if (useSignature && defaultSignature) {
             finalBody += `<br><div class="signature-block">${defaultSignature}</div>`;
         }
         
-        onSend({ to, cc, bcc, subject, body: finalBody, attachments });
+        await onSend({ to, cc, bcc, subject, body: finalBody, attachments });
+        setIsSending(false);
     };
 
     if (!isOpen) return null;
@@ -350,7 +376,7 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
                 {/* Header */}
                 <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
                     <h3 className="font-bold text-slate-800 dark:text-white text-lg flex items-center gap-2">
-                        <span className="material-symbols-outlined text-indigo-500">{mode === 'new' ? 'edit_square' : 'reply'}</span>
+                        <span className="material-symbols-outlined text-indigo-500">{mode === 'new' ? 'edit_square' : (mode === 'reply' ? 'reply' : 'forward')}</span>
                         {mode === 'new' ? 'Nuevo Mensaje' : mode === 'reply' ? 'Responder' : 'Reenviar'}
                     </h3>
                     <button onClick={onClose} className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors"><span className="material-symbols-outlined text-slate-500">close</span></button>
@@ -439,8 +465,8 @@ const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData
                     
                     <div className="flex gap-3">
                         <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white transition-colors">Descartar</button>
-                        <button onClick={handleSend} className="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 transition-all transform hover:-translate-y-0.5 flex items-center gap-2">
-                            Enviar <span className="material-symbols-outlined text-sm">send</span>
+                        <button onClick={handleSend} disabled={isSending} className="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 transition-all transform hover:-translate-y-0.5 flex items-center gap-2 disabled:opacity-50">
+                            {isSending ? <Spinner /> : <>Enviar <span className="material-symbols-outlined text-sm">send</span></>}
                         </button>
                     </div>
                 </div>
@@ -472,6 +498,9 @@ const EmailsPage: React.FC = () => {
     const [showImages, setShowImages] = useState(false);
     const [isTagMenuOpen, setIsTagMenuOpen] = useState(false);
     const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null); 
+    
+    // Attachment Loading State
+    const [isAttachmentLoading, setIsAttachmentLoading] = useState(false);
 
     // Compose State
     const [composeMode, setComposeMode] = useState<ComposeMode | null>(null);
@@ -508,6 +537,90 @@ const EmailsPage: React.FC = () => {
         return sig;
     }, [currentAccount, signatureTemplates, currentUser]);
 
+    // Nylas API Helper
+    const updateNylasMessage = async (messageId: string, updates: { unread?: boolean, starred?: boolean, folders?: string[] }) => {
+        if (!currentAccount || !currentAccount.nylasConfig) return;
+        const { grantId, apiKey } = currentAccount.nylasConfig;
+        
+        try {
+            const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId.trim()}/messages/${messageId}`, {
+                method: 'PUT',
+                headers: { 
+                    'Authorization': `Bearer ${apiKey.trim()}`, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify(updates)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Error updating message');
+            }
+        } catch (error) {
+            console.error('Failed to update Nylas message:', error);
+            showToast('error', 'No se pudo sincronizar el cambio con el servidor de correo.');
+            throw error;
+        }
+    };
+
+    // Firebase Metadata Helper (Tags, Archive, Read Status)
+    // Key Update: Uses merge: true to ensure persistence of partial updates
+    const updateLocalMetadata = async (messageId: string, data: any) => {
+        try {
+            await api.setDoc('email_metadata', messageId, data, { merge: true }); 
+        } catch (error) {
+            console.error('Failed to update metadata:', error);
+            showToast('error', 'No se pudo guardar la información localmente.');
+            throw error;
+        }
+    };
+
+    const handleViewAttachment = async (attachment: Attachment) => {
+        // Open modal immediately with placeholder (url: '#')
+        setPreviewAttachment(attachment);
+        
+        // If already loaded (e.g. previous fetch in same session), skip
+        if (attachment.url && attachment.url !== '#') return;
+
+        if (!currentAccount?.nylasConfig) {
+            showToast('error', 'No se puede descargar: cuenta no configurada.');
+            return;
+        }
+
+        setIsAttachmentLoading(true);
+        try {
+            const { grantId, apiKey } = currentAccount.nylasConfig;
+            // Using message_id parameter is crucial for some attachments in v3
+            const queryParams = attachment.messageId ? `?message_id=${attachment.messageId}` : '';
+            const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId.trim()}/attachments/${attachment.id}/download${queryParams}`, {
+                headers: { 'Authorization': `Bearer ${apiKey.trim()}` }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+            }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            
+            // Update state with valid URL
+            setPreviewAttachment(prev => prev && prev.id === attachment.id ? { ...prev, url } : prev);
+
+        } catch (error) {
+            console.error(error);
+            showToast('error', 'Error al descargar el archivo.');
+        } finally {
+            setIsAttachmentLoading(false);
+        }
+    };
+    
+    const handleCloseAttachment = () => {
+        if (previewAttachment?.url && previewAttachment.url.startsWith('blob:')) {
+            URL.revokeObjectURL(previewAttachment.url);
+        }
+        setPreviewAttachment(null);
+    };
+
 
     // FETCH EMAILS
     const fetchEmails = useCallback(async () => {
@@ -521,15 +634,8 @@ const EmailsPage: React.FC = () => {
             const cleanGrant = grantId.trim();
             const cleanKey = apiKey.trim();
             
-            // Determine API query based on folder
-            let query = 'limit=50';
-            
-            // NOTE: For real implementation, map these to Nylas query params or filters.
-            // For now, we fetch messages and filter locally if API doesn't support exact folder mapping easily without 'in='
-            // However, Nylas v3 often uses labels or folders endpoint. Assuming messages endpoint for simplicity.
-            // Ideally: Use /v3/grants/{id}/threads for threading support natively.
-            
-            const response = await fetch(`https://api.us.nylas.com/v3/grants/${cleanGrant}/messages?${query}`, {
+            // 1. Fetch Messages from Nylas
+            const response = await fetch(`https://api.us.nylas.com/v3/grants/${cleanGrant}/messages?limit=50`, {
                 headers: { 'Authorization': `Bearer ${cleanKey}`, 'Content-Type': 'application/json' }
             });
 
@@ -538,16 +644,30 @@ const EmailsPage: React.FC = () => {
                 throw new Error(`Error conectando con Nylas (${response.status})`);
             }
             
-            const data = await response.json();
-            
-            // Map response to internal Email type
-            const mapped: Email[] = (data.data || []).map((msg: any) => {
+            const nylasData = await response.json();
+            const messages = nylasData.data || [];
+
+            // 2. Fetch Metadata from Firebase
+            const metadataSnapshot = await api.getCollection('email_metadata');
+            const metadataMap = new Map(metadataSnapshot.map(m => [m.id, m]));
+
+            // 3. Merge Data - PRIORITY TO LOCAL METADATA
+            const mapped: Email[] = messages.map((msg: any) => {
                 const folders = msg.folders || [];
+                const metadata = metadataMap.get(msg.id) || {};
+
                 let folder: EmailFolder = 'inbox';
-                if (folders.some((f: string) => f.toLowerCase().includes('sent'))) folder = 'sent';
-                if (folders.some((f: string) => f.toLowerCase().includes('draft'))) folder = 'drafts';
-                if (folders.some((f: string) => f.toLowerCase().includes('trash'))) folder = 'trash';
-                if (folders.some((f: string) => f.toLowerCase().includes('archive'))) folder = 'archived';
+                // Local Archive override takes precedence
+                if (metadata.isArchived) folder = 'archived'; 
+                else if (folders.some((f: string) => f.toLowerCase().includes('sent'))) folder = 'sent';
+                else if (folders.some((f: string) => f.toLowerCase().includes('draft'))) folder = 'drafts';
+                else if (folders.some((f: string) => f.toLowerCase().includes('trash'))) folder = 'trash';
+                else if (folders.some((f: string) => f.toLowerCase().includes('archive'))) folder = 'archived';
+
+                // Priority: Metadata (Saved state) > Nylas (API state)
+                // This fixes the "reload loses state" issue
+                const isRead = metadata.unread !== undefined ? !metadata.unread : !msg.unread;
+                const isStarred = metadata.starred !== undefined ? metadata.starred : msg.starred;
 
                 return {
                     id: msg.id,
@@ -560,12 +680,18 @@ const EmailsPage: React.FC = () => {
                     cc: msg.cc || [],
                     bcc: msg.bcc || [],
                     timestamp: new Date(msg.date * 1000).toISOString(),
-                    status: msg.unread ? 'unread' : 'read',
+                    status: isRead ? 'read' : 'unread',
                     folder: folder, 
-                    attachments: (msg.attachments || []).map((a: any) => ({ id: a.id, name: a.filename || 'File', size: a.size || 0, url: '#' })),
-                    isStarred: msg.starred || false,
-                    isArchived: false, 
-                    tags: [] 
+                    attachments: (msg.attachments || []).map((a: any) => ({ 
+                        id: a.id, 
+                        name: a.filename || 'File', 
+                        size: a.size || 0, 
+                        url: '#',
+                        messageId: msg.id // Store message ID for robust fetching
+                    })), 
+                    isStarred: isStarred || false,
+                    isArchived: metadata.isArchived || false, 
+                    tags: metadata.tags || [] 
                 };
             });
             
@@ -578,7 +704,7 @@ const EmailsPage: React.FC = () => {
         }
     }, [currentAccount]);
 
-    // Re-fetch when account changes. Note: removed selectedFolder dependency to prevent constant refetching if we are filtering locally
+    // Re-fetch when account changes.
     useEffect(() => {
         if (selectedAccountId) fetchEmails();
     }, [fetchEmails, selectedAccountId]);
@@ -588,12 +714,12 @@ const EmailsPage: React.FC = () => {
         const threads: Record<string, Email[]> = {};
         
         const filtered = nylasEmails.filter(e => {
-            // 1. Archive Filter
+            // 1. Archive Filter (Respect local override)
             if (selectedFolder === 'archived') {
                 if (!e.isArchived && e.folder !== 'archived') return false;
             } else if (selectedFolder === 'inbox') {
-                if (e.isArchived || e.folder === 'archived' || e.folder === 'trash') return false; // Hide archived from inbox
-                 if (e.folder !== 'inbox' && e.folder !== 'sent') return false; // Keep mainly inbox, allow sent if conversation
+                if (e.isArchived || e.folder === 'archived' || e.folder === 'trash') return false; 
+                 if (e.folder !== 'inbox' && e.folder !== 'sent') return false;
             } else {
                  if (e.folder !== selectedFolder) return false;
             }
@@ -640,7 +766,10 @@ const EmailsPage: React.FC = () => {
 
     // --- ACTIONS ---
     const handleSendEmail = async (data: any) => {
-        if (!currentAccount || !currentUser) return;
+        if (!currentAccount || !currentUser) {
+             showToast('warning', 'No se ha seleccionado una cuenta de envío.');
+             return;
+        }
         
         const toRecipients = stringToRecipients(data.to);
         const ccRecipients = stringToRecipients(data.cc || '');
@@ -654,76 +783,154 @@ const EmailsPage: React.FC = () => {
             bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
         };
         
+        let sentViaApi = false;
+
         try {
             if (currentAccount.provider === 'nylas' && currentAccount.nylasConfig) {
                  const { grantId, apiKey } = currentAccount.nylasConfig;
-                 const res = await fetch(`https://api.us.nylas.com/v3/grants/${grantId.trim()}/messages/send`, {
-                     method: 'POST',
-                     headers: { 'Authorization': `Bearer ${apiKey.trim()}`, 'Content-Type': 'application/json' },
-                     body: JSON.stringify(payload)
-                 });
                  
-                 if (!res.ok) {
-                     const err = await res.json();
-                     throw new Error(err.message || 'Error enviando correo');
+                 try {
+                     const res = await fetch(`https://api.us.nylas.com/v3/grants/${grantId.trim()}/messages/send`, {
+                         method: 'POST',
+                         headers: { 'Authorization': `Bearer ${apiKey.trim()}`, 'Content-Type': 'application/json' },
+                         body: JSON.stringify(payload)
+                     });
+                     
+                     if (!res.ok) {
+                         const err = await res.json();
+                         console.warn("Nylas API send failed:", err);
+                         // We don't throw here to allow fallback
+                     } else {
+                         sentViaApi = true;
+                     }
+                 } catch (nylasErr: any) {
+                     console.warn("Nylas Network Error:", nylasErr);
+                     // Continue to fallback
                  }
-            } else {
-                // Mock send
-                await api.addDoc('emails', { ...payload, from: {name: currentUser.name, email: currentAccount.email}, folder: 'sent', timestamp: new Date().toISOString(), status: 'read' });
             }
-            
-            showToast('success', 'Correo enviado exitosamente.');
-            setComposeMode(null);
-            // Optionally refresh if viewing sent folder
+        } catch (e) {
+            // Catch outer errors if any, though logic above handles inner try/catch
+            console.error("Error in email logic", e);
+        }
 
-        } catch (e: any) {
-            console.error(e);
-            showToast('error', `No se pudo enviar el correo: ${e.message}`);
+        // Fallback logic or Success Message
+        if (!sentViaApi) {
+            console.log("Saving email locally due to API failure or offline mode.");
+             // Save to Firestore 'emails' collection to simulate sending or for later sync
+            await api.addDoc('emails', { 
+                ...payload, 
+                from: {name: currentUser.name, email: currentAccount.email}, 
+                folder: 'sent', 
+                timestamp: new Date().toISOString(), 
+                status: 'read',
+                deliveryStatus: 'pending_retry' // Mark for retry if needed
+            });
+            showToast('warning', 'Correo guardado localmente (Sin conexión / Error API).');
+        } else {
+            showToast('success', 'Correo enviado exitosamente.');
+        }
+        
+        setComposeMode(null);
+    };
+
+    const toggleThreadStar = async (threadId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        
+        const targetEmail = nylasEmails.find(email => email.threadId === threadId || email.subject === threadId);
+        if (!targetEmail) return;
+        const newStatus = !targetEmail.isStarred;
+
+        // Optimistic Update
+        setNylasEmails(prev => prev.map(email => 
+            (email.threadId === threadId || email.subject === threadId) ? { ...email, isStarred: newStatus } : email
+        ));
+
+        // Sync Logic
+        const threadEmails = nylasEmails.filter(email => email.threadId === threadId || email.subject === threadId);
+        for (const email of threadEmails) {
+             try {
+                 await updateNylasMessage(email.id, { starred: newStatus });
+             } catch (err) {
+                 console.error("Failed to sync star status to API, saving local only");
+             }
+             // Always save local metadata
+             await updateLocalMetadata(email.id, { starred: newStatus });
         }
     };
 
-    const toggleThreadStar = (threadId: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        setNylasEmails(prev => prev.map(email => 
-            (email.threadId === threadId || email.subject === threadId) ? { ...email, isStarred: !email.isStarred } : email
-        ));
-    };
-
-    const archiveThread = (threadId: string, e?: React.MouseEvent) => {
+    const archiveThread = async (threadId: string, e?: React.MouseEvent) => {
         e?.stopPropagation();
+        
+        // Optimistic Update
         setNylasEmails(prev => prev.map(email => 
             (email.threadId === threadId || email.subject === threadId) ? { ...email, isArchived: true, folder: 'archived' } : email
         ));
         
-        // If the currently selected thread is being archived, deselect it
         if (selectedThreadId === threadId) setSelectedThreadId(null);
-        
         showToast('success', 'Conversación archivada');
+
+        // PERSISTENCE FIX: Save to Firebase Metadata
+        const threadEmails = nylasEmails.filter(email => email.threadId === threadId || email.subject === threadId);
+        for (const email of threadEmails) {
+            await updateLocalMetadata(email.id, { isArchived: true });
+        }
     };
     
-    const markThreadReadStatus = (threadId: string, status: 'read' | 'unread') => {
+    const markThreadReadStatus = async (threadId: string, status: 'read' | 'unread') => {
+        // Optimistic Update
         setNylasEmails(prev => prev.map(email => 
              (email.threadId === threadId || email.subject === threadId) ? { ...email, status: status } : email
         ));
         showToast('info', `Marcado como ${status === 'read' ? 'leído' : 'no leído'}`);
+
+        // Sync & Persistence
+        const isUnread = status === 'unread';
+        const threadEmails = nylasEmails.filter(email => email.threadId === threadId || email.subject === threadId);
+        for (const email of threadEmails) {
+            try {
+                await updateNylasMessage(email.id, { unread: isUnread });
+            } catch (err) {
+                console.error("Failed to sync read status to API");
+            }
+            // Always save local override
+            await updateLocalMetadata(email.id, { unread: isUnread });
+        }
     };
     
-    const addTagToThread = (tag: string) => {
+    const addTagToThread = async (tag: string) => {
         if (!selectedThreadId) return;
+
+        const threadEmails = nylasEmails.filter(email => email.threadId === selectedThreadId || email.subject === selectedThreadId);
+        
+        // Optimistic Update
         setNylasEmails(prev => prev.map(email => 
              (email.threadId === selectedThreadId || email.subject === selectedThreadId) 
-             ? { ...email, tags: [...(new Set([...(email.tags || []), tag]))] } // Prevent duplicates
+             ? { ...email, tags: [...(new Set([...(email.tags || []), tag]))] } 
              : email
         ));
         setIsTagMenuOpen(false);
         showToast('success', `Etiqueta "${tag}" añadida`);
+
+        // PERSISTENCE FIX: Save to Firebase Metadata
+        for (const email of threadEmails) {
+            const newTags = [...(new Set([...(email.tags || []), tag]))];
+            await updateLocalMetadata(email.id, { tags: newTags });
+        }
     };
     
-    const deleteTagFromEmail = (emailId: string, tagToRemove: string) => {
+    const deleteTagFromEmail = async (emailId: string, tagToRemove: string) => {
+         const targetEmail = nylasEmails.find(e => e.id === emailId);
+         if (!targetEmail) return;
+         const newTags = targetEmail.tags?.filter(t => t !== tagToRemove) || [];
+
+         // Optimistic Update
          setNylasEmails(prev => prev.map(e => 
-             e.id === emailId ? { ...e, tags: e.tags?.filter(t => t !== tagToRemove) } : e
+             e.id === emailId ? { ...e, tags: newTags } : e
          ));
          showToast('info', 'Etiqueta eliminada');
+
+         // PERSISTENCE FIX
+         await updateLocalMetadata(emailId, { tags: newTags });
     }
 
     // Custom Dropdown for Accounts
@@ -799,9 +1006,6 @@ const EmailsPage: React.FC = () => {
                                      {acc.email}
                                  </button>
                              ))}
-                             <Link to="/settings/email-accounts" className="block w-full text-left px-4 py-2 text-xs text-slate-500 border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50">
-                                 Gestionar cuentas
-                             </Link>
                          </div>
                      )}
                 </div>
@@ -881,6 +1085,39 @@ const EmailsPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-1 text-slate-500">
+                                 {/* Reply Button */}
+                                <button 
+                                    onClick={() => { 
+                                        setComposeMode('reply'); 
+                                        setComposeData({ 
+                                            to: [activeThread.latestMessage.from], 
+                                            subject: `Re: ${activeThread.latestMessage.subject}`,
+                                            body: activeThread.latestMessage.body 
+                                        }); 
+                                    }} 
+                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-slate-700" 
+                                    title="Responder"
+                                >
+                                    <span className="material-symbols-outlined">reply</span>
+                                </button>
+
+                                {/* Forward Button */}
+                                <button 
+                                    onClick={() => { 
+                                        setComposeMode('forward'); 
+                                        setComposeData({ 
+                                            subject: `Fwd: ${activeThread.latestMessage.subject}`, 
+                                            body: activeThread.latestMessage.body 
+                                        }); 
+                                    }} 
+                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-slate-700" 
+                                    title="Reenviar"
+                                >
+                                    <span className="material-symbols-outlined">forward</span>
+                                </button>
+
+                                <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
                                 <div className="relative">
                                     <button onClick={() => setIsTagMenuOpen(!isTagMenuOpen)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title="Añadir Etiqueta">
                                         <span className="material-symbols-outlined">label</span>
@@ -962,7 +1199,7 @@ const EmailsPage: React.FC = () => {
                                                 {msg.attachments.length > 0 && (
                                                     <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-2">
                                                         {msg.attachments.map(att => (
-                                                            <button key={att.id} onClick={() => setPreviewAttachment(att)} className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 transition-colors text-xs font-medium">
+                                                            <button key={att.id} onClick={() => handleViewAttachment(att)} className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 transition-colors text-xs font-medium">
                                                                 <span className="material-symbols-outlined text-sm text-slate-400">attachment</span>
                                                                 <span className="max-w-[150px] truncate">{att.name}</span>
                                                             </button>
@@ -979,7 +1216,14 @@ const EmailsPage: React.FC = () => {
                         {/* Reply Box (Fixed at Bottom) */}
                         <div className="p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-up">
                             <div 
-                                onClick={() => { setComposeMode('reply'); setComposeData({ to: [activeThread.latestMessage.from], subject: `Re: ${activeThread.latestMessage.subject}` }); }}
+                                onClick={() => { 
+                                    setComposeMode('reply'); 
+                                    setComposeData({ 
+                                        to: [activeThread.latestMessage.from], 
+                                        subject: `Re: ${activeThread.latestMessage.subject}`,
+                                        body: activeThread.latestMessage.body // Pass body for context
+                                    }); 
+                                }}
                                 className="flex items-center gap-3 p-3 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 cursor-text hover:border-indigo-400 transition-colors bg-slate-50 dark:bg-slate-900/50"
                             >
                                 <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
@@ -1010,7 +1254,7 @@ const EmailsPage: React.FC = () => {
                     defaultSignature={currentSignature}
                 />
             )}
-            <AttachmentModal isOpen={!!previewAttachment} onClose={() => setPreviewAttachment(null)} attachment={previewAttachment} />
+            <AttachmentModal isOpen={!!previewAttachment} onClose={handleCloseAttachment} attachment={previewAttachment} isLoading={isAttachmentLoading} />
         </div>
     );
 };

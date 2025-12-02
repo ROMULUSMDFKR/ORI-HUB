@@ -728,6 +728,7 @@ export interface Attachment {
     name: string;
     size: number;
     url: string;
+    messageId?: string; // Optional message ID for context in API calls
 }
 
 export interface ConnectedEmailAccount {

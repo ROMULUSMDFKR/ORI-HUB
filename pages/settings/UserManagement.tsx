@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../../hooks/useCollection';
@@ -10,6 +11,7 @@ import { api } from '../../api/firebaseApi';
 import { getDefaultPermissions } from '../../constants';
 import CustomSelect from '../../components/ui/CustomSelect';
 import InvitationLinkModal from '../../components/ui/InvitationLinkModal';
+import { useToast } from '../../hooks/useToast';
 
 // --- Helper Components ---
 
@@ -38,8 +40,8 @@ const DropdownMenu: React.FC<{ user: User, onSelectAction: (action: string, user
     const [isOpen, setIsOpen] = useState(false);
     
     const actions = [
-        { id: 'reset-password', label: 'Enviar restablecimiento de contraseña', icon: 'key' },
-        { id: 'force-logout', label: 'Forzar cierre de sesión', icon: 'logout' },
+        { id: 'manual-password', label: 'Cambiar contraseña manualmente', icon: 'lock_reset' },
+        { id: 'reset-password', label: 'Enviar restablecimiento de contraseña', icon: 'forward_to_inbox' },
         { id: 'toggle-active', label: user.isActive ? 'Desactivar usuario' : 'Activar usuario', icon: user.isActive ? 'block' : 'check_circle' },
         { id: 'delete', label: 'Eliminar usuario', icon: 'delete', isDestructive: true },
     ];
@@ -187,6 +189,61 @@ const CreateUserDrawer: React.FC<{ isOpen: boolean; onClose: () => void; teams: 
     );
 };
 
+const ChangePasswordModal: React.FC<{ isOpen: boolean; onClose: () => void; onSave: (pass: string) => void; userName: string }> = ({ isOpen, onClose, onSave, userName }) => {
+    const [password, setPassword] = useState('');
+    const [confirm, setConfirm] = useState('');
+
+    const handleSubmit = () => {
+        if (password.length < 6) {
+            alert('La contraseña debe tener al menos 6 caracteres.');
+            return;
+        }
+        if (password !== confirm) {
+            alert('Las contraseñas no coinciden.');
+            return;
+        }
+        onSave(password);
+        setPassword('');
+        setConfirm('');
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Cambiar Contraseña para {userName}</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nueva Contraseña</label>
+                        <input 
+                            type="password" 
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                            placeholder="Mínimo 6 caracteres"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Confirmar Contraseña</label>
+                         <input 
+                            type="password" 
+                            value={confirm}
+                            onChange={e => setConfirm(e.target.value)}
+                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-3 pt-2">
+                        <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg dark:text-slate-300 dark:hover:bg-slate-700">Cancelar</button>
+                        <button onClick={handleSubmit} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">Actualizar Contraseña</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 const UserManagementPage: React.FC = () => {
     const { data: users, loading: usersLoading } = useCollection<User>('users');
@@ -196,6 +253,10 @@ const UserManagementPage: React.FC = () => {
     
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [invitationLink, setInvitationLink] = useState<string | null>(null);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [selectedUserForPassword, setSelectedUserForPassword] = useState<User | null>(null);
+
+    const { showToast } = useToast();
     const navigate = useNavigate();
 
     const loading = usersLoading || teamsLoading || companiesLoading || rolesLoading;
@@ -236,7 +297,22 @@ const UserManagementPage: React.FC = () => {
         }
     };
 
+    const handleChangePassword = async (newPassword: string) => {
+        if (!selectedUserForPassword) return;
+        try {
+            await api.adminUpdateUserPassword(selectedUserForPassword.id, newPassword);
+            showToast('success', `Contraseña actualizada correctamente para ${selectedUserForPassword.name}.`);
+            setIsPasswordModalOpen(false);
+        } catch (e) {
+            console.error(e);
+            showToast('error', 'Error al actualizar la contraseña.');
+        }
+    };
+
     const handleUserAction = async (action: string, userId: string) => {
+        const user = users?.find(u => u.id === userId);
+        if (!user) return;
+
         if (action === 'delete') {
              if(window.confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')) {
                  try {
@@ -248,21 +324,18 @@ const UserManagementPage: React.FC = () => {
                  }
              }
         } else if (action === 'reset-password') {
-             const user = users?.find(u => u.id === userId);
-             if (user) {
-                 try {
-                    await api.sendActivationEmail(user.email);
-                    alert(`Correo de restablecimiento enviado a ${user.email}`);
-                 } catch(e) {
-                     console.error(e);
-                     alert('Error al enviar correo.');
-                 }
+             try {
+                await api.sendActivationEmail(user.email);
+                alert(`Correo de restablecimiento enviado a ${user.email}`);
+             } catch(e) {
+                 console.error(e);
+                 alert('Error al enviar correo.');
              }
+        } else if (action === 'manual-password') {
+             setSelectedUserForPassword(user);
+             setIsPasswordModalOpen(true);
         } else if (action === 'toggle-active') {
-             const user = users?.find(u => u.id === userId);
-             if(user) {
-                 await api.updateDoc('users', userId, { isActive: !user.isActive });
-             }
+             await api.updateDoc('users', userId, { isActive: !user.isActive });
         }
     };
 
@@ -376,6 +449,13 @@ const UserManagementPage: React.FC = () => {
                 isOpen={!!invitationLink}
                 onClose={() => setInvitationLink(null)}
                 link={invitationLink || ''}
+            />
+
+            <ChangePasswordModal
+                isOpen={isPasswordModalOpen}
+                onClose={() => setIsPasswordModalOpen(false)}
+                onSave={handleChangePassword}
+                userName={selectedUserForPassword?.name || ''}
             />
         </div>
     );

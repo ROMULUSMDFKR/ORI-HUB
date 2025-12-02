@@ -1,5 +1,6 @@
+
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
 
@@ -16,7 +17,19 @@ export const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Exporta la instancia de Firestore para usarla en la aplicación
+// Initialize Firestore
 export const db = getFirestore(app);
+
+// Enable offline persistence to avoid "Could not reach backend" errors
+enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+        // Multiple tabs open, persistence can only be enabled in one tab at a a time.
+        console.warn('Firestore persistence failed: Multiple tabs open');
+    } else if (err.code === 'unimplemented') {
+        // The current browser does not support all of the features required to enable persistence
+        console.warn('Firestore persistence not supported by this browser');
+    }
+});
+
 export const storage = getStorage(app);
 export const auth = getAuth(app);

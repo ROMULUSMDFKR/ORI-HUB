@@ -706,6 +706,7 @@ export interface Notification {
 
 export interface Email {
     id: string;
+    threadId?: string; // Grouping identifier
     from: { name: string; email: string };
     to: { name: string; email: string }[];
     cc?: { name: string; email: string }[];
@@ -720,6 +721,7 @@ export interface Email {
     snippet?: string; // For Nylas preview
     isStarred?: boolean;
     isArchived?: boolean;
+    tags?: string[]; // Custom tags/labels
 }
 
 export interface Attachment {

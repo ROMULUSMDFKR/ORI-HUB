@@ -35,15 +35,17 @@ const EmailAppearancePage: React.FC = () => {
         }
     }, [templates, loading, selectedTemplateId]);
 
-    // Sync local state when selection changes
+    // Sync local state when selection changes, but only if we are selecting an existing one
     useEffect(() => {
-        const selected = templates?.find(t => t.id === selectedTemplateId);
-        if (selected) {
-            setName(selected.name);
-            setHtmlContent(selected.htmlContent || '');
-        } else if (selectedTemplateId === 'new') {
+        if (selectedTemplateId === 'new') {
             setName('Nueva Plantilla');
             setHtmlContent(defaultHtmlTemplate);
+        } else if (selectedTemplateId && templates) {
+            const selected = templates.find(t => t.id === selectedTemplateId);
+            if (selected) {
+                setName(selected.name);
+                setHtmlContent(selected.htmlContent || '');
+            }
         }
     }, [selectedTemplateId, templates]);
 
@@ -65,7 +67,9 @@ const EmailAppearancePage: React.FC = () => {
                 };
                 // addDoc automatically generates an ID
                 const doc = await api.addDoc('signatureTemplates', newTemplate);
-                // Update selected ID to the new document ID so subsequent saves update it
+                
+                // IMPORTANT: Update state to the newly created ID so we are no longer in 'new' mode
+                // This prevents the useEffect from resetting the form if it runs again
                 setSelectedTemplateId(doc.id);
             } else if (selectedTemplateId) {
                 await api.updateDoc('signatureTemplates', selectedTemplateId, { name, htmlContent });

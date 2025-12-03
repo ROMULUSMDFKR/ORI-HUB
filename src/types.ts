@@ -20,6 +20,7 @@ export interface User {
     country?: string;
     theme?: 'light' | 'dark';
     signature?: string;
+    activeDashboards?: string[];
 }
 
 export interface Role {
@@ -57,6 +58,7 @@ export interface Company {
     industry?: string;
     website?: string;
     ownerId: string;
+    additionalOwnerIds?: string[];
     createdById: string;
     stage: CompanyPipelineStage;
     priority: Priority;
@@ -65,6 +67,7 @@ export interface Company {
     deliveryAddresses: Address[];
     fiscalAddress?: Address;
     primaryContact?: Contact;
+    secondaryContact?: Contact;
     createdAt: string;
     healthScore?: { score: number; label: string };
     profile?: {
@@ -435,16 +438,35 @@ export enum SampleStatus {
 export interface PurchaseOrder {
     id: string;
     supplierId: string;
+    issuingCompanyId?: string;
     responsibleId: string;
+    approverId?: string;
     expectedDeliveryDate: string;
     notes?: string;
     items: PurchaseOrderItem[];
-    status: 'Borrador' | 'Enviada' | 'Confirmada' | 'Recibida Parcial' | 'Recibida Completa' | 'Cancelada';
+    status: PurchaseOrderStatus;
     createdAt: string;
     subtotal: number;
     tax: number;
     total: number;
     paidAmount: number;
+    quoteAttachment?: Attachment;
+    quoteAttachments?: Attachment[];
+    invoiceAttachment?: Attachment;
+    payments?: PurchasePayment[];
+}
+
+export enum PurchaseOrderStatus {
+    Borrador = 'Borrador',
+    PorAprobar = 'Por Aprobar',
+    Ordenada = 'Ordenada',
+    PagoPendiente = 'Pago Pendiente',
+    PagoParcial = 'Pago Parcial',
+    Pagada = 'Pagada',
+    EnTransito = 'En Tránsito',
+    Recibida = 'Recibida',
+    Facturada = 'Facturada',
+    Cancelada = 'Cancelada'
 }
 
 export interface PurchaseOrderItem {
@@ -454,6 +476,16 @@ export interface PurchaseOrderItem {
     unit: Unit;
     unitCost: number;
     subtotal: number;
+}
+
+export interface PurchasePayment {
+    id: string;
+    amount: number;
+    date: string;
+    method: string;
+    reference: string;
+    notes: string;
+    registeredBy: string;
 }
 
 export interface Supplier {
@@ -546,6 +578,9 @@ export interface Candidate {
     instagrams?: string[];
     twitters?: string[];
     googleMapsUrl?: string;
+    googlePlaceId?: string;
+    placeId?: string;
+    title?: string;
 }
 
 export enum CandidateStatus {
@@ -670,6 +705,7 @@ export interface Notification {
 
 export interface Email {
     id: string;
+    threadId?: string; // Grouping identifier
     from: { name: string; email: string };
     to: { name: string; email: string }[];
     cc?: { name: string; email: string }[];
@@ -678,8 +714,13 @@ export interface Email {
     body: string;
     timestamp: string;
     status: 'read' | 'unread';
-    folder: 'inbox' | 'sent' | 'drafts' | 'trash';
+    folder: 'inbox' | 'sent' | 'drafts' | 'trash' | 'archived';
     attachments: Attachment[];
+    deliveryStatus?: 'pending' | 'sent' | 'error'; 
+    snippet?: string; // For Nylas preview
+    isStarred?: boolean;
+    isArchived?: boolean;
+    tags?: string[]; // Custom tags/labels
 }
 
 export interface Attachment {
@@ -687,6 +728,7 @@ export interface Attachment {
     name: string;
     size: number;
     url: string;
+    messageId?: string; // Optional message ID for context in API calls
 }
 
 export interface ConnectedEmailAccount {
@@ -695,6 +737,11 @@ export interface ConnectedEmailAccount {
     email: string;
     status: 'Conectado' | 'Desconectado' | 'Error de autenticación';
     signatureTemplate?: string;
+    provider?: 'gmail' | 'outlook' | 'hostgator' | 'nylas' | 'other'; 
+    nylasConfig?: {
+        grantId: string;
+        apiKey: string;
+    };
 }
 
 export interface SignatureTemplate {
@@ -744,7 +791,7 @@ export interface InvoiceItem {
     unitPrice: number;
     subtotal: number;
 }
-// FIX: Moved CommissionStatus enum definition before its usage in the Commission interface.
+
 export enum CommissionStatus {
     Pendiente = 'Pendiente',
     Pagada = 'Pagada',
@@ -858,4 +905,62 @@ export interface InventoryMove {
     note?: string;
     userId: string;
     createdAt: string;
+}
+
+export interface ChatWidgetConfig {
+    id: string;
+    name: string;
+    websiteUrl: string;
+    brandColor: string;
+    welcomeMessage: string;
+    aiPersonality: string;
+    isActive: boolean;
+    position: 'bottom-right' | 'bottom-left';
+    launcherIcon: string;
+    ctaText?: string;
+    logoUrl?: string;
+    createdById: string;
+    // Advanced AI Settings
+    aiModel?: string;
+    temperature?: number;
+    maxTokens?: number;
+    frequencyPenalty?: number;
+}
+
+export interface ChatSession {
+    id: string;
+    source: 'web' | 'whatsapp' | 'instagram' | 'facebook';
+    visitorName: string;
+    visitorEmail?: string;
+    visitorPhone?: string;
+    status: 'active' | 'pending' | 'closed';
+    lastMessage: string;
+    lastMessageAt: string;
+    unreadCount: number;
+    isAiActive: boolean;
+    prospectId?: string;
+}
+
+export interface ChatSessionMessage {
+    id: string;
+    sessionId: string;
+    text: string;
+    sender: 'user' | 'agent' | 'ai' | 'system';
+    timestamp: string;
+    isRead: boolean;
+}
+
+export interface SalesGoalSettings {
+    id: string;
+    goals: ProductGoal[];
+    updatedAt: string;
+}
+
+export interface ProductGoal {
+    id: string;
+    productId: string;
+    productName?: string;
+    unit: string;
+    globalMonthlyTarget: number;
+    userTargets: Record<string, number>; // userId -> target
 }

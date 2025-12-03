@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/firebaseApi';
 
 interface UseCollectionResult<T> {
   data: T[] | null;
   loading: boolean;
   error: Error | null;
+  refresh: () => Promise<void>;
 }
 
 export function useCollection<T>(collectionName: string): UseCollectionResult<T> {
@@ -12,22 +13,22 @@ export function useCollection<T>(collectionName: string): UseCollectionResult<T>
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const result = await api.getCollection(collectionName);
-        setData(result as T[]);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.getCollection(collectionName);
+      setData(result as T[]);
+    } catch (err) {
+      setError(err as Error);
+    } finally {
+      setLoading(false);
+    }
   }, [collectionName]);
 
-  return { data, loading, error };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return { data, loading, error, refresh: fetchData };
 }

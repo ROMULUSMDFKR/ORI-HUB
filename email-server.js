@@ -95,16 +95,26 @@ async function fetchEmails() {
         const connection = await imap.connect(config);
         await connection.openBox('INBOX');
 
-        // Buscar correos no leídos (UNSEEN)
-        const searchCriteria = ['UNSEEN'];
-        const fetchOptions = { bodies: ['HEADER', 'TEXT', ''], markSeen: true };
+        // FIX: Usar 'ALL' para traer correos leídos y no leídos
+        const searchCriteria = ['ALL'];
         
-        const messages = await connection.search(searchCriteria, fetchOptions);
+        // Fetch solo headers para ser rápido
+        const fetchOptions = { 
+            bodies: ['HEADER', 'TEXT', ''], 
+            markSeen: false // No marcar como leído automáticamente para no afectar otros clientes
+        };
+        
+        console.log("🔎 Buscando mensajes...");
+        let messages = await connection.search(searchCriteria, fetchOptions);
 
-        if (messages.length > 0) {
+        // FIX: Limitar a los últimos 10 mensajes para evitar sobrecarga
+        if (messages.length > 10) {
+            console.log(`⚠️ Se encontraron ${messages.length} correos. Procesando solo los últimos 10...`);
+            messages = messages.slice(-10);
+        } else if (messages.length > 0) {
             console.log(`📥 Se encontraron ${messages.length} correos nuevos.`);
         } else {
-            console.log("👍 Todo al día. No hay correos nuevos.");
+            console.log("👍 Todo al día. No hay correos.");
         }
 
         for (const item of messages) {
@@ -114,7 +124,11 @@ async function fetchEmails() {
             
             const mail = await simpleParser(idHeader + all.body);
 
-            // Guardar en Firestore
+            // Verificar si ya existe en Firestore para no duplicar (básico)
+            // Nota: En producción, usaría el UID o Message-ID como clave única.
+            // Aquí simplemente lo agregamos (Firestore creará ID nuevo), 
+            // en una app real deberías checar duplicados antes de add().
+
             const newEmail = {
                 from: { 
                     name: mail.from.value[0].name || mail.from.value[0].address, 
@@ -123,15 +137,25 @@ async function fetchEmails() {
                 to: [{ name: 'Yo', email: EMAIL_CONFIG.user }],
                 subject: mail.subject,
                 body: mail.html || mail.textAsHtml || mail.text,
-                timestamp: new Date().toISOString(),
+                timestamp: mail.date ? new Date(mail.date).toISOString() : new Date().toISOString(),
                 folder: 'inbox',
-                status: 'unread',
+                status: 'read', // Asumimos leído si ya estaba en el server, o unread.
                 deliveryStatus: 'received',
                 attachments: [] 
             };
 
-            await db.collection('emails').add(newEmail);
-            console.log(`✨ Guardado: ${mail.subject}`);
+            // Simple check anti-duplicado por timestamp y subject (muy básico)
+            const exists = await db.collection('emails')
+                .where('timestamp', '==', newEmail.timestamp)
+                .where('subject', '==', newEmail.subject)
+                .get();
+
+            if (exists.empty) {
+                await db.collection('emails').add(newEmail);
+                console.log(`✨ Guardado: ${mail.subject}`);
+            } else {
+                // console.log(`Skipping duplicate: ${mail.subject}`);
+            }
         }
 
         connection.end();
@@ -141,7 +165,7 @@ async function fetchEmails() {
 }
 
 // --- INICIO DEL SERVIDOR ---
-console.log("🚀 Servidor de Correos ORI Iniciado [Modo Bajo Consumo]");
+console.log("🚀 Servidor de Correos ORI Iniciado [Modo Mejorado]");
 console.log("1. Escuchando correos salientes (Tiempo Real)");
 console.log("2. Esperando señal de la App para buscar correos entrantes...");
 
@@ -153,12 +177,10 @@ db.collection('settings').doc('mailSync').onSnapshot((doc) => {
     const data = doc.data();
     // Si el timestamp cambia, significa que alguien pidió actualizar
     if (data && data.lastSyncRequest) {
-        // Ignoramos la primera carga para no ejecutar al iniciar el script si no es necesario
-        // Opcional: ejecutar fetchEmails() una vez al inicio
         console.log(`⚡ Señal recibida desde la App: ${new Date(data.lastSyncRequest).toLocaleTimeString()}`);
         fetchEmails();
     }
 });
 
-// (Opcional) Revisión automática de seguridad cada 15 minutos por si acaso
-setInterval(fetchEmails, 15 * 60 * 1000);
+// Ejecutar una búsqueda inicial al arrancar
+fetchEmails();

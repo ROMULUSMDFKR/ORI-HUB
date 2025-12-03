@@ -96,7 +96,6 @@ export const NAV_LINKS = [
     sublinks: [
       { name: 'Bandeja de Entrada', path: '/communication/inbox', icon: 'inbox' },
       { name: 'Chat Interno', path: '/communication/chat', icon: 'forum' },
-      { name: 'Correos', path: '/communication/emails', icon: 'mail' },
       { name: 'Asistente IA', path: '/communication/ai-assistant', icon: 'smart_toy' },
     ]
   },
@@ -131,8 +130,6 @@ export const NAV_LINKS = [
       { name: 'Equipos', path: '/settings/teams', icon: 'groups' },
       { name: 'Mis Empresas', path: '/settings/internal-companies', icon: 'domain' },
       { name: 'Seguridad', path: '/settings/security', icon: 'security' },
-      { name: 'Cuentas de Correo', path: '/settings/email-accounts', icon: 'alternate_email' },
-      { name: 'Apariencia de Email', path: '/settings/email-appearance', icon: 'format_paint' },
       { name: 'Industrias', path: '/settings/industries', icon: 'factory' },
       { name: 'Etapas de Venta', path: '/settings/pipelines', icon: 'view_carousel' },
       { name: 'Acceso de IA', path: '/settings/ai-access', icon: 'neurology' },
@@ -177,6 +174,11 @@ export const PIPELINE_COLUMNS = [
         stage: ProspectStage.Ganado, 
         group: 'RESULTADOS', 
         objective: 'Cierre exitoso. Contrato firmado y orden de compra recibida. Iniciar proceso de onboarding y entrega.' 
+    },
+    { 
+        stage: ProspectStage.Perdido, 
+        group: 'RESULTADOS', 
+        objective: 'El prospecto no avanzó. Registrar el motivo para análisis futuro (Precio, Competencia, etc.).' 
     },
 ];
 
@@ -444,7 +446,6 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
     'Comunicación': {
         'Bandeja de Entrada': ['view', 'create', 'edit', 'delete'],
         'Chat Interno': ['view', 'create', 'edit', 'delete'],
-        'Correos': ['view', 'create', 'edit', 'delete'],
         'Asistente IA': ['view']
     },
     'Finanzas': { 
@@ -468,8 +469,6 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Equipos': ['view', 'create', 'edit', 'delete'],
         'Mis Empresas': ['view', 'create', 'edit', 'delete'],
         'Seguridad': ['view', 'create', 'edit', 'delete'],
-        'Cuentas de Correo': ['view', 'create', 'edit', 'delete'],
-        'Apariencia de Email': ['view', 'create', 'edit', 'delete'],
         'Industrias': ['view', 'create', 'edit', 'delete'],
         'Etapas de Venta': ['view', 'create', 'edit', 'delete'],
         'Acceso de IA': ['view', 'create', 'edit', 'delete'],

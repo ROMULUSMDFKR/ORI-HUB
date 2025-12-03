@@ -1,4 +1,8 @@
 
+// ... existing imports ...
+// (Keep existing content, just locate the 'Configuración' block and append)
+// I will rewrite the NAV_LINKS array to include the new link.
+
 import { ProspectStage, SampleStatus, QuoteStatus, SalesOrderStatus, Unit, CompanyPipelineStage, CommunicationChannel, PreferredDays, Tone, Formality, SLA, QuoteFormat, PaymentTerm, PurchaseType, Presentation, PurchaseFrequency, Incoterm, Role, PurchaseOrderStatus } from './types';
 
 export const NAV_LINKS = [
@@ -16,6 +20,7 @@ export const NAV_LINKS = [
       { name: 'Importar Datos', path: '/prospecting/upload', icon: 'upload_file' },
       { name: 'Historial de Importación', path: '/prospecting/history', icon: 'history' },
       { name: 'Marcas', path: '/prospecting/brands', icon: 'storefront' },
+      { name: 'Fuentes', path: '/prospecting/sources', icon: 'data_source' },
     ]
   },
   { 
@@ -97,6 +102,7 @@ export const NAV_LINKS = [
       { name: 'Bandeja de Entrada', path: '/communication/inbox', icon: 'inbox' },
       { name: 'Chat Interno', path: '/communication/chat', icon: 'forum' },
       { name: 'Asistente IA', path: '/communication/ai-assistant', icon: 'smart_toy' },
+      { name: 'Correos', path: '/communication/mailbox', icon: 'mail' },
     ]
   },
   
@@ -126,6 +132,8 @@ export const NAV_LINKS = [
       { name: 'Usuarios y Permisos', path: '/settings/users', icon: 'manage_accounts' },
       { name: 'Roles y Permisos', path: '/settings/roles', icon: 'admin_panel_settings' },
       { name: 'Widgets de Chat', path: '/settings/chat-widgets', icon: 'chat_bubble' },
+      { name: 'Cuentas de Correo', path: '/settings/email-accounts', icon: 'mail' },
+      { name: 'Firmas de Correo', path: '/settings/email-appearance', icon: 'edit_document' },
       { name: 'Metas Comerciales', path: '/settings/sales-goals', icon: 'flag' },
       { name: 'Equipos', path: '/settings/teams', icon: 'groups' },
       { name: 'Mis Empresas', path: '/settings/internal-companies', icon: 'domain' },
@@ -137,8 +145,7 @@ export const NAV_LINKS = [
   },
 ];
 
-// ... rest of the file (constants) ...
-
+// ... rest of the file (PIPELINE_COLUMNS, etc) stays exactly the same ...
 export const PIPELINE_COLUMNS = [
     // CUALIFICACIÓN (LEADS)
     { 
@@ -362,7 +369,7 @@ export const PURCHASE_ORDERS_PIPELINE_COLUMNS = [
     },
      {
         stage: PurchaseOrderStatus.Recibida,
-        group: 'LOGÍSTICA',
+        group: 'LOGÍSTICA', 
         objective: 'Mercancía recibida en almacén. Pendiente de cierre administrativo.'
     },
     {
@@ -407,6 +414,7 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Importar Datos': ['view', 'create', 'edit', 'delete'],
         'Historial de Importación': ['view', 'create', 'edit', 'delete'],
         'Marcas': ['view', 'create', 'edit', 'delete'],
+        'Fuentes': ['view', 'create', 'edit', 'delete'],
     },
     'Hubs': { 
         'Prospectos': ['view', 'create', 'edit', 'delete'], 
@@ -446,7 +454,8 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
     'Comunicación': {
         'Bandeja de Entrada': ['view', 'create', 'edit', 'delete'],
         'Chat Interno': ['view', 'create', 'edit', 'delete'],
-        'Asistente IA': ['view']
+        'Asistente IA': ['view'],
+        'Correos': ['view', 'create', 'edit', 'delete'],
     },
     'Finanzas': { 
         'Facturación': ['view', 'create', 'edit', 'delete'], 
@@ -465,6 +474,8 @@ export const PAGE_PERMISSIONS_CONFIG: Record<string, Record<string, ('view' | 'c
         'Usuarios y Permisos': ['view', 'create', 'edit', 'delete'],
         'Roles y Permisos': ['view', 'create', 'edit', 'delete'],
         'Widgets de Chat': ['view', 'create', 'edit', 'delete'],
+        'Cuentas de Correo': ['view', 'create', 'edit', 'delete'],
+        'Firmas de Correo': ['view', 'create', 'edit', 'delete'],
         'Metas Comerciales': ['view', 'create', 'edit', 'delete'],
         'Equipos': ['view', 'create', 'edit', 'delete'],
         'Mis Empresas': ['view', 'create', 'edit', 'delete'],

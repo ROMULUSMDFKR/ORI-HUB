@@ -1,95 +1,24 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDoc } from '../hooks/useDoc';
 import { useCollection } from '../hooks/useCollection';
-import { Prospect, Note, ActivityLog, Contact, Company, CompanyPipelineStage, ProspectStage, Quote, Sample, Priority, User } from '../types';
+import { Prospect, User, Note, ActivityLog, ProspectStage, Priority } from '../types';
 import Spinner from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
-import { api } from '../api/firebaseApi';
-import ActivityDrawer from '../components/crm/ActivityDrawer';
-import ContactDrawer from '../components/crm/ContactDrawer';
-import { GoogleGenAI, Type } from '@google/genai';
 import CustomSelect from '../components/ui/CustomSelect';
 import NotesSection from '../components/shared/NotesSection';
-import { PIPELINE_COLUMNS } from '../constants';
+import { api } from '../api/firebaseApi';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../hooks/useAuth';
+import { usePhone } from '../contexts/PhoneContext';
 
-
-// --- Reusable UI Components ---
-
-const WavyBg: React.FC = () => (
-    <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none" className="absolute top-0 left-0 w-full h-full opacity-10">
-      <path d="M-50,20 C100,100 200,-50 350,50 L350,150 L-50,150 Z" fill="currentColor" />
-      <path d="M-50,50 C100,-50 200,100 350,20 L350,150 L-50,150 Z" fill="currentColor" opacity="0.5"/>
-    </svg>
-);
-
-const SimpleMarkdown: React.FC<{ text: string }> = ({ text }) => {
-    const lines = text.split('\n').map((line, i) => {
-        const boldedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        if (line.startsWith('### ')) return <h3 key={i} className="text-md font-semibold mt-4 mb-2">{boldedLine.substring(4)}</h3>;
-        if (line.startsWith('## ')) return <h2 key={i} className="text-lg font-bold mt-4 mb-2">{boldedLine.substring(3)}</h2>;
-        if (line.startsWith('- ')) return <li key={i} className="list-disc ml-5" dangerouslySetInnerHTML={{ __html: boldedLine.substring(2) }}></li>;
-        if (line.match(/^\d+\. /)) return <li key={i} className="list-decimal ml-5" dangerouslySetInnerHTML={{ __html: boldedLine.substring(line.indexOf(' ') + 1) }}></li>;
-        if (line.trim() === '') return <br key={i} />;
-        return <p key={i} dangerouslySetInnerHTML={{ __html: boldedLine }} />;
-    });
-
-    return <div className="prose prose-sm max-w-none text-slate-800 dark:text-slate-200 space-y-2">{lines}</div>;
-};
-
-const SuggestionModal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    title: string;
-    children: React.ReactNode;
-}> = ({ isOpen, onClose, title, children }) => {
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" onClick={onClose} role="dialog" aria-modal="true">
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl m-4 max-w-lg w-full" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
-                    <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Cerrar">
-                        <span className="material-symbols-outlined text-slate-500 dark:text-slate-400">close</span>
-                    </button>
-                </div>
-                <div className="p-6">
-                    {children}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const AlertsPanel: React.FC<{ alerts: string[] }> = ({ alerts }) => {
-    if (alerts.length === 0) return null;
-    return (
-        <div className="bg-yellow-50 dark:bg-yellow-500/10 border-l-4 border-yellow-400 p-4 rounded-r-lg">
-            <div className="flex">
-                <div className="flex-shrink-0">
-                    <span className="material-symbols-outlined text-yellow-500">warning</span>
-                </div>
-                <div className="ml-3">
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300 font-semibold">Alertas Inteligentes</p>
-                    <ul className="list-disc ml-5 mt-1">
-                        {alerts.map((alert, index) => (
-                           <li key={index} className="text-sm text-yellow-700 dark:text-yellow-300">{alert}</li>
-                        ))}
-                    </ul>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
-const InfoCard: React.FC<{ title: string; children: React.ReactNode, className?: string }> = ({ title, children, className }) => (
+const InfoCard: React.FC<{ title: string; children: React.ReactNode; className?: string; action?: React.ReactNode }> = ({ title, children, className, action }) => (
     <div className={`bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 ${className}`}>
-        <h3 className="text-lg font-semibold border-b border-slate-200 dark:border-slate-700 pb-3 mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
+        <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3 mb-4">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
+            {action}
+        </div>
         <div className="space-y-3">
             {children}
         </div>
@@ -103,15 +32,6 @@ const InfoRow: React.FC<{ label: string, value: React.ReactNode }> = ({label, va
     </div>
 );
 
-const getPriorityBadgeColor = (priority?: Prospect['priority']) => {
-    switch (priority) {
-        case 'Alta': return 'red';
-        case 'Media': return 'yellow';
-        case 'Baja': return 'gray';
-        default: return 'gray';
-    }
-};
-
 const ActivityFeed: React.FC<{ activities: ActivityLog[], usersMap: Map<string, User> }> = ({ activities, usersMap }) => {
     const iconMap: Record<ActivityLog['type'], string> = {
         'Llamada': 'call',
@@ -123,47 +43,32 @@ const ActivityFeed: React.FC<{ activities: ActivityLog[], usersMap: Map<string, 
         'Cambio de Estado': 'change_circle',
         'Sistema': 'dns'
     };
-    
-    if (!activities.length) {
-        return (
-            <InfoCard title="Actividad Reciente">
-                <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No hay actividades registradas.</p>
-            </InfoCard>
-        );
-    }
-    
+
     return (
-        <InfoCard title="Actividad Reciente">
-            <div className="flow-root">
-                <ul role="list" className="-mb-8">
-                    {activities.map((activity, activityIdx) => (
-                        <li key={activity.id}>
-                            <div className="relative pb-8">
-                                {activityIdx !== activities.length - 1 ? (
-                                    <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-slate-200 dark:bg-slate-700" aria-hidden="true" />
-                                ) : null}
-                                <div className="relative flex space-x-3">
-                                    <div>
-                                        <span className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center ring-8 ring-white dark:ring-slate-800">
-                                            <span className="material-symbols-outlined text-slate-500 dark:text-slate-400">{iconMap[activity.type]}</span>
-                                        </span>
-                                    </div>
-                                    <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
-                                        <div>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                                                {activity.description} por <span className="font-medium text-slate-900 dark:text-slate-200">{usersMap.get(activity.userId)?.name}</span>
-                                            </p>
-                                        </div>
-                                        <div className="text-right text-sm whitespace-nowrap text-slate-500 dark:text-slate-400">
-                                            <time dateTime={activity.createdAt}>{new Date(activity.createdAt).toLocaleDateString()}</time>
-                                        </div>
-                                    </div>
+        <InfoCard title="Historial de Actividad" className="h-full">
+            {activities.length > 0 ? (
+                 <ul className="space-y-0 relative">
+                     <div className="absolute top-0 bottom-0 left-4 w-px bg-slate-200 dark:bg-slate-700"></div>
+                     {activities.map((activity) => {
+                        const author = usersMap.get(activity.userId);
+                        return (
+                            <li key={activity.id} className="relative pl-10 py-4 first:pt-0 last:pb-0">
+                                <div className={`absolute left-0 top-4 w-8 h-8 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-slate-800 bg-indigo-100 text-indigo-600`}>
+                                    <span className="material-symbols-outlined !text-sm">{iconMap[activity.type] || 'circle'}</span>
                                 </div>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            </div>
+                                <div className="flex flex-col">
+                                    <p className="text-sm text-slate-800 dark:text-slate-200 font-medium">{activity.description}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                        {author?.name || 'Sistema'} &bull; {new Date(activity.createdAt).toLocaleString()}
+                                    </p>
+                                </div>
+                            </li>
+                        )
+                     })}
+                 </ul>
+            ) : (
+                <p className="text-sm text-center text-slate-500 dark:text-slate-400 py-8">No hay actividades registradas.</p>
+            )}
         </InfoCard>
     );
 };
@@ -171,406 +76,142 @@ const ActivityFeed: React.FC<{ activities: ActivityLog[], usersMap: Map<string, 
 const ProspectDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { data: initialProspect, loading: pLoading, error } = useDoc<Prospect>('prospects', id || '');
-    const { data: allContacts } = useCollection<Contact>('contacts');
-    const { data: initialActivities, loading: aLoading } = useCollection<ActivityLog>('activities');
-    const { data: quotes } = useCollection<Quote>('quotes');
-    const { data: samples } = useCollection<Sample>('samples');
-    const { data: allNotes } = useCollection<Note>('notes');
-    const { data: users, loading: uLoading } = useCollection<User>('users');
+    const { data: prospect, loading: prospectLoading } = useDoc<Prospect>('prospects', id || '');
+    const { data: users, loading: usersLoading } = useCollection<User>('users');
+    const { data: allNotes, loading: notesLoading } = useCollection<Note>('notes');
+    const { data: allActivities, loading: activitiesLoading } = useCollection<ActivityLog>('activities');
+    const { makeCall } = usePhone();
     const { showToast } = useToast();
     const { user: currentUser } = useAuth();
-    
-    const [prospect, setProspect] = useState<Prospect | null>(null);
-    const [activities, setActivities] = useState<ActivityLog[]>([]);
-    const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
-    const [isContactDrawerOpen, setIsContactDrawerOpen] = useState(false);
-    const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
-    const [suggestion, setSuggestion] = useState('');
-    const [suggestionLoading, setSuggestionLoading] = useState(false);
-    const [suggestionError, setSuggestionError] = useState('');
-    const [currentStage, setCurrentStage] = useState<ProspectStage | undefined>();
+
+    const [currentStage, setCurrentStage] = useState<ProspectStage | undefined>(undefined);
+
+    useEffect(() => {
+        if (prospect) {
+            setCurrentStage(prospect.stage);
+        }
+    }, [prospect]);
 
     const usersMap = useMemo(() => new Map(users?.map(u => [u.id, u])), [users]);
-    const loading = pLoading || uLoading || aLoading;
+    const owner = useMemo(() => usersMap.get(prospect?.ownerId || ''), [usersMap, prospect]);
 
-    useEffect(() => {
-        if(initialProspect) {
-            setProspect(initialProspect);
-            setCurrentStage(initialProspect.stage);
-        }
-    }, [initialProspect]);
-
-
-    useEffect(() => {
-        if (initialActivities && id) {
-            const filtered = initialActivities
-                .filter(a => a.prospectId === id)
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            setActivities(filtered);
-        }
-    }, [initialActivities, id]);
-
-    const addActivityLog = async (type: ActivityLog['type'], description: string, prospectId: string) => {
-        if (!currentUser) return;
-        const log: Omit<ActivityLog, 'id'> = { prospectId, type, description, userId: currentUser.id, createdAt: new Date().toISOString() };
-        try {
-            const newActivity = await api.addDoc('activities', log);
-            setActivities(prev => [newActivity, ...prev]);
-        } catch (error) {
-            console.error("Error adding activity log:", error);
-            showToast('error', 'No se pudo registrar la actividad.');
-        }
-    };
-    
-    const handleAddActivity = (newActivity: ActivityLog) => {
-        setActivities(prev => [newActivity, ...prev]);
-    };
-
-    const handleNoteAdded = (note: Note) => {
-        if (allNotes) {
-            (allNotes as Note[]).unshift(note);
-            setProspect(prev => prev ? { ...prev } : null);
-        }
-    };
-    
-    const handleSaveStatus = async () => {
-        if (currentStage && prospect && id && currentStage !== prospect.stage) {
-            const oldStage = prospect.stage;
-            try {
-                await api.updateDoc('prospects', id, { stage: currentStage });
-                setProspect(p => p ? { ...p, stage: currentStage } : null);
-                addActivityLog('Cambio de Estado', `Cambió el estado de "${oldStage}" a "${currentStage}"`, id);
-                showToast('success', 'Estado del prospecto actualizado.');
-            } catch (error) {
-                console.error("Error saving prospect status:", error);
-                showToast('error', 'No se pudo guardar el estado.');
-            }
-        }
-    };
-
-    const handleSaveContact = async (contactData: Contact) => {
-        if (!id || !currentUser) return;
-
-        try {
-            const newContact = {
-                ...contactData,
-                prospectId: id,
-                // Ensure companyId is null, not undefined, to avoid Firestore errors
-                companyId: null,
-                ownerId: currentUser.id
-            };
-
-            await api.addDoc('contacts', newContact);
-            addActivityLog('Sistema', `Añadió un nuevo contacto: ${contactData.name}`, id);
-            showToast('success', 'Contacto añadido al prospecto.');
-            setIsContactDrawerOpen(false);
-        } catch (error) {
-            console.error("Error adding contact:", error);
-            showToast('error', 'Error al guardar el contacto.');
-        }
-    };
-
-    const prospectNotes = useMemo(() => {
-        return (allNotes || [])
-            .filter(n => n.prospectId === id)
-            .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const notes = useMemo(() => {
+        if (!allNotes || !id) return [];
+        return allNotes.filter(n => n.prospectId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [allNotes, id]);
 
-    const involvedContacts = useMemo(() => {
-        return allContacts?.filter(c => c.prospectId === id) || [];
-    }, [allContacts, id]);
+    const activities = useMemo(() => {
+        if (!allActivities || !id) return [];
+        return allActivities.filter(a => a.prospectId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [allActivities, id]);
 
-    const prospectAnalysis = useMemo(() => {
-        if (!prospect) return null;
-        
-        const referenceDate = prospect.lastInteraction ? new Date(prospect.lastInteraction.date) : new Date(prospect.createdAt);
-        const lastActivityDays = (new Date().getTime() - referenceDate.getTime()) / (1000 * 3600 * 24);
-        
-        const recencyScore = Math.max(0, 100 - lastActivityDays * 5); 
-        const frequencyScore = Math.min(50, activities.length * 5);
-        const engagementScoreValue = Math.round((recencyScore * 0.7) + (frequencyScore * 0.3));
-        const engagementScoreLabel = engagementScoreValue > 75 ? 'Caliente' : engagementScoreValue > 40 ? 'Tibio' : 'Frío';
-
-        const alerts: string[] = [];
-        if (lastActivityDays > 15 && prospect.stage !== ProspectStage.Nueva) {
-            alerts.push(`Sin contacto en ${Math.floor(lastActivityDays)} días.`);
+    const handleStatusChange = async (val: string) => {
+        const newStatus = val as ProspectStage;
+        setCurrentStage(newStatus);
+        if (prospect && id) {
+             try {
+                await api.updateDoc('prospects', id, { stage: newStatus });
+                // Log activity
+                const log: Omit<ActivityLog, 'id'> = {
+                    prospectId: id,
+                    type: 'Cambio de Estado',
+                    description: `Etapa cambiada de "${prospect.stage}" a "${newStatus}"`,
+                    userId: currentUser?.id || 'system',
+                    createdAt: new Date().toISOString()
+                };
+                await api.addDoc('activities', log);
+                showToast('success', 'Etapa actualizada');
+             } catch (error) {
+                 console.error(error);
+                 showToast('error', 'Error al actualizar etapa');
+             }
         }
-        if (!prospect.nextAction) {
-            alerts.push(`No hay una próxima acción programada.`);
-        } else if (new Date(prospect.nextAction.dueDate) < new Date()) {
-            alerts.push(`La próxima acción está vencida.`);
-        }
+    };
 
-        return {
-            engagementScore: { score: engagementScoreValue, label: engagementScoreLabel },
-            alerts,
-        }
-    }, [prospect, activities]);
-
-    const handleSuggestAction = async () => {
-        if (!prospect || !prospectAnalysis) return;
-        setIsSuggestionModalOpen(true);
-        setSuggestionLoading(true);
-        setSuggestion('');
-        setSuggestionError('');
-
+    const handleNoteAdded = async (note: Note) => {
         try {
-            const context = `
-                Prospecto: ${prospect.name}
-                Etapa: ${prospect.stage}
-                Valor Estimado: $${prospect.estValue}
-                Prioridad: ${prospect.priority}
-                Puntuación de Engagement: ${prospectAnalysis.engagementScore.score}/100 (${prospectAnalysis.engagementScore.label})
-                Alertas Actuales: ${prospectAnalysis.alerts.join(', ') || 'Ninguna'}
-                Últimas 3 actividades:
-                ${activities.slice(0, 3).map(a => `- ${new Date(a.createdAt).toLocaleDateString()}: ${a.type} - ${a.description}`).join('\n')}
-                Notas relevantes: ${prospect.notes || 'Sin notas principales.'}
-            `;
-            const prompt = `
-                Eres un asistente de IA experto en análisis de datos para un CRM. Tu nombre es "Studio AI".
-                Basado en el siguiente contexto de un prospecto, proporciona un análisis completo para el vendedor. Tu respuesta debe estar en español y formateada en Markdown. Incluye las siguientes secciones:
-                1. **Resumen Ejecutivo (TL;DR):** Un párrafo corto que resuma el estado actual, el valor y la temperatura del prospecto (frío, tibio, caliente).
-                2. **Puntos Clave:** Una lista de 2-3 puntos importantes extraídos del historial de notas y actividades.
-                3. **Próxima Acción Sugerida:** Una sugerencia clara, accionable y con un "porqué".
-
-                Contexto del Prospecto:
-                ${context}
-
-                Análisis del Prospecto:
-            `;
-
-            const ai = new GoogleGenAI({apiKey: process.env.API_KEY as string});
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: {
-                  thinkingConfig: { thinkingBudget: 0 }
-                }
-            });
-            
-            setSuggestion(response.text);
-
+            await api.addDoc('notes', note);
+            showToast('success', 'Nota guardada');
         } catch (error) {
-            console.error("Error fetching suggestion:", error);
-            setSuggestionError('No se pudo contactar al servicio de IA. Inténtalo de nuevo.');
-        } finally {
-            setSuggestionLoading(false);
+            console.error(error);
+            showToast('error', 'Error al guardar nota');
         }
     };
 
-    const handleConvertToClient = async () => {
-        if (!prospect) return;
-        
-        const newCompany: Company = {
-            id: `comp-${Date.now()}`,
-            name: prospect.name,
-            shortName: prospect.name,
-            rfc: '',
-            isActive: true,
-            stage: CompanyPipelineStage.ClienteActivo,
-            ownerId: prospect.ownerId,
-            createdById: prospect.createdById,
-            createdAt: new Date().toISOString(),
-            priority: Priority.Media,
-            industry: prospect.industry,
-            productsOfInterest: prospect.productsOfInterest || [],
-            deliveryAddresses: [],
-        };
-        
-        await api.addDoc('companies', newCompany);
+    if (prospectLoading || usersLoading || notesLoading || activitiesLoading) return <div className="flex justify-center py-12"><Spinner /></div>;
+    if (!prospect) return <div className="text-center py-12">Prospecto no encontrado</div>;
 
-        const prospectQuotes = (quotes || []).filter(q => q.prospectId === prospect.id);
-        for (const quote of prospectQuotes) {
-            await api.updateDoc('quotes', quote.id, { companyId: newCompany.id, prospectId: undefined });
-        }
-        
-        const prospectSamples = (samples || []).filter(s => s.prospectId === prospect.id);
-        for (const sample of prospectSamples) {
-             await api.updateDoc('samples', sample.id, { companyId: newCompany.id, prospectId: undefined });
-        }
-        
-        await api.updateDoc('prospects', prospect.id, { stage: ProspectStage.Ganado });
-
-        showToast('success', `${prospect.name} ha sido convertido a cliente.`);
-        navigate(`/crm/clients/${newCompany.id}`);
-    };
-
-
-    if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
-    if (error || !prospect) return <div className="text-center p-12">Prospecto no encontrado</div>;
-    
-    const owner = usersMap.get(prospect.ownerId);
-    const creator = usersMap.get(prospect.createdById);
-    const stageOptions = PIPELINE_COLUMNS.map(c => ({ value: c.stage, name: c.stage }));
+    const stageOptions = Object.values(ProspectStage).map(s => ({ value: s, name: s }));
 
     return (
-        <div>
-            <div className="flex justify-between items-start mb-6">
+        <div className="space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-200">{prospect.name}</h1>
-                    <p className="font-mono text-sm text-slate-500 dark:text-slate-400 mt-1">ID: {prospect.id}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-48">
-                        <CustomSelect 
-                            options={stageOptions}
-                            value={currentStage || ''}
-                            onChange={(newStage) => setCurrentStage(newStage as ProspectStage)}
-                        />
+                    <div className="flex items-center gap-2 mt-1 text-sm text-slate-500 dark:text-slate-400">
+                        {prospect.industry && <span>{prospect.industry}</span>}
+                        {prospect.origin && (
+                            <>
+                                <span>•</span>
+                                <span>Origen: {prospect.origin}</span>
+                            </>
+                        )}
                     </div>
-                    <button onClick={handleSaveStatus} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 h-[42px]">
-                        Guardar
-                    </button>
+                </div>
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="w-48">
+                         <CustomSelect options={stageOptions} value={currentStage || ''} onChange={handleStatusChange} />
+                    </div>
+                    <Link to={`/hubs/prospects/${id}/edit`} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-indigo-700 h-[42px] flex items-center">
+                        Editar
+                    </Link>
                 </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left Sidebar */}
-                <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-                    <div className="bg-indigo-600 text-white p-5 rounded-xl relative overflow-hidden shadow-lg">
-                        <div className="text-white"><WavyBg /></div>
-                        <div className="relative z-10">
-                            <p className="mt-4 text-sm text-white/80">Valor Estimado</p>
-                            <p className="text-4xl font-bold mt-1">${prospect.estValue.toLocaleString('en-US', {maximumFractionDigits: 0})}</p>
-                        </div>
-                    </div>
 
-                    {prospectAnalysis && <AlertsPanel alerts={prospectAnalysis.alerts} />}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                     <InfoCard title="Información de Contacto">
+                        <div className="space-y-1">
+                            {prospect.phone ? (
+                                <InfoRow 
+                                    label="Teléfono" 
+                                    value={
+                                        <button 
+                                            onClick={() => makeCall(prospect.phone!, prospect.name)} 
+                                            className="text-indigo-600 hover:underline hover:text-indigo-800 font-medium flex items-center gap-1 justify-end w-full"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">call</span>
+                                            {prospect.phone}
+                                        </button>
+                                    } 
+                                />
+                            ) : (
+                                <InfoRow label="Teléfono" value="N/A" />
+                            )}
+                            <InfoRow label="Email" value={prospect.email ? <a href={`mailto:${prospect.email}`} className="text-indigo-600 hover:underline">{prospect.email}</a> : 'N/A'} />
+                            <InfoRow label="Sitio Web" value={prospect.website ? <a href={prospect.website} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">{prospect.website}</a> : 'N/A'} />
+                            <InfoRow label="Dirección" value={prospect.address || 'N/A'} />
+                        </div>
+                    </InfoCard>
                     
-                    <InfoCard title="Datos Generales">
-                        <div className="space-y-1">
-                            <InfoRow label="Responsable" value={owner?.name || 'N/A'} />
-                            <InfoRow label="Creado por" value={`${creator?.name} el ${new Date(prospect.createdAt).toLocaleDateString()}`} />
-                            <InfoRow label="Industria" value={prospect.industry || 'N/A'} />
-                            <InfoRow label="Origen" value={prospect.origin || 'N/A'} />
-                            {prospect.priority && <InfoRow label="Prioridad" value={<Badge text={prospect.priority} color={getPriorityBadgeColor(prospect.priority)} />} />}
-                            {prospectAnalysis && <InfoRow label="Puntuación de Engagement" value={<span className="font-semibold">{`${prospectAnalysis.engagementScore.score}/100 (${prospectAnalysis.engagementScore.label})`}</span>} />}
-                        </div>
-                        <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
-                             <div className="flex items-center gap-3">
-                                <Link to={`/hubs/prospects/${prospect.id}/edit`} className="flex-1 text-center bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
-                                    Editar
-                                </Link>
-                                 <Link to="/hubs/quotes/new" className="flex-1 text-center bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:opacity-90 transition-colors">
-                                    Cotizar
-                                </Link>
-                            </div>
-                            <button 
-                                onClick={handleConvertToClient}
-                                className="w-full text-center bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 transition-colors flex items-center justify-center">
-                                <span className="material-symbols-outlined mr-2">star</span>
-                                Convertir en Cliente
-                            </button>
-                        </div>
-                    </InfoCard>
-
-                    <InfoCard title="Información de Contacto">
-                        <div className="space-y-1">
-                            {prospect.phone && <InfoRow label="Teléfono" value={<a href={`tel:${prospect.phone}`} className="hover:underline">{prospect.phone}</a>} />}
-                            {prospect.email && <InfoRow label="Email" value={<a href={`mailto:${prospect.email}`} className="hover:underline">{prospect.email}</a>} />}
-                            {prospect.website && <InfoRow label="Sitio Web" value={<a href={prospect.website} target="_blank" rel="noopener noreferrer" className="hover:underline">{prospect.website}</a>} />}
-                            {prospect.address && <InfoRow label="Dirección" value={prospect.address} />}
-                            {prospect.candidateId && (
-                                <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700">
-                                     <Link to={`/prospecting/candidates/${prospect.candidateId}`} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
-                                        <span className="material-symbols-outlined !text-base">person_search</span>
-                                        Ver Candidato Original
-                                    </Link>
-                                </div>
-                            )}
-                        </div>
-                    </InfoCard>
-
-                    <InfoCard title="Estado y Acciones">
-                         {prospect.nextAction ? (
-                            <div>
-                                <p className="font-semibold text-slate-800 dark:text-slate-200">{prospect.nextAction.description}</p>
-                                <p className="text-sm text-red-600">Vence: {new Date(prospect.nextAction.dueDate).toLocaleDateString()}</p>
-                            </div>
-                        ) : (
-                            <p className="text-sm text-slate-500 dark:text-slate-400">No hay acciones programadas.</p>
-                        )}
-                        <div className="border-t border-slate-200 dark:border-slate-700 pt-3 mt-3 space-y-3">
-                            {prospect.pausedInfo && (
-                                <InfoRow label="Pausado" value={`${prospect.pausedInfo.reason} (Revisar en ${new Date(prospect.pausedInfo.reviewDate).toLocaleDateString()})`} />
-                            )}
-                            {prospect.lostInfo && (
-                                <InfoRow label="Perdido" value={`${prospect.lostInfo.reason} (en etapa ${prospect.lostInfo.stageLost})`} />
-                            )}
-                        </div>
-                         <button onClick={() => setIsActivityDrawerOpen(true)} className="w-full mt-2 text-indigo-600 dark:text-indigo-400 font-semibold text-sm flex items-center justify-center">
-                            <span className="material-symbols-outlined mr-1">add_comment</span>
-                            Registrar Actividad
-                        </button>
-                    </InfoCard>
-                </div>
-
-                {/* Right Content */}
-                <div className="lg:col-span-8 xl:col-span-9 space-y-6">
-                    <InfoCard title="Contactos Involucrados">
-                        {involvedContacts.length > 0 ? (
-                            <ul className="divide-y divide-slate-200 dark:divide-slate-700">
-                                {involvedContacts.map(contact => (
-                                    <li key={contact.id} className="py-3 flex items-center space-x-4">
-                                        <span className="material-symbols-outlined text-slate-400 dark:text-slate-500">person</span>
-                                        <div className="flex-1">
-                                            <p className="text-sm font-medium text-slate-900 dark:text-slate-200">{contact.name}</p>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400">{contact.role}</p>
-                                        </div>
-                                        <a href={`mailto:${contact.email}`} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">{contact.email}</a>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No hay contactos asociados.</p>
-                        )}
-                        <button onClick={() => setIsContactDrawerOpen(true)} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 flex items-center mt-2">
-                            <span className="material-symbols-outlined mr-1 text-lg">add_circle</span>
-                            Añadir Contacto
-                        </button>
-                    </InfoCard>
-
-                    <ActivityFeed activities={activities} usersMap={usersMap} />
                     <NotesSection 
-                        entityId={prospect.id}
+                        entityId={id || ''}
                         entityType="prospect"
-                        notes={prospectNotes}
+                        notes={notes}
                         onNoteAdded={handleNoteAdded}
                     />
                 </div>
+                
+                <div className="lg:col-span-1 space-y-6">
+                    <InfoCard title="Detalles del Prospecto">
+                        <InfoRow label="Valor Estimado" value={`$${prospect.estValue.toLocaleString()}`} />
+                        <InfoRow label="Prioridad" value={<Badge text={prospect.priority} />} />
+                        <InfoRow label="Responsable" value={owner?.name || 'N/A'} />
+                        <InfoRow label="Creado" value={new Date(prospect.createdAt).toLocaleDateString()} />
+                    </InfoCard>
 
-                <ActivityDrawer 
-                    isOpen={isActivityDrawerOpen}
-                    onClose={() => setIsActivityDrawerOpen(false)}
-                    prospectId={prospect.id}
-                    onAddActivity={handleAddActivity}
-                />
-
-                <ContactDrawer
-                    isOpen={isContactDrawerOpen}
-                    onClose={() => setIsContactDrawerOpen(false)}
-                    onSave={handleSaveContact}
-                />
-
-                <SuggestionModal
-                    isOpen={isSuggestionModalOpen}
-                    onClose={() => setIsSuggestionModalOpen(false)}
-                    title="Análisis con IA por Studio AI"
-                >
-                    {suggestionLoading ? (
-                        <div className="flex flex-col items-center justify-center h-32">
-                            <Spinner />
-                            <p className="mt-2 text-slate-500 dark:text-slate-400">Analizando datos del prospecto...</p>
-                        </div>
-                    ) : suggestionError ? (
-                        <div className="text-red-600">
-                            <p className="font-semibold">Error al generar sugerencia:</p>
-                            <p>{suggestionError}</p>
-                        </div>
-                    ) : (
-                        <SimpleMarkdown text={suggestion} />
-                    )}
-                </SuggestionModal>
+                    <ActivityFeed activities={activities} usersMap={usersMap} />
+                </div>
             </div>
         </div>
     );

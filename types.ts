@@ -453,6 +453,7 @@ export interface PurchaseOrder {
     quoteAttachment?: Attachment;
     quoteAttachments?: Attachment[];
     invoiceAttachment?: Attachment;
+    invoiceAttachments?: Attachment[]; // Added to support multiple invoices
     payments?: PurchasePayment[];
 }
 

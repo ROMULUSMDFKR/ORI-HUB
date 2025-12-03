@@ -22,6 +22,7 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
     const { data: templates, loading: templatesLoading } = useCollection<SignatureTemplate>('signatureTemplates');
     
     const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
+    const [editingAccount, setEditingAccount] = useState<ConnectedEmailAccount | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
     // Fetch accounts whenever the drawer opens for a specific user
@@ -48,26 +49,43 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
         fetchAccounts();
     }, [user]);
 
-    const handleSaveNewAccount = async (account: ConnectedEmailAccount) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const handleSaveAccount = async (account: ConnectedEmailAccount) => {
         const { id, ...accountData } = account;
         try {
-            const newDoc = await api.addDoc('connectedAccounts', accountData);
-            // Update local list immediately
-            setAccounts(prev => [...prev, newDoc]);
-            alert("Cuenta guardada correctamente.");
+            if (editingAccount) {
+                // Update existing
+                await api.updateDoc('connectedAccounts', editingAccount.id, accountData);
+                // Update local list
+                setAccounts(prev => prev.map(acc => acc.id === editingAccount.id ? { ...acc, ...accountData, id: editingAccount.id } : acc));
+                alert("Cuenta actualizada correctamente.");
+            } else {
+                // Create new
+                const newDoc = await api.addDoc('connectedAccounts', accountData);
+                // Update local list
+                setAccounts(prev => [...prev, newDoc]);
+                alert("Cuenta conectada correctamente.");
+            }
+            
             setIsAddDrawerOpen(false);
+            setEditingAccount(null);
         } catch (e) {
             console.error(e);
             alert("Error al guardar la cuenta.");
         }
     };
 
-    const handleDeleteAccount = async (e: React.MouseEvent, accountId: string) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const handleEditClick = (account: ConnectedEmailAccount) => {
+        setEditingAccount(account);
+        setIsAddDrawerOpen(true);
+    };
 
-        if (window.confirm('¿Estás seguro de que quieres eliminar esta cuenta de correo?')) {
+    const handleAddClick = () => {
+        setEditingAccount(null);
+        setIsAddDrawerOpen(true);
+    };
+
+    const handleDeleteAccount = async (accountId: string) => {
+        if (window.confirm('¿Estás seguro de que quieres eliminar esta cuenta de correo? Tendrás que volver a conectarla.')) {
             setDeletingId(accountId);
             try {
                 await api.deleteDoc('connectedAccounts', accountId);
@@ -75,7 +93,7 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
                 setAccounts(prev => prev.filter(acc => acc.id !== accountId));
             } catch (error) {
                 console.error("Error deleting account:", error);
-                alert("Error al eliminar la cuenta.");
+                alert("Error al eliminar la cuenta. Intenta de nuevo.");
             } finally {
                 setDeletingId(null);
             }
@@ -115,7 +133,7 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
                 {loading ? <Spinner /> : (
                     <div className="space-y-6">
                         <div>
-                            <h4 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Cuentas Conectadas</h4>
+                            <h4 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Cuentas Conectadas (Lectura Nylas)</h4>
                             {accounts.length > 0 ? (
                                 <ul className="space-y-3">
                                     {accounts.map(acc => (
@@ -127,23 +145,45 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
                                                         <span className="material-symbols-outlined text-xl">mail</span>
                                                     </div>
                                                     <div>
-                                                        <p className="font-bold text-slate-800 dark:text-slate-200">{acc.email}</p>
-                                                        <Badge text={acc.status} color={getStatusColor(acc.status)} />
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-bold text-slate-800 dark:text-slate-200">{acc.email}</p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <Badge text={acc.status} color={getStatusColor(acc.status)} />
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <button 
-                                                    type="button"
-                                                    onClick={(e) => handleDeleteAccount(e, acc.id)} 
-                                                    disabled={deletingId === acc.id}
-                                                    className="p-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
-                                                    title="Eliminar cuenta"
-                                                >
-                                                    {deletingId === acc.id ? (
-                                                        <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span>
-                                                    ) : (
-                                                        <span className="material-symbols-outlined text-xl">delete</span>
-                                                    )}
-                                                </button>
+                                                <div className="flex gap-1">
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { 
+                                                            e.preventDefault(); 
+                                                            e.stopPropagation(); 
+                                                            handleEditClick(acc); 
+                                                        }}
+                                                        className="p-2 rounded-lg text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors"
+                                                        title="Editar credenciales"
+                                                    >
+                                                        <span className="material-symbols-outlined text-xl">edit</span>
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { 
+                                                            e.preventDefault(); 
+                                                            e.stopPropagation(); 
+                                                            handleDeleteAccount(acc.id); 
+                                                        }}
+                                                        disabled={deletingId === acc.id}
+                                                        className="p-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                                                        title="Eliminar cuenta"
+                                                    >
+                                                        {deletingId === acc.id ? (
+                                                            <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span>
+                                                        ) : (
+                                                            <span className="material-symbols-outlined text-xl">delete</span>
+                                                        )}
+                                                    </button>
+                                                </div>
                                             </div>
                                             
                                             <div className="pt-3 border-t border-slate-200 dark:border-slate-600">
@@ -170,7 +210,7 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
                         </div>
 
                         <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
-                            <button onClick={() => setIsAddDrawerOpen(true)} className="bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:bg-indigo-700 w-full flex items-center justify-center gap-2 transition-colors">
+                            <button onClick={handleAddClick} className="bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:bg-indigo-700 w-full flex items-center justify-center gap-2 transition-colors">
                                 <span className="material-symbols-outlined">add_link</span>
                                 Conectar Nueva Cuenta
                             </button>
@@ -180,9 +220,10 @@ const ManageUserEmailsDrawer: React.FC<ManageUserEmailsDrawerProps> = ({ user, o
             </Drawer>
             <AddEmailAccountDrawer
                 isOpen={isAddDrawerOpen}
-                onClose={() => setIsAddDrawerOpen(false)}
-                onSave={handleSaveNewAccount}
+                onClose={() => { setIsAddDrawerOpen(false); setEditingAccount(null); }}
+                onSave={handleSaveAccount}
                 user={user}
+                initialData={editingAccount}
             />
         </>
     );

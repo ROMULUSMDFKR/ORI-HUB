@@ -9,23 +9,33 @@ interface AddEmailAccountDrawerProps {
   onClose: () => void;
   onSave: (account: ConnectedEmailAccount) => void;
   user: User | null;
+  initialData?: ConnectedEmailAccount | null; // New prop for editing
 }
 
-const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, onClose, onSave, user }) => {
+const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, onClose, onSave, user, initialData }) => {
+    // Nylas Config
     const [grantId, setGrantId] = useState('');
     const [apiKey, setApiKey] = useState('');
+    
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        if (!isOpen) {
-            setGrantId('');
-            setApiKey('');
+        if (isOpen) {
+            if (initialData && initialData.nylasConfig) {
+                // Edit Mode
+                setGrantId(initialData.nylasConfig.grantId || '');
+                setApiKey(initialData.nylasConfig.apiKey || '');
+            } else {
+                // Create Mode
+                setGrantId('');
+                setApiKey('');
+            }
             setIsSaving(false);
         }
-    }, [isOpen]);
+    }, [isOpen, initialData]);
 
     const handleSave = async () => {
-        // TRIM INPUTS to avoid common copy-paste errors with whitespace
+        // TRIM INPUTS
         const cleanGrantId = grantId.trim();
         const cleanApiKey = apiKey.trim();
 
@@ -33,6 +43,7 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
             alert("Por favor ingresa el Grant ID y la API Key de Nylas.");
             return;
         }
+
         setIsSaving(true);
         
         let emailToSave = '';
@@ -50,19 +61,18 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                console.error("Nylas API Error Details:", JSON.stringify(errorData, null, 2)); // Improved logging
+                console.error("Nylas API Error Details:", JSON.stringify(errorData, null, 2)); 
                 const errorMessage = errorData.message || errorData.requestId || response.statusText || 'Credenciales inválidas';
                 throw new Error(`Error ${response.status}: ${errorMessage}`);
             }
             
             const data = await response.json();
-            emailToSave = data.data.email; // Nylas v3 returns data wrapper
+            emailToSave = data.data.email; 
 
         } catch (error: any) {
             console.error("Nylas Error:", error);
             verificationFailed = true;
             
-            // Allow user to bypass verification if they are sure
             const proceed = window.confirm(
                 `No se pudo verificar la conexión con Nylas.\n\nDetalle: ${error.message}\n\n¿Deseas guardar estas credenciales de todas formas? (Esto puede causar errores al leer correos)`
             );
@@ -72,13 +82,12 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
                 return;
             }
 
-            // Fallback email if verification failed
-            emailToSave = user?.email || 'cuenta-nylas@pendiente.com';
+            emailToSave = initialData?.email || user?.email || 'cuenta-nylas@pendiente.com';
         }
 
         if (user) {
             const newAccount: ConnectedEmailAccount = {
-                id: `acc-${Date.now()}`,
+                id: initialData?.id || `acc-${Date.now()}`, // Keep ID if editing
                 userId: user.id,
                 email: emailToSave,
                 status: verificationFailed ? 'Error de autenticación' : 'Conectado',
@@ -86,8 +95,10 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
                 nylasConfig: {
                     grantId: cleanGrantId,
                     apiKey: cleanApiKey
-                }
+                },
+                signatureTemplate: initialData?.signatureTemplate || '' // Preserve existing settings or default to empty string
             };
+            
             onSave(newAccount);
         }
         
@@ -96,63 +107,64 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
     };
 
     return (
-        <Drawer isOpen={isOpen} onClose={onClose} title="Conectar Cuenta (Nylas)" size="lg">
-            <div className="space-y-6">
+        <Drawer isOpen={isOpen} onClose={onClose} title={initialData ? "Editar Conexión" : "Conectar Cuenta de Correo"} size="lg">
+            <div className="space-y-8">
                 
-                <div className="bg-gradient-to-br from-blue-600 to-cyan-500 p-6 rounded-xl text-white shadow-lg">
-                    <div className="flex items-start gap-4">
-                        <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
-                            <span className="material-symbols-outlined text-3xl">cloud_sync</span>
+                {/* NYLAS SECTION (Reading & Sync) */}
+                <div className="space-y-6">
+                    <div className="bg-gradient-to-br from-blue-600 to-cyan-500 p-6 rounded-xl text-white shadow-lg">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
+                                <span className="material-symbols-outlined text-3xl">cloud_sync</span>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold mb-2">Conexión Nylas v3</h3>
+                                <p className="text-blue-50 text-sm leading-relaxed">
+                                    {initialData 
+                                        ? "Actualiza las credenciales si la conexión ha fallado o expirado." 
+                                        : "Ingresa las credenciales de tu aplicación Nylas para sincronizar la bandeja de entrada."}
+                                </p>
+                            </div>
                         </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-indigo-500">key</span>
+                            Credenciales
+                        </h4>
+                        
                         <div>
-                            <h3 className="text-xl font-bold mb-2">Conexión Directa Nylas v3</h3>
-                            <p className="text-blue-50 text-sm leading-relaxed">
-                                Conecta Gmail, Outlook, Exchange o IMAP al instante usando el motor de Nylas. 
-                                Tus correos se sincronizarán automáticamente sin servidores intermedios.
-                            </p>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nylas API Key</label>
+                            <input 
+                                type="password" 
+                                value={apiKey} 
+                                onChange={e => setApiKey(e.target.value)} 
+                                className="block w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                placeholder="nyk_v1_..."
+                            />
+                             <p className="text-xs text-slate-500 mt-1">Obtenla en Nylas Dashboard &gt; Developer Settings.</p>
                         </div>
-                    </div>
-                </div>
 
-                <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-indigo-500">key</span>
-                        Credenciales de API
-                    </h4>
-                    
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nylas API Key</label>
-                        <input 
-                            type="password" 
-                            value={apiKey} 
-                            onChange={e => setApiKey(e.target.value)} 
-                            className="block w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                            placeholder="nyk_v1_..."
-                        />
-                         <p className="text-xs text-slate-500 mt-1">Copia esto desde tu Dashboard de Nylas &gt; Developer Settings.</p>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Grant ID (ID de Cuenta)</label>
-                        <input 
-                            type="text" 
-                            value={grantId} 
-                            onChange={e => setGrantId(e.target.value)} 
-                            className="block w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
-                            placeholder="e.g. 85800b..."
-                        />
-                        <p className="text-xs text-slate-500 mt-1">El ID generado al conectar una cuenta en el Dashboard de Nylas (sección Grants).</p>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Grant ID (ID de Cuenta)</label>
+                            <input 
+                                type="text" 
+                                value={grantId} 
+                                onChange={e => setGrantId(e.target.value)} 
+                                className="block w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                                placeholder="e.g. 85800b..."
+                            />
+                            <p className="text-xs text-slate-500 mt-1">El ID generado al autenticar la cuenta de correo en Nylas.</p>
+                        </div>
                     </div>
                 </div>
 
                 <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300">
-                    <strong>¿Cómo obtener estos datos?</strong>
-                    <ol className="list-decimal list-inside mt-2 space-y-1 text-xs">
-                        <li>Ve a <a href="https://dashboard.nylas.com" target="_blank" rel="noreferrer" className="text-indigo-500 underline">dashboard.nylas.com</a></li>
-                        <li>Copia la <b>API Key</b> de la sección principal.</li>
-                        <li>Ve a la sección <b>Connect</b> y conecta tu cuenta de Gmail/Outlook.</li>
-                        <li>Copia el <b>Grant ID</b> que aparece junto a tu correo conectado.</li>
-                    </ol>
+                    <strong>Nota sobre el envío:</strong>
+                    <p className="mt-2 text-xs">
+                        El sistema utilizará la configuración global de <b>MailerSend</b> para los envíos salientes. Asegúrate de que el dominio de este correo esté verificado en tu cuenta de MailerSend.
+                    </p>
                 </div>
 
                 {/* Footer Action */}
@@ -162,8 +174,8 @@ const AddEmailAccountDrawer: React.FC<AddEmailAccountDrawerProps> = ({ isOpen, o
                         disabled={isSaving}
                         className="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {isSaving ? <Spinner /> : <span className="material-symbols-outlined text-2xl">link</span>}
-                        <span>{isSaving ? 'Verificando...' : 'Conectar Cuenta'}</span>
+                        {isSaving ? <Spinner /> : <span className="material-symbols-outlined text-2xl">save</span>}
+                        <span>{isSaving ? 'Verificando...' : (initialData ? 'Actualizar Credenciales' : 'Conectar Cuenta')}</span>
                     </button>
                 </div>
 

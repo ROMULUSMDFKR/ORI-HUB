@@ -716,7 +716,7 @@ export interface Email {
     status: 'read' | 'unread';
     folder: 'inbox' | 'sent' | 'drafts' | 'trash' | 'archived';
     attachments: Attachment[];
-    deliveryStatus?: 'pending' | 'sent' | 'error'; 
+    deliveryStatus?: 'pending' | 'sent' | 'error' | 'received'; 
     snippet?: string; // For Nylas preview
     isStarred?: boolean;
     isArchived?: boolean;
@@ -741,6 +741,10 @@ export interface ConnectedEmailAccount {
     nylasConfig?: {
         grantId: string;
         apiKey: string;
+    };
+    mailerSendConfig?: {
+        apiKey: string;
+        email: string; // The verified sending email
     };
 }
 

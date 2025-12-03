@@ -6,6 +6,27 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import { db, storage, auth, firebaseConfig } from '../firebase'; // Importa la instancia de la base de datos y storage
 import { Invitation, User, Role } from '../types';
 
+// Helper to sanitize data for Firestore (remove undefined)
+const cleanPayload = (data: any): any => {
+    if (data === undefined) return null; 
+    if (data === null) return null;
+    if (data instanceof Date) return data;
+    if (data instanceof Timestamp) return data;
+    
+    if (Array.isArray(data)) {
+        return data.map(cleanPayload);
+    } else if (typeof data === 'object') {
+        return Object.keys(data).reduce((acc, key) => {
+            const value = data[key];
+            if (value !== undefined) {
+                acc[key] = cleanPayload(value);
+            }
+            return acc;
+        }, {} as any);
+    }
+    return data;
+};
+
 const logAudit = async (entity: string, entityId: string, action: string) => {
     const user = auth.currentUser;
     if (!user) return;
@@ -58,7 +79,8 @@ const getDoc = async (collectionName: string, docId: string): Promise<any | null
 
 const addFirebaseDoc = async (collectionName: string, newDoc: any): Promise<any> => {
     try {
-        const docRef = await addDoc(collection(db, collectionName), newDoc);
+        const cleanedDoc = cleanPayload(newDoc);
+        const docRef = await addDoc(collection(db, collectionName), cleanedDoc);
         
         if (collectionName !== 'auditLogs') {
             await logAudit(collectionName, docRef.id, 'Crear');
@@ -73,8 +95,9 @@ const addFirebaseDoc = async (collectionName: string, newDoc: any): Promise<any>
 
 const updateFirebaseDoc = async (collectionName: string, docId: string, updates: any): Promise<void> => {
     try {
+        const cleanedUpdates = cleanPayload(updates);
         const docRef = doc(db, collectionName, docId);
-        await updateDoc(docRef, updates);
+        await updateDoc(docRef, cleanedUpdates);
         
         if (collectionName !== 'auditLogs') {
             await logAudit(collectionName, docId, 'Actualizar');
@@ -159,7 +182,8 @@ const createUser = async (email: string, password: string): Promise<any> => {
 
 const setFirebaseDoc = async (collectionName: string, docId: string, data: any, options: any = {}): Promise<any> => {
     try {
-        await setDoc(doc(db, collectionName, docId), data, options);
+        const cleanedData = cleanPayload(data);
+        await setDoc(doc(db, collectionName, docId), cleanedData, options);
         
         if (collectionName !== 'auditLogs') {
             await logAudit(collectionName, docId, 'Crear/Sobrescribir');
@@ -195,7 +219,7 @@ const adminCreateUser = async (email: string, password: string, userData: Omit<U
             avatarUrl: `https://i.pravatar.cc/150?u=${uid}`,
         };
         
-        await setDoc(doc(db, 'users', uid), newUserProfile);
+        await setDoc(doc(db, 'users', uid), cleanPayload(newUserProfile));
         
         await logAudit('users', uid, 'Crear Usuario (Admin)');
 
@@ -231,7 +255,7 @@ const createInvitation = async (invitationData: Omit<Invitation, 'id' | 'created
             createdAt: new Date().toISOString(),
             status: 'pending'
         };
-        const docRef = await addDoc(collection(db, 'invitations'), newInvitation);
+        const docRef = await addDoc(collection(db, 'invitations'), cleanPayload(newInvitation));
         return docRef.id;
     } catch (error) {
         console.error("Error creating invitation:", error);
@@ -271,7 +295,7 @@ const registerUserWithInvitation = async (invitation: Invitation, password: stri
             hasCompletedOnboarding: false,
         };
         
-        await setDoc(doc(db, 'users', authUser.uid), newUserProfile);
+        await setDoc(doc(db, 'users', authUser.uid), cleanPayload(newUserProfile));
         
         await logAudit('users', authUser.uid, 'Registro por Invitación');
 

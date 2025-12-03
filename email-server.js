@@ -1,186 +1,214 @@
 
 const admin = require('firebase-admin');
-const imap = require('imap-simple');
-const { simpleParser } = require('simple-parser');
 const nodemailer = require('nodemailer');
-const fs = require('fs');
 
-// --- CONFIGURACIÓN (¡EDITA ESTO!) ---
-const EMAIL_CONFIG = {
-    user: 'TU_CORREO@dominio.com', // Tu correo completo
-    password: 'TU_CONTRASEÑA', // Tu contraseña real
-    host: 'mail.tudominio.com', // Host de Hostgator/cPanel
-    port: 993,
-    tls: true,
-    authTimeout: 10000
-};
+// Importación dinámica de node-fetch para compatibilidad
+let fetch;
+(async () => {
+    try {
+        const module = await import('node-fetch');
+        fetch = module.default;
+    } catch (e) {
+        fetch = global.fetch;
+    }
+})();
 
 // --- INICIALIZACIÓN DE FIREBASE ---
 try {
     const serviceAccount = require('./serviceAccountKey.json');
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-    });
-    console.log("🔥 Firebase conectado exitosamente.");
+    if (!admin.apps.length) {
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount)
+        });
+    }
+    console.log("🔥 Servidor de Correo ORI: Conectado a Firebase.");
 } catch (error) {
-    console.error("❌ ERROR CRÍTICO: No se encontró el archivo 'serviceAccountKey.json'.");
+    console.error("❌ ERROR: No se encontró 'serviceAccountKey.json'. Asegúrate de tener este archivo en la misma carpeta.");
     process.exit(1);
 }
 
 const db = admin.firestore();
 
-// --- 1. FUNCIÓN PARA ENVIAR CORREOS (SALIDA) ---
-async function startSender() {
-    const transporter = nodemailer.createTransport({
-        host: EMAIL_CONFIG.host, // Mismo host que IMAP para cPanel normalmente
-        port: 465,
-        secure: true,
-        auth: {
-            user: EMAIL_CONFIG.user,
-            pass: EMAIL_CONFIG.password
+// --- CONFIGURACIÓN GLOBAL ---
+let mailerSendConfig = null;
+let nylasAccounts = [];
+
+// --- 1. ESCUCHAR CONFIGURACIÓN EN TIEMPO REAL ---
+function syncConfiguration() {
+    // Configuración de envío (MailerSend)
+    db.collection('settings').doc('mailConfig').onSnapshot(doc => {
+        if (doc.exists) {
+            mailerSendConfig = doc.data();
+            console.log("✅ Configuración de envío (MailerSend) cargada.");
         }
     });
 
-    // Escuchar cambios en Firestore para correos pendientes
-    db.collection('emails').where('deliveryStatus', '==', 'pending')
-        .onSnapshot(snapshot => {
-            snapshot.docChanges().forEach(async (change) => {
-                if (change.type === 'added') {
-                    const emailDoc = change.doc.data();
-                    const docId = change.doc.id;
+    // Cuentas conectadas (Nylas)
+    db.collection('connectedAccounts').where('provider', '==', 'nylas').onSnapshot(snapshot => {
+        nylasAccounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log(`👥 Cuentas de Nylas detectadas: ${nylasAccounts.length}`);
+    });
+}
 
-                    console.log(`📤 Solicitud de envío detectada para: ${emailDoc.to[0].email}...`);
+// --- 2. ENVIAR CORREOS (OUTBOX) ---
+async function startSender() {
+    db.collection('emails').where('deliveryStatus', '==', 'pending')
+        .onSnapshot(async (snapshot) => {
+            if (snapshot.empty) return;
+
+            if (!mailerSendConfig?.apiKey || !mailerSendConfig?.email) {
+                console.warn("⚠️ Intento de envío detectado pero falta configuración de MailerSend.");
+                return;
+            }
+
+            const transporter = nodemailer.createTransport({
+                host: "smtp.mailersend.net",
+                port: 587,
+                secure: false,
+                auth: {
+                    user: mailerSendConfig.email,
+                    pass: mailerSendConfig.apiKey
+                }
+            });
+
+            for (const docChange of snapshot.docChanges()) {
+                if (docChange.type === 'added') {
+                    const emailData = docChange.doc.data();
+                    const docId = docChange.doc.id;
+
+                    console.log(`📤 Enviando correo a: ${emailData.to[0].email}`);
 
                     try {
                         await transporter.sendMail({
-                            from: `"${emailDoc.from.name}" <${EMAIL_CONFIG.user}>`,
-                            to: emailDoc.to.map(t => t.email).join(','),
-                            subject: emailDoc.subject,
-                            html: emailDoc.body
+                            from: `"${emailData.from.name}" <${mailerSendConfig.email}>`,
+                            to: emailData.to.map(t => t.email).join(','),
+                            replyTo: emailData.from.email,
+                            subject: emailData.subject,
+                            html: emailData.body
                         });
 
                         await db.collection('emails').doc(docId).update({
                             deliveryStatus: 'sent',
-                            folder: 'sent'
+                            folder: 'sent', // Mover a carpeta de enviados visualmente
+                            sentAt: new Date().toISOString()
                         });
-                        console.log("✅ Correo enviado exitosamente.");
+                        console.log(`✅ Correo enviado exitosamente.`);
 
                     } catch (error) {
-                        console.error("❌ Error enviando correo:", error);
+                        console.error("❌ Error al enviar:", error.message);
                         await db.collection('emails').doc(docId).update({
-                            deliveryStatus: 'error'
+                            deliveryStatus: 'error',
+                            errorMessage: error.message
                         });
                     }
                 }
-            });
+            }
         });
 }
 
-// --- 2. FUNCIÓN PARA RECIBIR CORREOS (ENTRADA) ---
-async function fetchEmails() {
-    console.log("🔄 Conectando a Hostgator para buscar correos...");
-    
-    const config = {
-        imap: {
-            user: EMAIL_CONFIG.user,
-            password: EMAIL_CONFIG.password,
-            host: EMAIL_CONFIG.host,
-            port: EMAIL_CONFIG.port,
-            tls: EMAIL_CONFIG.tls,
-            authTimeout: 10000
-        }
-    };
+// --- 3. LEER CORREOS (INBOX - NYLAS) ---
+async function fetchNylasEmails() {
+    if (nylasAccounts.length === 0) {
+        console.log("ℹ️ No hay cuentas conectadas para sincronizar.");
+        return;
+    }
 
-    try {
-        const connection = await imap.connect(config);
-        await connection.openBox('INBOX');
+    console.log("🔄 Iniciando sincronización de bandeja de entrada...");
 
-        // FIX: Usar 'ALL' para traer correos leídos y no leídos
-        const searchCriteria = ['ALL'];
-        
-        // Fetch solo headers para ser rápido
-        const fetchOptions = { 
-            bodies: ['HEADER', 'TEXT', ''], 
-            markSeen: false // No marcar como leído automáticamente para no afectar otros clientes
-        };
-        
-        console.log("🔎 Buscando mensajes...");
-        let messages = await connection.search(searchCriteria, fetchOptions);
+    for (const account of nylasAccounts) {
+        if (!account.nylasConfig?.grantId || !account.nylasConfig?.apiKey) continue;
 
-        // FIX: Limitar a los últimos 10 mensajes para evitar sobrecarga
-        if (messages.length > 10) {
-            console.log(`⚠️ Se encontraron ${messages.length} correos. Procesando solo los últimos 10...`);
-            messages = messages.slice(-10);
-        } else if (messages.length > 0) {
-            console.log(`📥 Se encontraron ${messages.length} correos nuevos.`);
-        } else {
-            console.log("👍 Todo al día. No hay correos.");
-        }
+        const { grantId, apiKey } = account.nylasConfig;
+        const userEmail = account.email;
 
-        for (const item of messages) {
-            const all = item.parts.find(part => part.which === '');
-            const id = item.attributes.uid;
-            const idHeader = "Imap-Id: "+id+"\r\n";
+        try {
+            // Obtener mensajes (Límite 20 para rapidez)
+            const url = `https://api.us.nylas.com/v3/grants/${grantId}/messages?limit=20`;
             
-            const mail = await simpleParser(idHeader + all.body);
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            });
 
-            // Verificar si ya existe en Firestore para no duplicar (básico)
-            // Nota: En producción, usaría el UID o Message-ID como clave única.
-            // Aquí simplemente lo agregamos (Firestore creará ID nuevo), 
-            // en una app real deberías checar duplicados antes de add().
+            if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
-            const newEmail = {
-                from: { 
-                    name: mail.from.value[0].name || mail.from.value[0].address, 
-                    email: mail.from.value[0].address 
-                },
-                to: [{ name: 'Yo', email: EMAIL_CONFIG.user }],
-                subject: mail.subject,
-                body: mail.html || mail.textAsHtml || mail.text,
-                timestamp: mail.date ? new Date(mail.date).toISOString() : new Date().toISOString(),
-                folder: 'inbox',
-                status: 'read', // Asumimos leído si ya estaba en el server, o unread.
-                deliveryStatus: 'received',
-                attachments: [] 
-            };
+            const json = await response.json();
+            const messages = json.data || [];
 
-            // Simple check anti-duplicado por timestamp y subject (muy básico)
-            const exists = await db.collection('emails')
-                .where('timestamp', '==', newEmail.timestamp)
-                .where('subject', '==', newEmail.subject)
-                .get();
+            console.log(`📥 ${userEmail}: Procesando ${messages.length} mensajes...`);
 
-            if (exists.empty) {
-                await db.collection('emails').add(newEmail);
-                console.log(`✨ Guardado: ${mail.subject}`);
-            } else {
-                // console.log(`Skipping duplicate: ${mail.subject}`);
+            const batch = db.batch();
+            let operationCount = 0;
+
+            for (const msg of messages) {
+                // Usar el ID del mensaje como ID del documento para evitar duplicados
+                const docRef = db.collection('emails').doc(msg.id);
+                
+                const fromObj = msg.from?.[0] || { name: 'Desconocido', email: 'unknown' };
+                const isSentByMe = fromObj.email.toLowerCase() === userEmail.toLowerCase();
+
+                const emailData = {
+                    id: msg.id, // ID para React keys
+                    nylasId: msg.id,
+                    threadId: msg.thread_id,
+                    userId: account.userId, // Dueño de la cuenta
+                    
+                    subject: msg.subject || '(Sin asunto)',
+                    body: msg.body || msg.snippet || 'Contenido no disponible',
+                    snippet: msg.snippet || '',
+                    
+                    from: fromObj,
+                    to: msg.to || [],
+                    
+                    // Convertir timestamp Unix a ISO String
+                    timestamp: new Date(msg.date * 1000).toISOString(),
+                    
+                    status: msg.unread ? 'unread' : 'read',
+                    
+                    // Determinar carpeta visualmente
+                    folder: isSentByMe ? 'sent' : 'inbox',
+                    
+                    deliveryStatus: 'received'
+                };
+
+                batch.set(docRef, emailData, { merge: true });
+                operationCount++;
             }
-        }
 
-        connection.end();
-    } catch (error) {
-        console.error("⚠️ Error de conexión IMAP:", error.message);
+            if (operationCount > 0) {
+                await batch.commit();
+                console.log(`✅ ${userEmail}: ${operationCount} correos sincronizados.`);
+            }
+
+            // Actualizar estado "Conectado"
+            await db.collection('connectedAccounts').doc(account.id).update({ status: 'Conectado', lastSync: new Date().toISOString() });
+
+        } catch (error) {
+            console.error(`❌ Error sincronizando ${userEmail}:`, error.message);
+            await db.collection('connectedAccounts').doc(account.id).update({ status: 'Error de autenticación' });
+        }
     }
 }
 
-// --- INICIO DEL SERVIDOR ---
-console.log("🚀 Servidor de Correos ORI Iniciado [Modo Mejorado]");
-console.log("1. Escuchando correos salientes (Tiempo Real)");
-console.log("2. Esperando señal de la App para buscar correos entrantes...");
+// --- MAIN LOOP ---
+(async () => {
+    syncConfiguration();
+    startSender();
 
-startSender(); 
+    // Escuchar petición manual de sincronización desde el botón del frontend
+    db.collection('settings').doc('mailSync').onSnapshot((doc) => {
+        const data = doc.data();
+        // Si la petición es reciente (menos de 1 min), ejecutar
+        if (data?.lastSyncRequest && (Date.now() - new Date(data.lastSyncRequest).getTime() < 60000)) {
+            console.log("⚡ Sincronización manual solicitada desde la web.");
+            fetchNylasEmails();
+        }
+    });
 
-// ESCUCHAR SEÑAL DE SINCRONIZACIÓN DESDE LA APP
-// Cuando le des click al botón "Recargar" en la App, este código se activará.
-db.collection('settings').doc('mailSync').onSnapshot((doc) => {
-    const data = doc.data();
-    // Si el timestamp cambia, significa que alguien pidió actualizar
-    if (data && data.lastSyncRequest) {
-        console.log(`⚡ Señal recibida desde la App: ${new Date(data.lastSyncRequest).toLocaleTimeString()}`);
-        fetchEmails();
-    }
-});
-
-// Ejecutar una búsqueda inicial al arrancar
-fetchEmails();
+    // Sincronización automática al inicio y cada 5 mins
+    setTimeout(fetchNylasEmails, 2000);
+    setInterval(fetchNylasEmails, 300000);
+})();

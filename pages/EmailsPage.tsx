@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCollection } from '../hooks/useCollection';
-import { ConnectedEmailAccount, Email } from '../types';
+import { ConnectedEmailAccount, Email, Attachment } from '../types';
 import { api } from '../api/firebaseApi';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -38,7 +38,7 @@ const EmailsPage: React.FC = () => {
     const { showToast } = useToast();
     
     // Estado de la UI
-    const [view, setView] = useState<'inbox' | 'sent'>('inbox');
+    const [view, setView] = useState<'inbox' | 'sent' | 'drafts' | 'archived' | 'trash'>('inbox');
     const [selectedMessage, setSelectedMessage] = useState<Email | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
     
@@ -87,7 +87,7 @@ const EmailsPage: React.FC = () => {
             try {
                 console.log(`🔄 Sincronizando cuenta ${activeAccount.email}...`);
                 
-                const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/messages?limit=10`, {
+                const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/messages?limit=20`, {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${apiKey}`,
@@ -107,6 +107,24 @@ const EmailsPage: React.FC = () => {
                     for (const msg of messages) {
                         const fromObj = msg.from?.[0] || { name: 'Desconocido', email: 'unknown' };
                         const isSentByMe = fromObj.email.toLowerCase() === activeAccount.email.toLowerCase();
+                        
+                        // Map Folders / Labels
+                        let folder: 'inbox' | 'sent' | 'drafts' | 'trash' | 'archived' = 'inbox';
+                        const folders = msg.folders || [];
+                        
+                        if (folders.includes("SENT") || folders.includes("Sent Items") || isSentByMe) folder = 'sent';
+                        else if (folders.includes("DRAFTS") || folders.includes("Drafts")) folder = 'drafts';
+                        else if (folders.includes("TRASH") || folders.includes("Trash") || folders.includes("Bin")) folder = 'trash';
+                        else if (folders.includes("ARCHIVE") || folders.includes("Archive") || folders.includes("All Mail")) folder = 'archived';
+                        
+                        // Map Attachments
+                        const attachments: Attachment[] = (msg.attachments || []).map((att: any) => ({
+                            id: att.id,
+                            name: att.filename || 'Archivo adjunto',
+                            size: att.size || 0,
+                            url: '', // URL needs fetch with auth, handled in UI
+                            messageId: msg.id
+                        }));
 
                         const emailData: Email = {
                             id: msg.id,
@@ -118,8 +136,8 @@ const EmailsPage: React.FC = () => {
                             snippet: msg.snippet || '',
                             timestamp: new Date(msg.date * 1000).toISOString(),
                             status: msg.unread ? 'unread' : 'read',
-                            folder: isSentByMe ? 'sent' : 'inbox',
-                            attachments: [],
+                            folder: folder,
+                            attachments: attachments,
                             deliveryStatus: 'received'
                         };
                         
@@ -131,7 +149,6 @@ const EmailsPage: React.FC = () => {
 
             } catch (error) {
                 console.error("Error en sincronización directa:", error);
-                // No mostramos toast de error constante para no molestar, solo log
             } finally {
                 setIsSyncing(false);
             }
@@ -150,16 +167,45 @@ const EmailsPage: React.FC = () => {
     const displayedEmails = useMemo(() => {
         if (!firestoreEmails) return [];
         
-        let filtered = firestoreEmails;
-
-        if (view === 'inbox') {
-            filtered = filtered.filter(e => e.folder === 'inbox' || (!e.folder && e.deliveryStatus !== 'sent'));
-        } else if (view === 'sent') {
-            filtered = filtered.filter(e => e.folder === 'sent');
-        }
-
-        return filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        return firestoreEmails.filter(e => e.folder === view)
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     }, [firestoreEmails, view]);
+
+    // Función para descargar adjuntos usando la API Key de Nylas
+    const handleDownloadAttachment = async (attachment: Attachment) => {
+        if (!activeAccount?.nylasConfig) {
+             showToast('error', 'No hay cuenta conectada para descargar adjuntos.');
+             return;
+        }
+        
+        const { grantId, apiKey } = activeAccount.nylasConfig;
+        
+        try {
+            showToast('info', `Descargando ${attachment.name}...`);
+            const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/attachments/${attachment.id}/download`, {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`
+                }
+            });
+            
+            if (!response.ok) throw new Error('Error al descargar adjunto');
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = attachment.name;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            showToast('success', 'Descarga completada.');
+            
+        } catch (error) {
+            console.error(error);
+            showToast('error', 'No se pudo descargar el archivo.');
+        }
+    };
 
     // Enviar Correo Directamente (MailerSend API)
     const handleSend = async () => {
@@ -200,18 +246,19 @@ const EmailsPage: React.FC = () => {
                     const errorData = await response.json().catch(() => ({}));
                     console.error("MailerSend API response error:", errorData);
                     deliveryStatus = 'error';
-                    apiErrorMsg = errorData.message || "Error desconocido en API";
+                    apiErrorMsg = errorData.message || "Error de API (posible CORS o credenciales)";
                 } else {
                     deliveryStatus = 'sent';
                 }
-            } catch (netError) {
+            } catch (netError: any) {
                 console.warn("MailerSend fetch failed (likely CORS/Network):", netError);
-                // Fallback: Set to pending/sent so UI doesn't block user. 
-                // In a browser-only demo, we treat network failures (CORS) as "queued" or simulated success.
-                deliveryStatus = 'pending'; 
+                // If it's a network error (often CORS in browser), we mark as pending/simulation
+                // but user wants to connect. We tell them if it's CORS.
+                deliveryStatus = 'pending';
+                apiErrorMsg = "Restricción de navegador (CORS).";
             }
 
-            // 2. Guardar copia en Firestore ("Enviados")
+            // 2. Guardar copia en Firestore
             const newEmail: Email = {
                 id: `sent-${Date.now()}`,
                 from: { name: user?.name || 'Yo', email: mailerConfig.email },
@@ -230,9 +277,10 @@ const EmailsPage: React.FC = () => {
             if (deliveryStatus === 'sent') {
                 showToast('success', 'Correo enviado exitosamente.');
             } else if (deliveryStatus === 'pending') {
-                 showToast('info', 'Correo guardado en cola (Envío simulado por restricción de navegador).');
+                 // More descriptive message for the user
+                 showToast('info', 'Envío simulado (Bloqueo de seguridad del navegador/CORS detectado). El correo se guardó en Enviados.');
             } else {
-                showToast('warning', `No se pudo enviar: ${apiErrorMsg}. Se guardó copia local.`);
+                showToast('warning', `Error al enviar: ${apiErrorMsg}. Se guardó en Enviados (Error).`);
             }
 
             setIsComposeOpen(false);
@@ -246,6 +294,30 @@ const EmailsPage: React.FC = () => {
         } finally {
             setIsSending(false);
         }
+    };
+    
+    const handleSaveDraft = async () => {
+         if (!composeSubject && !composeTo) {
+             setIsComposeOpen(false);
+             return;
+         }
+         
+         const draftEmail: Email = {
+            id: `draft-${Date.now()}`,
+            from: { name: user?.name || 'Yo', email: mailerConfig?.email || '' },
+            to: [{ name: composeTo, email: composeTo }],
+            subject: composeSubject || '(Sin asunto)',
+            body: composeBody,
+            timestamp: new Date().toISOString(),
+            status: 'read',
+            folder: 'drafts',
+            deliveryStatus: 'pending',
+            attachments: []
+        };
+        
+        await api.addDoc('emails', draftEmail);
+        showToast('success', 'Borrador guardado.');
+        setIsComposeOpen(false);
     };
 
     const handleReply = () => {
@@ -279,17 +351,20 @@ const EmailsPage: React.FC = () => {
                     </button>
                 </div>
                 <nav className="flex-1 px-2 space-y-1">
-                    <button 
-                        onClick={() => setView('inbox')}
-                        className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${view === 'inbox' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                    >
+                    <button onClick={() => setView('inbox')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${view === 'inbox' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
                         <div className="flex items-center gap-3"><span className="material-symbols-outlined">inbox</span>Bandeja de Entrada</div>
                     </button>
-                    <button 
-                        onClick={() => setView('sent')}
-                        className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${view === 'sent' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                    >
+                    <button onClick={() => setView('sent')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${view === 'sent' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
                         <div className="flex items-center gap-3"><span className="material-symbols-outlined">send</span>Enviados</div>
+                    </button>
+                    <button onClick={() => setView('drafts')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${view === 'drafts' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                        <div className="flex items-center gap-3"><span className="material-symbols-outlined">draft</span>Borradores</div>
+                    </button>
+                     <button onClick={() => setView('archived')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${view === 'archived' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                        <div className="flex items-center gap-3"><span className="material-symbols-outlined">archive</span>Archivados</div>
+                    </button>
+                     <button onClick={() => setView('trash')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${view === 'trash' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                        <div className="flex items-center gap-3"><span className="material-symbols-outlined">delete</span>Papelera</div>
                     </button>
                 </nav>
                 <div className="p-4 border-t border-slate-200 dark:border-slate-700">
@@ -306,7 +381,7 @@ const EmailsPage: React.FC = () => {
             {/* Lista de Mensajes */}
             <div className={`w-full lg:w-96 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col ${selectedMessage ? 'hidden lg:flex' : 'flex'}`}>
                 <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg">{view === 'inbox' ? 'Recibidos' : 'Enviados'}</h3>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg capitalize">{view === 'inbox' ? 'Recibidos' : view}</h3>
                     <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">{displayedEmails.length}</span>
                 </div>
                 <div className="flex-1 overflow-y-auto">
@@ -315,7 +390,7 @@ const EmailsPage: React.FC = () => {
                     ) : displayedEmails.length === 0 ? (
                         <div className="text-center py-12 text-slate-400 px-6">
                             <span className="material-symbols-outlined text-5xl mb-3 text-slate-300">mark_email_unread</span>
-                            <p className="font-medium text-slate-600 dark:text-slate-300">Bandeja vacía</p>
+                            <p className="font-medium text-slate-600 dark:text-slate-300">Carpeta vacía</p>
                         </div>
                     ) : (
                         <ul className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -335,6 +410,12 @@ const EmailsPage: React.FC = () => {
                                     </div>
                                     <p className={`text-sm truncate mb-1 ${msg.status === 'unread' ? 'font-semibold text-indigo-700 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{msg.subject || '(Sin asunto)'}</p>
                                     <p className="text-xs text-slate-400 line-clamp-1">{msg.snippet || msg.body.replace(/<[^>]*>?/gm, '').substring(0, 60)}...</p>
+                                    {msg.attachments && msg.attachments.length > 0 && (
+                                        <div className="mt-2 flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-slate-400 text-xs">attach_file</span>
+                                            <span className="text-[10px] text-slate-500">{msg.attachments.length} adjunto(s)</span>
+                                        </div>
+                                    )}
                                 </li>
                             ))}
                         </ul>
@@ -370,6 +451,22 @@ const EmailsPage: React.FC = () => {
                                 </div>
                                 <span className="text-xs text-slate-500">{new Date(selectedMessage.timestamp).toLocaleString()}</span>
                             </div>
+
+                            {selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                    {selectedMessage.attachments.map((att) => (
+                                        <button 
+                                            key={att.id} 
+                                            onClick={() => handleDownloadAttachment(att)}
+                                            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-xs font-medium text-slate-700 dark:text-slate-300"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">attach_file</span>
+                                            <span className="truncate max-w-[150px]">{att.name}</span>
+                                            <span className="text-slate-400 text-[10px] ml-1">{(att.size / 1024).toFixed(0)}KB</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex-1 p-6 overflow-y-auto bg-white dark:bg-slate-800">
@@ -417,16 +514,21 @@ const EmailsPage: React.FC = () => {
                         />
                     </div>
                     
-                    <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700">
-                        <button onClick={() => setIsComposeOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors">Cancelar</button>
-                        <button 
-                            onClick={handleSend} 
-                            disabled={isSending}
-                            className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 transition-colors"
-                        >
-                            {isSending ? <Spinner /> : <span className="material-symbols-outlined">send</span>}
-                            {isSending ? 'Enviando...' : 'Enviar'}
-                        </button>
+                    <div className="pt-4 flex justify-between items-center border-t border-slate-100 dark:border-slate-700">
+                         <button onClick={handleSaveDraft} className="px-4 py-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1">
+                             <span className="material-symbols-outlined text-base">save</span> Guardar Borrador
+                         </button>
+                        <div className="flex gap-3">
+                            <button onClick={() => setIsComposeOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors">Cancelar</button>
+                            <button 
+                                onClick={handleSend} 
+                                disabled={isSending}
+                                className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 transition-colors"
+                            >
+                                {isSending ? <Spinner /> : <span className="material-symbols-outlined">send</span>}
+                                {isSending ? 'Enviando...' : 'Enviar'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </Drawer>

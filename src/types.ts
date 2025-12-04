@@ -453,6 +453,7 @@ export interface PurchaseOrder {
     quoteAttachment?: Attachment;
     quoteAttachments?: Attachment[];
     invoiceAttachment?: Attachment;
+    invoiceAttachments?: Attachment[]; // Added to support multiple invoices
     payments?: PurchasePayment[];
 }
 
@@ -705,6 +706,7 @@ export interface Notification {
 
 export interface Email {
     id: string;
+    nylasId?: string; // Nylas message ID for API operations
     threadId?: string; // Grouping identifier
     from: { name: string; email: string };
     to: { name: string; email: string }[];
@@ -729,6 +731,7 @@ export interface Attachment {
     size: number;
     url: string;
     messageId?: string; // Optional message ID for context in API calls
+    content_id?: string; // For inline images (CID)
 }
 
 export interface ConnectedEmailAccount {

@@ -453,7 +453,6 @@ export interface PurchaseOrder {
     quoteAttachment?: Attachment;
     quoteAttachments?: Attachment[];
     invoiceAttachment?: Attachment;
-    invoiceAttachments?: Attachment[]; // Added to support multiple invoices
     payments?: PurchasePayment[];
 }
 
@@ -717,7 +716,7 @@ export interface Email {
     status: 'read' | 'unread';
     folder: 'inbox' | 'sent' | 'drafts' | 'trash' | 'archived';
     attachments: Attachment[];
-    deliveryStatus?: 'pending' | 'sent' | 'error' | 'received'; 
+    deliveryStatus?: 'pending' | 'sent' | 'error'; 
     snippet?: string; // For Nylas preview
     isStarred?: boolean;
     isArchived?: boolean;
@@ -729,7 +728,6 @@ export interface Attachment {
     name: string;
     size: number;
     url: string;
-    messageId?: string; // Optional message ID for context in API calls
 }
 
 export interface ConnectedEmailAccount {
@@ -742,10 +740,6 @@ export interface ConnectedEmailAccount {
     nylasConfig?: {
         grantId: string;
         apiKey: string;
-    };
-    mailerSendConfig?: {
-        apiKey: string;
-        email: string; // The verified sending email
     };
 }
 

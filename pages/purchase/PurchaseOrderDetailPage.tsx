@@ -64,15 +64,6 @@ const PurchaseOrderDetailPage: React.FC = () => {
         if (!allNotes || !id) return [];
         return allNotes.filter(n => n.salesOrderId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [allNotes, id]);
-    
-    const allInvoices = useMemo(() => {
-        const list = order?.invoiceAttachments || [];
-        // Legacy support: if invoiceAttachment exists but isn't in the list, include it.
-        if (order?.invoiceAttachment && !list.some(a => a.id === order.invoiceAttachment!.id)) {
-            return [order.invoiceAttachment, ...list];
-        }
-        return list;
-    }, [order]);
 
 
     // --- STATUS MANAGEMENT ---
@@ -80,7 +71,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
         if (!order || !id) return;
 
         // Requirement: Request Invoice when changing to Facturada
-        if (newStatus === PurchaseOrderStatus.Facturada && (!order.invoiceAttachments || order.invoiceAttachments.length === 0) && !order.invoiceAttachment) {
+        if (newStatus === PurchaseOrderStatus.Facturada && !order.invoiceAttachment) {
             setIsInvoiceModalOpen(true);
             return;
         }
@@ -145,22 +136,10 @@ const PurchaseOrderDetailPage: React.FC = () => {
                 url: url
             };
 
-            // Update order with new attachment in array
-            const currentAttachments = order?.invoiceAttachments || (order?.invoiceAttachment ? [order.invoiceAttachment] : []) || [];
-            const updatedAttachments = [...currentAttachments, attachment];
-
-            await api.updateDoc('purchaseOrders', id, { 
-                invoiceAttachments: updatedAttachments,
-                // Update legacy field for backward compatibility if needed, or just keep the first one
-                invoiceAttachment: updatedAttachments[0] 
-            });
+            // Update order
+            await api.updateDoc('purchaseOrders', id, { invoiceAttachment: attachment });
             
-            setOrder(prev => prev ? ({ 
-                ...prev, 
-                invoiceAttachments: updatedAttachments,
-                invoiceAttachment: updatedAttachments[0]
-            }) : null);
-            
+            setOrder(prev => prev ? ({ ...prev, invoiceAttachment: attachment }) : null);
             showToast('success', 'Factura fiscal subida correctamente.');
             return attachment;
         } catch (error) {
@@ -521,7 +500,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
                         </div>
                     </div>
                     
-                     {/* Invoice Upload Section */}
+                     {/* Invoice Upload Section (RESTORED) */}
                      <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                         <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
                             <span className="material-symbols-outlined text-base">receipt_long</span>
@@ -545,34 +524,28 @@ const PurchaseOrderDetailPage: React.FC = () => {
                                 <>
                                     <span className="material-symbols-outlined text-xl text-slate-400">upload_file</span>
                                     <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                                        Subir Factura (PDF/XML)
+                                        {order.invoiceAttachment ? 'Reemplazar Factura' : 'Subir Factura (PDF/XML)'}
                                     </span>
                                 </>
                              )}
                          </div>
-                         
-                         {/* Display Attachments */}
-                         {allInvoices.length > 0 && (
-                             <div className="mt-3 space-y-2">
-                                 {allInvoices.map((att, index) => (
-                                    <div key={att.id || index} className="flex justify-between items-center bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-2 rounded-lg">
-                                        <div className="flex items-center gap-2 overflow-hidden">
-                                            <span className="material-symbols-outlined text-blue-600">description</span>
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[120px]">{att.name}</span>
-                                                <span className="text-xs text-slate-500">{(att.size / 1024).toFixed(1)} KB</span>
-                                            </div>
-                                        </div>
-                                        <a 
-                                            href={att.url} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-medium"
-                                        >
-                                            Ver
-                                        </a>
-                                    </div>
-                                 ))}
+                         {order.invoiceAttachment && (
+                             <div className="flex justify-between items-center mt-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-2 rounded-lg">
+                                 <div className="flex items-center gap-2 overflow-hidden">
+                                     <span className="material-symbols-outlined text-blue-600">description</span>
+                                     <div className="flex flex-col min-w-0">
+                                         <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[120px]">{order.invoiceAttachment.name}</span>
+                                         <span className="text-xs text-slate-500">{(order.invoiceAttachment.size / 1024).toFixed(1)} KB</span>
+                                     </div>
+                                 </div>
+                                 <a 
+                                    href={order.invoiceAttachment.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-medium"
+                                >
+                                    Ver
+                                </a>
                              </div>
                          )}
                      </div>
@@ -588,7 +561,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
                                         <span className="material-symbols-outlined text-red-500 text-lg">picture_as_pdf</span>
                                         <div className="min-w-0">
                                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{att.name}</p>
-                                            <p className="text--[10px] text-slate-400">{(att.size / 1024).toFixed(1)} KB</p>
+                                            <p className="text-[10px] text-slate-400">{(att.size / 1024).toFixed(1)} KB</p>
                                         </div>
                                     </div>
                                     <a 

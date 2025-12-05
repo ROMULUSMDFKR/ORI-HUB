@@ -1,531 +1,1111 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-import { ConnectedEmailAccount, Email, Attachment } from '../types';
-import { api } from '../api/firebaseApi';
-import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../hooks/useToast';
+import { Email, Attachment, ConnectedEmailAccount, SignatureTemplate } from '../types';
 import Spinner from '../components/ui/Spinner';
-import Drawer from '../components/ui/Drawer';
+import { useAuth } from '../hooks/useAuth';
+import { api } from '../api/firebaseApi';
+import { useToast } from '../hooks/useToast';
 
-// Componente auxiliar para renderizar HTML seguro en un iframe
-const EmailBodyViewer: React.FC<{ htmlContent: string }> = ({ htmlContent }) => {
+type EmailFolder = 'inbox' | 'sent' | 'drafts' | 'archived' | 'trash';
+type ComposeMode = 'new' | 'reply' | 'forward';
+
+// BUSINESS TAGS CONFIGURATION
+const BUSINESS_TAGS: Record<string, string> = {
+    'Cotización': 'bg-blue-100 text-blue-700 border-blue-200',
+    'Factura': 'bg-green-100 text-green-700 border-green-200',
+    'Logística': 'bg-orange-100 text-orange-700 border-orange-200',
+    'Urgente': 'bg-red-100 text-red-700 border-red-200',
+    'Soporte': 'bg-purple-100 text-purple-700 border-purple-200',
+    'Ventas': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+};
+
+const FOLDER_CONFIG: { id: EmailFolder; name: string; icon: string }[] = [
+    { id: 'inbox', name: 'Recibidos', icon: 'inbox' },
+    { id: 'sent', name: 'Enviados', icon: 'send' },
+    { id: 'drafts', name: 'Borradores', icon: 'drafts' },
+    { id: 'archived', name: 'Archivados', icon: 'archive' },
+];
+
+// --- UTILS ---
+
+const formatBytes = (bytes: number, decimals = 2): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+};
+
+const getSafeContactName = (contact: any): string => {
+    if (!contact) return 'Desconocido';
+    if (typeof contact === 'string') return contact;
+    return contact.name || contact.email || 'Desconocido';
+};
+
+const getSafeContactEmail = (contact: any): string => {
+    if (!contact) return '';
+    if (typeof contact === 'string') return contact;
+    return contact.email || '';
+};
+
+const stringToRecipients = (str: string): { name: string; email: string; }[] => {
+    if (!str) return [];
+    return str.split(/[,;]/).map(emailStr => {
+        const clean = emailStr.trim();
+        if (!clean) return null;
+        // Extract email if format is "Name <email>"
+        const match = clean.match(/<([^>]+)>/);
+        const email = match ? match[1] : clean;
+        const name = match ? clean.replace(match[0], '').trim() : email.split('@')[0];
+        return { name, email };
+    }).filter(Boolean) as { name: string; email: string; }[];
+};
+
+const formatDateSmart = (isoDate: string) => {
+    if (!isoDate) return '';
+    const date = new Date(isoDate);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const isThisYear = date.getFullYear() === now.getFullYear();
+
+    if (isToday) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    if (isThisYear) {
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+// --- SUB-COMPONENTS ---
+
+const AttachmentModal: React.FC<{ isOpen: boolean; onClose: () => void; attachment: Attachment | null; }> = ({ isOpen, onClose, attachment }) => {
+    if (!isOpen || !attachment) return null;
+    const isImage = attachment.name.match(/\.(jpeg|jpg|gif|png|webp)$/i);
     return (
-        <div className="w-full h-full bg-white rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 relative">
-             {/* Overlay transparente para evitar que el iframe capture eventos de scroll del padre si es necesario, 
-                 pero permitiendo interacción interna */}
-            <iframe
-                title="Contenido del Correo"
-                srcDoc={`
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <style>
-                            body { 
-                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-                                margin: 0; 
-                                padding: 1.5rem; 
-                                color: #334155; 
-                                word-wrap: break-word; 
-                                line-height: 1.6;
-                            }
-                            img { max-width: 100%; height: auto; display: block; margin: 10px 0; }
-                            a { color: #4f46e5; text-decoration: underline; }
-                            blockquote { border-left: 4px solid #e2e8f0; padding-left: 1rem; margin-left: 0; color: #64748b; }
-                            /* Reset tables to prevent overflow */
-                            table { max-width: 100% !important; table-layout: fixed; }
-                        </style>
-                    </head>
-                    <body>${htmlContent || '<div style="text-align:center; color: #94a3b8; margin-top: 40px;">Selecciona un correo para leerlo.</div>'}</body>
-                    </html>
-                `}
-                className="w-full h-full border-none block bg-white"
-                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-            />
+        <div className="fixed inset-0 bg-black/90 z-[100] flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[95vh] flex flex-col overflow-hidden animate-zoom-in" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                    <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-slate-500">{isImage ? 'image' : 'description'}</span>
+                        <div>
+                            <h3 className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-md">{attachment.name}</h3>
+                            <span className="text-xs text-slate-500">{formatBytes(attachment.size)}</span>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><span className="material-symbols-outlined">close</span></button>
+                </div>
+                <div className="flex-1 p-0 overflow-auto flex items-center justify-center bg-slate-100 dark:bg-black/50 min-h-[300px]">
+                    {isImage ? <img src={attachment.url} alt={attachment.name} className="max-w-full max-h-full object-contain" /> : <div className="text-center py-12"><span className="material-symbols-outlined text-6xl text-slate-400 mb-4">insert_drive_file</span><p className="text-slate-500 dark:text-slate-400 mb-6">Vista previa no disponible.</p></div>}
+                </div>
+                <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end bg-white dark:bg-slate-800">
+                    <a href={attachment.url} download={attachment.name} target="_blank" rel="noreferrer" className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center gap-2"><span className="material-symbols-outlined">download</span> Descargar</a>
+                </div>
+            </div>
         </div>
     );
 };
 
-const EmailsPage: React.FC = () => {
-    const { user } = useAuth();
-    const { showToast } = useToast();
+// Advanced Email Frame that respects styles but blocks images securely until allowed
+const SafeEmailFrame: React.FC<{ htmlContent: string; showImages: boolean }> = ({ htmlContent, showImages }) => {
+    const [frameHeight, setFrameHeight] = useState('100px');
     
-    // Estado de la UI
-    const [view, setView] = useState<'inbox' | 'sent' | 'drafts' | 'archived' | 'trash'>('inbox');
-    const [selectedMessage, setSelectedMessage] = useState<Email | null>(null);
-    
-    // Estado crítico para el contenido
-    const [processedBody, setProcessedBody] = useState('');
-    const [isProcessingBody, setIsProcessingBody] = useState(false);
-    
-    // Carga de datos desde Firestore
-    const { data: firestoreEmails, loading: emailsLoading } = useCollection<Email>('emails');
-    const { data: connectedAccounts } = useCollection<ConnectedEmailAccount>('connectedAccounts');
-    
-    const [activeAccount, setActiveAccount] = useState<ConnectedEmailAccount | null>(null);
-    
-    // Estado para Componer
-    const [isComposeOpen, setIsComposeOpen] = useState(false);
-    const [composeTo, setComposeTo] = useState('');
-    const [composeSubject, setComposeSubject] = useState('');
-    const [composeBody, setComposeBody] = useState('');
-    const [isSending, setIsSending] = useState(false);
-
-    // 1. Seleccionar cuenta activa automáticamente
-    useEffect(() => {
-        if (connectedAccounts && connectedAccounts.length > 0 && !activeAccount) {
-            const myAccount = connectedAccounts.find(acc => acc.userId === user?.id);
-            setActiveAccount(myAccount || connectedAccounts[0]);
+    // Process HTML to handle images
+    const processedHtml = useMemo(() => {
+        let content = htmlContent || '';
+        
+        // Basic cleanup but respecting styles
+        if (!showImages) {
+            // Replace src with data-src-blocked to prevent loading
+            content = content.replace(/<img([^>]*?)src=["']([^"']*)["']([^>]*?)>/gi, (match, p1, src, p2) => {
+                return `<img ${p1} data-src-blocked="${src}" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 24 24' fill='none' stroke='%23cbd5e1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3e" style="opacity: 0.5; max-width: 100%; height: auto; border: 1px dashed #cbd5e1;" ${p2}>`;
+            });
+            // Block background images
+            content = content.replace(/background-image:/gi, 'x-background-image:');
+            content = content.replace(/background:/gi, 'x-background:');
         }
-    }, [connectedAccounts, user, activeAccount]);
 
-    // 2. CLIENT-SIDE QUEUE PROCESSOR (CRITICAL FIX)
-    // This effect watches for 'pending' emails and forces them to 'sent' to prevent getting stuck
-    useEffect(() => {
-        if (!firestoreEmails) return;
+        // Ensure links open in new tab
+        if (!content.includes('<base target="_blank">')) {
+             content = `<base target="_blank">${content}`;
+        }
 
-        const pendingEmails = firestoreEmails.filter(e => e.deliveryStatus === 'pending');
-
-        if (pendingEmails.length > 0) {
-            console.log(`[Queue] Procesando ${pendingEmails.length} correos encolados...`);
-            
-            pendingEmails.forEach(async (email) => {
-                // Simulate processing delay
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
-                // Attempt real send if configured (Optional, but good if it works)
-                if (activeAccount?.nylasConfig) {
-                    try {
-                        const { grantId, apiKey } = activeAccount.nylasConfig;
-                        const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/messages/send`, {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${apiKey}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                subject: email.subject,
-                                body: email.body,
-                                to: email.to
-                            })
-                        });
-                        if(response.ok) console.log("Enviado vía API Real");
-                    } catch (e) {
-                        console.warn("Fallo envío API Real (CORS/Network), usando fallback simulado.");
+        // Inject base styles for consistent rendering
+        // UPDATED: Changed default body color to #0f172a (slate-900) for darker, sharper text
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { 
+                        font-family: system-ui, -apple-system, sans-serif; 
+                        margin: 0; 
+                        padding: 0; 
+                        word-wrap: break-word; 
+                        color: #0f172a; /* Very Dark Gray for high contrast */
                     }
-                }
-
-                // FORCE UPDATE TO SENT (Unblocks the UI)
-                try {
-                    await api.updateDoc('emails', email.id, { 
-                        deliveryStatus: 'sent',
-                        folder: 'sent',
-                        sentAt: new Date().toISOString()
+                    img { max-width: 100%; height: auto; }
+                    a { color: #4f46e5; }
+                    blockquote { border-left: 3px solid #cbd5e1; padding-left: 12px; margin-left: 0; color: #64748b; }
+                    p { margin-bottom: 1em; }
+                    /* Dark mode support attempt */
+                    @media (prefers-color-scheme: dark) {
+                        body { color: #f8fafc; } /* Very Light Gray for dark mode */
+                        blockquote { border-left-color: #475569; color: #94a3b8; }
+                    }
+                </style>
+            </head>
+            <body>
+                ${content}
+                <div id="end-of-content"></div>
+                <script>
+                    // Report height to parent
+                    const ro = new ResizeObserver(() => {
+                        const height = document.body.scrollHeight;
+                        window.parent.postMessage({ type: 'email-frame-resize', height: height }, '*');
                     });
-                    showToast('success', `Correo a ${email.to[0].email} enviado.`);
-                } catch (e) {
-                    console.error("Error actualizando estado:", e);
-                }
-            });
-        }
-    }, [firestoreEmails, activeAccount, showToast]);
+                    ro.observe(document.body);
+                </script>
+            </body>
+            </html>
+        `;
+    }, [htmlContent, showImages]);
 
-
-    // 3. Procesar Imágenes Inline (Lógica Robusta con DOMParser)
+    // Listen for resize messages
     useEffect(() => {
-        const processEmailContent = async () => {
-            if (!selectedMessage) {
-                setProcessedBody('');
-                return;
-            }
-
-            // Si no hay API key, mostramos el raw body (mejor que nada)
-            if (!activeAccount?.nylasConfig) {
-                setProcessedBody(selectedMessage.body);
-                return;
-            }
-
-            setIsProcessingBody(true);
-            const { grantId, apiKey } = activeAccount.nylasConfig;
-
-            try {
-                // Parsear el HTML string a un documento DOM real para manipularlo
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(selectedMessage.body, 'text/html');
-                
-                // Buscar todas las imágenes
-                const images = doc.querySelectorAll('img');
-                
-                // Array de promesas para procesar imágenes en paralelo
-                const imagePromises = Array.from(images).map(async (img) => {
-                    const src = img.getAttribute('src');
-                    
-                    if (!src) return;
-
-                    // Caso 1: Imagen CID (Content-ID) - Típico de Outlook/Gmail incrustado
-                    if (src.startsWith('cid:')) {
-                        const contentId = src.replace('cid:', '');
-                        // Buscar en los adjuntos el que coincida con este content_id
-                        const attachment = selectedMessage.attachments.find(att => att.content_id === contentId || att.id === contentId);
-                        
-                        if (attachment) {
-                            try {
-                                // Include message_id in the query params as per Nylas v3 requirement
-                                const downloadUrl = `https://api.us.nylas.com/v3/grants/${grantId}/attachments/${attachment.id}/download?message_id=${selectedMessage.id}`;
-                                const response = await fetch(downloadUrl, {
-                                    headers: { 'Authorization': `Bearer ${apiKey}` }
-                                });
-                                if (response.ok) {
-                                    const blob = await response.blob();
-                                    const objectUrl = URL.createObjectURL(blob);
-                                    img.setAttribute('src', objectUrl); // Reemplazar src por el Blob local
-                                }
-                            } catch (err) {
-                                console.warn('Error cargando imagen CID:', contentId, err);
-                            }
-                        }
-                    } 
-                    // Caso 2: Imágenes alojadas privadamente que requieren Auth Headers
-                });
-
-                await Promise.all(imagePromises);
-                
-                // Serializar de nuevo a string
-                setProcessedBody(doc.body.innerHTML);
-
-            } catch (error) {
-                console.error("Error procesando cuerpo del correo:", error);
-                setProcessedBody(selectedMessage.body); // Fallback al original
-            } finally {
-                setIsProcessingBody(false);
+        const handler = (e: MessageEvent) => {
+            if (e.data && e.data.type === 'email-frame-resize' && typeof e.data.height === 'number') {
+                setFrameHeight(`${e.data.height + 20}px`);
             }
         };
-
-        processEmailContent();
-    }, [selectedMessage, activeAccount]);
-
-
-    const displayedEmails = useMemo(() => {
-        if (!firestoreEmails) return [];
-        
-        // Filter visually based on folder
-        // Note: 'pending' emails might be in 'sent' folder visually if we just created them
-        return firestoreEmails
-            .filter(e => e.folder === view)
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    }, [firestoreEmails, view]);
-
-    // Descargar adjunto
-    const handleDownloadAttachment = async (attachment: Attachment, email: Email) => {
-        if (!activeAccount?.nylasConfig) {
-             showToast('error', 'Conecta una cuenta para descargar.');
-             return;
-        }
-        const { grantId, apiKey } = activeAccount.nylasConfig;
-        
-        try {
-            showToast('info', `Intentando descargar ${attachment.name}...`);
-            // Ensure message_id is present
-            const messageId = email.nylasId || email.id;
-            const downloadUrl = `https://api.us.nylas.com/v3/grants/${grantId}/attachments/${attachment.id}/download?message_id=${messageId}`;
-
-            const response = await fetch(downloadUrl, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${apiKey}` }
-            });
-            
-            if (!response.ok) throw new Error('Error de descarga (CORS o Permisos)');
-            
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = attachment.name || 'archivo';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            showToast('success', 'Descarga completada.');
-        } catch (error) {
-            console.error("Download Error:", error);
-            showToast('error', 'No se pudo descargar. Intenta desde la versión web original.');
-        }
-    };
-
-    // --- ENVÍO DE CORREOS (Queue + Client Worker) ---
-    const handleSend = async () => {
-        if (!composeTo || !composeSubject || !composeBody) {
-            showToast('warning', 'Faltan campos obligatorios.');
-            return;
-        }
-
-        setIsSending(true);
-
-        try {
-            // Guardar en Firestore con estado 'pending'
-            // El useEffect arriba (Client-Side Queue Processor) lo detectará y lo pasará a 'sent'
-            const newEmailData: any = {
-                from: { name: user?.name || 'Yo', email: activeAccount?.email || 'user@app.com' },
-                to: [{ name: composeTo.split('@')[0], email: composeTo }],
-                subject: composeSubject,
-                body: composeBody,
-                timestamp: new Date().toISOString(),
-                status: 'read',
-                folder: 'sent',       // Place in Sent folder immediately
-                deliveryStatus: 'pending', // Mark as pending so the watcher picks it up
-                userId: user?.id
-            };
-
-            await api.addDoc('emails', newEmailData);
-            
-            setIsComposeOpen(false);
-            setComposeTo('');
-            setComposeSubject('');
-            setComposeBody('');
-            showToast('success', 'Correo encolado. Procesando...');
-
-        } catch (error: any) {
-            console.error("Error al encolar envío:", error);
-            showToast('error', `Error al guardar: ${error.message}`);
-        } finally {
-            setIsSending(false);
-        }
-    };
-    
-    // Guardar borrador local
-    const handleSaveDraft = async () => {
-         if (!composeSubject && !composeTo) {
-             setIsComposeOpen(false);
-             return;
-         }
-         const draft: any = {
-            from: { name: user?.name || 'Yo', email: activeAccount?.email || '' },
-            to: [{ name: composeTo, email: composeTo }],
-            subject: composeSubject || '(Borrador)',
-            body: composeBody,
-            timestamp: new Date().toISOString(),
-            status: 'read',
-            folder: 'drafts',
-            deliveryStatus: 'pending',
-            attachments: [],
-            userId: user?.id
-        };
-        await api.addDoc('emails', draft);
-        showToast('success', 'Borrador guardado.');
-        setIsComposeOpen(false);
-    };
-
-    // Disparar sincronización manual en el servidor
-    const triggerManualSync = async () => {
-        try {
-            await api.setDoc('settings', 'mailSync', { lastSyncRequest: new Date().toISOString() });
-            showToast('info', 'Solicitud de sincronización enviada.');
-        } catch (e) {
-            console.error(e);
-        }
-    };
+        window.addEventListener('message', handler);
+        return () => window.removeEventListener('message', handler);
+    }, []);
 
     return (
-        <div className="flex h-[calc(100vh-100px)] bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-            
-            {/* Sidebar de Carpetas */}
-            <div className="w-64 bg-slate-50 dark:bg-slate-900/50 border-r border-slate-200 dark:border-slate-700 flex flex-col">
-                <div className="p-4">
-                    <button 
-                        onClick={() => setIsComposeOpen(true)}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all"
-                    >
-                        <span className="material-symbols-outlined">edit</span>
-                        Redactar
-                    </button>
-                </div>
-                <nav className="flex-1 px-2 space-y-1">
-                    {[
-                        { id: 'inbox', label: 'Recibidos', icon: 'inbox' },
-                        { id: 'sent', label: 'Enviados', icon: 'send' },
-                        { id: 'drafts', label: 'Borradores', icon: 'draft' },
-                        { id: 'archived', label: 'Archivados', icon: 'archive' },
-                        { id: 'trash', label: 'Papelera', icon: 'delete' },
-                    ].map((item) => (
-                        <button 
-                            key={item.id}
-                            onClick={() => setView(item.id as any)} 
-                            className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${view === item.id ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <span className="material-symbols-outlined">{item.icon}</span>
-                                {item.label}
-                            </div>
-                        </button>
+        <iframe 
+            srcDoc={processedHtml} 
+            title="Email Content" 
+            style={{ width: '100%', height: frameHeight, border: 'none', overflow: 'hidden' }} 
+            sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-scripts" // Scripts needed for resize observer
+        />
+    );
+};
+
+
+const EmailListItem: React.FC<{ email: Email; isSelected: boolean; onSelect: () => void; onToggleStar: (e: React.MouseEvent) => void; onArchive: (e: React.MouseEvent) => void; onDeleteTag: (tag: string, e: React.MouseEvent) => void; }> = ({ email, isSelected, onSelect, onToggleStar, onArchive, onDeleteTag }) => {
+    const isUnread = email.status === 'unread';
+    
+    let displayContact = email.folder === 'sent' ? `Para: ${getSafeContactName(email.to?.[0])}` : getSafeContactName(email.from);
+    const displaySnippet = email.snippet || (email.body ? email.body.replace(/<[^>]*>?/gm, '').substring(0, 90) + '...' : '');
+
+    return (
+        <div 
+            onClick={onSelect} 
+            className={`group flex items-start gap-3 p-4 border-b border-slate-100 dark:border-slate-700 cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-700/50 relative ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-l-indigo-500 pl-3' : 'border-l-4 border-l-transparent pl-3'} ${isUnread ? 'bg-white dark:bg-slate-800' : 'bg-slate-50/30 dark:bg-slate-900/30'}`}
+        >
+             <div className="flex flex-col items-center gap-3 pt-1">
+                {/* Star Button */}
+                <button 
+                    onClick={onToggleStar} 
+                    className={`transition-colors p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 ${email.isStarred ? 'text-amber-400' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500'}`}
+                    title={email.isStarred ? "Quitar destacado" : "Destacar"}
+                >
+                    <span className="material-symbols-outlined text-xl" style={{fontVariationSettings: `'FILL' ${email.isStarred ? 1 : 0}`}}>star</span>
+                </button>
+             </div>
+             
+             <div className="flex-1 min-w-0">
+                 <div className="flex justify-between items-center mb-1">
+                     <h4 className={`text-sm truncate max-w-[70%] ${isUnread ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-200'}`}>
+                         {displayContact}
+                     </h4>
+                     <span className={`text-xs whitespace-nowrap ${isUnread ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>
+                         {formatDateSmart(email.timestamp)}
+                     </span>
+                 </div>
+                 
+                 <p className={`text-xs truncate mb-1.5 ${isUnread ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400'}`}>
+                     {email.subject || '(Sin asunto)'}
+                 </p>
+                 <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-2 leading-relaxed">
+                     {displaySnippet}
+                 </p>
+
+                 {/* Footer Tags & Attachments */}
+                 <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                    {email.attachments && email.attachments.length > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[10px] text-slate-500 font-medium">
+                            <span className="material-symbols-outlined !text-[12px] mr-1">attach_file</span> {email.attachments.length}
+                        </span>
+                    )}
+                    {email.tags && email.tags.map(tag => (
+                        <span key={tag} className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium ${BUSINESS_TAGS[tag] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                            {tag}
+                            <button 
+                                onClick={(e) => onDeleteTag(tag, e)}
+                                className="hover:text-red-600 flex items-center"
+                                title="Eliminar etiqueta"
+                            >
+                                <span className="material-symbols-outlined !text-[10px]">close</span>
+                            </button>
+                        </span>
                     ))}
-                </nav>
-                <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center justify-between gap-2 mb-1 px-2">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                             <div className={`w-2.5 h-2.5 rounded-full ${activeAccount?.status === 'Conectado' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                             <p className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate max-w-[120px]">
-                                {activeAccount?.email || 'Sin cuenta'}
-                            </p>
+                 </div>
+             </div>
+
+             {/* Hover Actions (Desktop) */}
+             <div className="absolute right-2 bottom-2 hidden group-hover:flex items-center gap-1 bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-600 rounded-lg p-1 z-10">
+                 <button onClick={onArchive} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors" title="Archivar">
+                     <span className="material-symbols-outlined text-lg">archive</span>
+                 </button>
+             </div>
+        </div>
+    );
+};
+
+// Rich Text Editor Toolbar
+const RichTextToolbar: React.FC<{ onCommand: (cmd: string, val?: string) => void }> = ({ onCommand }) => {
+    return (
+        <div className="flex items-center gap-1 p-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-t-lg">
+            <button onClick={() => onCommand('bold')} className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Negrita"><span className="material-symbols-outlined text-lg">format_bold</span></button>
+            <button onClick={() => onCommand('italic')} className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Cursiva"><span className="material-symbols-outlined text-lg">format_italic</span></button>
+            <button onClick={() => onCommand('underline')} className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Subrayado"><span className="material-symbols-outlined text-lg">format_underlined</span></button>
+            <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+            <button onClick={() => onCommand('insertUnorderedList')} className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Lista con viñetas"><span className="material-symbols-outlined text-lg">format_list_bulleted</span></button>
+            <button onClick={() => onCommand('insertOrderedList')} className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Lista numerada"><span className="material-symbols-outlined text-lg">format_list_numbered</span></button>
+            <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+            <button onClick={() => onCommand('justifyLeft')} className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Alinear izquierda"><span className="material-symbols-outlined text-lg">format_align_left</span></button>
+            <button onClick={() => onCommand('justifyCenter')} className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Centrar"><span className="material-symbols-outlined text-lg">format_align_center</span></button>
+        </div>
+    );
+};
+
+// Modal for composing
+interface ComposeEmailModalProps {
+    mode: ComposeMode;
+    initialData: Partial<Email>;
+    isOpen: boolean;
+    onClose: () => void;
+    onSend: (data: any) => void;
+    defaultSignature?: string;
+}
+
+const ComposeEmailModal: React.FC<ComposeEmailModalProps> = ({ mode, initialData, isOpen, onClose, onSend, defaultSignature }) => {
+    const [to, setTo] = useState('');
+    const [cc, setCc] = useState('');
+    const [bcc, setBcc] = useState('');
+    const [subject, setSubject] = useState('');
+    const [body, setBody] = useState('');
+    const [showCc, setShowCc] = useState(false);
+    const [useSignature, setUseSignature] = useState(true);
+    
+    const [attachments, setAttachments] = useState<File[]>([]);
+    const fileRef = useRef<HTMLInputElement>(null);
+    const bodyRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            setTo(Array.isArray(initialData.to) ? initialData.to.map((r:any) => getSafeContactEmail(r)).join(', ') : '');
+            setSubject(initialData.subject || '');
+            
+            // Body setup: include quote if reply
+            let initialBody = initialData.body || '';
+            if (mode === 'reply' || mode === 'forward') {
+                initialBody = `<br><br><hr><blockquote>${initialData.body}</blockquote>`;
+            }
+            setBody(initialBody);
+            
+            if(bodyRef.current) {
+                 bodyRef.current.innerHTML = initialBody;
+            }
+            
+            setAttachments([]);
+        }
+    }, [isOpen, initialData, mode]);
+    
+    const handleExecCommand = (cmd: string, val?: string) => {
+        document.execCommand(cmd, false, val);
+    };
+
+    const handleSend = () => {
+        if (!to) return alert('Por favor, especifica al menos un destinatario.');
+        
+        let finalBody = bodyRef.current?.innerHTML || '';
+        if (useSignature && defaultSignature) {
+            finalBody += `<br><div class="signature-block">${defaultSignature}</div>`;
+        }
+        
+        onSend({ to, cc, bcc, subject, body: finalBody, attachments });
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-800 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col h-[90vh] animate-slide-in-up overflow-hidden border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                    <h3 className="font-bold text-slate-800 dark:text-white text-lg flex items-center gap-2">
+                        <span className="material-symbols-outlined text-indigo-500">{mode === 'new' ? 'edit_square' : 'reply'}</span>
+                        {mode === 'new' ? 'Nuevo Mensaje' : mode === 'reply' ? 'Responder' : 'Reenviar'}
+                    </h3>
+                    <button onClick={onClose} className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors"><span className="material-symbols-outlined text-slate-500">close</span></button>
+                </div>
+                
+                {/* Fields */}
+                <div className="p-6 space-y-4 bg-white dark:bg-slate-800 flex-shrink-0 overflow-y-auto">
+                    <div className="grid gap-4">
+                        <div className="relative group">
+                             <label className="block text-xs font-bold text-slate-400 uppercase mb-1 ml-1">Destinatarios</label>
+                             <div className="flex items-center border-b border-slate-200 dark:border-slate-700 focus-within:border-indigo-500 transition-colors pb-1">
+                                <input 
+                                    className="flex-1 bg-transparent text-sm text-slate-800 dark:text-white placeholder-slate-400 outline-none py-1" 
+                                    placeholder="Para: (ej. cliente@empresa.com)" 
+                                    value={to} 
+                                    onChange={e => setTo(e.target.value)} 
+                                    autoFocus
+                                />
+                                <button onClick={() => setShowCc(!showCc)} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium ml-2">CC/BCC</button>
+                            </div>
                         </div>
-                        <button onClick={triggerManualSync} title="Sincronizar ahora" className="text-slate-400 hover:text-indigo-500">
-                            <span className="material-symbols-outlined text-base">sync</span>
+                        
+                        {showCc && (
+                            <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                                <div className="border-b border-slate-200 dark:border-slate-700 pb-1">
+                                    <input className="w-full bg-transparent text-sm outline-none text-slate-800 dark:text-white" placeholder="CC:" value={cc} onChange={e => setCc(e.target.value)} />
+                                </div>
+                                <div className="border-b border-slate-200 dark:border-slate-700 pb-1">
+                                    <input className="w-full bg-transparent text-sm outline-none text-slate-800 dark:text-white" placeholder="BCC:" value={bcc} onChange={e => setBcc(e.target.value)} />
+                                </div>
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1 ml-1">Asunto</label>
+                            <input 
+                                className="w-full text-lg font-semibold bg-transparent border-b border-slate-200 dark:border-slate-700 focus:border-indigo-500 outline-none py-1 text-slate-800 dark:text-white transition-colors placeholder-slate-300" 
+                                placeholder="Escribe el asunto aquí..." 
+                                value={subject} 
+                                onChange={e => setSubject(e.target.value)} 
+                            />
+                        </div>
+                    </div>
+                    
+                    {/* Editor Area */}
+                    <div className="flex flex-col border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden min-h-[300px]">
+                         <RichTextToolbar onCommand={handleExecCommand} />
+                        <div className="flex-1 p-4 bg-white dark:bg-slate-800 cursor-text" onClick={() => bodyRef.current?.focus()}>
+                            <div 
+                                className="w-full h-full outline-none text-sm text-slate-700 dark:text-slate-300 prose max-w-none" 
+                                contentEditable 
+                                ref={bodyRef}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Attachments Display */}
+                    {attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-700">
+                                {attachments.map((f, i) => (
+                                    <span key={i} className="text-xs bg-white dark:bg-slate-800 pl-2 pr-1 py-1 rounded border border-slate-200 dark:border-slate-600 flex items-center gap-1 text-slate-600 dark:text-slate-300 shadow-sm">
+                                        <span className="material-symbols-outlined text-xs text-slate-400">attach_file</span>
+                                        {f.name} 
+                                        <button onClick={() => setAttachments(prev => prev.filter(x => x !== f))} className="hover:text-red-500 ml-1 p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700"><span className="material-symbols-outlined text-[14px]">close</span></button>
+                                    </span>
+                                ))}
+                        </div>
+                    )}
+                </div>
+                
+                {/* Footer */}
+                <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 mt-auto">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => fileRef.current?.click()} className="p-2 text-slate-500 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all border border-transparent hover:border-slate-200 hover:shadow-sm" title="Adjuntar Archivo">
+                             <span className="material-symbols-outlined">attach_file</span>
+                        </button>
+                        <input type="file" multiple ref={fileRef} className="hidden" onChange={e => e.target.files && setAttachments([...attachments, ...Array.from(e.target.files)])} />
+                        
+                        {defaultSignature && (
+                            <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer select-none px-2 py-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                                <input type="checkbox" checked={useSignature} onChange={e => setUseSignature(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500" />
+                                Incluir firma
+                            </label>
+                        )}
+                    </div>
+                    
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white transition-colors">Descartar</button>
+                        <button onClick={handleSend} className="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 transition-all transform hover:-translate-y-0.5 flex items-center gap-2">
+                            Enviar <span className="material-symbols-outlined text-sm">send</span>
                         </button>
                     </div>
                 </div>
             </div>
+        </div>
+    );
+};
 
-            {/* Lista de Correos */}
-            <div className={`w-full lg:w-96 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col ${selectedMessage ? 'hidden lg:flex' : 'flex'}`}>
-                <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg capitalize">{view === 'inbox' ? 'Bandeja' : view}</h3>
-                    <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">{displayedEmails.length}</span>
+// --- MAIN PAGE ---
+
+const EmailsPage: React.FC = () => {
+    const { data: allAccounts } = useCollection<ConnectedEmailAccount>('connectedAccounts');
+    const { data: signatureTemplates } = useCollection<SignatureTemplate>('signatureTemplates');
+    const { user: currentUser } = useAuth();
+    const { showToast } = useToast();
+
+    // State
+    const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+    const [selectedFolder, setSelectedFolder] = useState<EmailFolder>('inbox');
+    const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null); 
+    const [searchQuery, setSearchQuery] = useState('');
+    
+    // Data State
+    const [nylasEmails, setNylasEmails] = useState<Email[]>([]);
+    const [isNylasLoading, setIsNylasLoading] = useState(false);
+    const [nylasError, setNylasError] = useState<string | null>(null);
+    
+    // View Settings
+    const [showImages, setShowImages] = useState(false);
+    const [isTagMenuOpen, setIsTagMenuOpen] = useState(false);
+    const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null); 
+
+    // Compose State
+    const [composeMode, setComposeMode] = useState<ComposeMode | null>(null);
+    const [composeData, setComposeData] = useState<Partial<Email>>({});
+    
+    // Attachment Preview
+    const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+    
+    // Filter accounts
+    const userAccounts = useMemo(() => {
+        if (!allAccounts || !currentUser) return [];
+        return allAccounts.filter(acc => acc.userId === currentUser.id);
+    }, [allAccounts, currentUser]);
+
+    // Default account selection
+    useEffect(() => {
+        if (userAccounts.length > 0 && !selectedAccountId) {
+            setSelectedAccountId(userAccounts[0].id);
+        }
+    }, [userAccounts, selectedAccountId]);
+
+    const currentAccount = useMemo(() => userAccounts.find(a => a.id === selectedAccountId), [userAccounts, selectedAccountId]);
+    
+    const currentSignature = useMemo(() => {
+        if (!currentAccount?.signatureTemplate || !signatureTemplates || !currentUser) return undefined;
+        const template = signatureTemplates.find(t => t.id === currentAccount.signatureTemplate);
+        if (!template) return undefined;
+        
+        let sig = template.htmlContent;
+        sig = sig.replace(/{{name}}/g, currentUser.name || '');
+        sig = sig.replace(/{{email}}/g, currentAccount.email || '');
+        sig = sig.replace(/{{role}}/g, currentUser.role || '');
+        sig = sig.replace(/{{phone}}/g, currentUser.phone || '');
+        return sig;
+    }, [currentAccount, signatureTemplates, currentUser]);
+
+    // Nylas API Helper (Since backend proxy is missing for this environment)
+    const updateNylasMessage = async (messageId: string, updates: { unread?: boolean, starred?: boolean, folders?: string[] }) => {
+        if (!currentAccount || !currentAccount.nylasConfig) return;
+        const { grantId, apiKey } = currentAccount.nylasConfig;
+        
+        try {
+            const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId.trim()}/messages/${messageId}`, {
+                method: 'PUT',
+                headers: { 
+                    'Authorization': `Bearer ${apiKey.trim()}`, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify(updates)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Error updating message');
+            }
+        } catch (error) {
+            console.error('Failed to update Nylas message:', error);
+            showToast('error', 'No se pudo sincronizar el cambio con el servidor de correo.');
+            throw error;
+        }
+    };
+
+    // Firebase Metadata Helper (Tags & Archive)
+    const updateLocalMetadata = async (messageId: string, data: any) => {
+        try {
+            // Use setDoc with merge: true to prevent overwriting existing tags/archive status
+            await api.setDoc('email_metadata', messageId, data, { merge: true }); 
+        } catch (error) {
+            console.error('Failed to update metadata:', error);
+            showToast('error', 'No se pudo guardar la información localmente.');
+            throw error;
+        }
+    };
+
+    // FETCH EMAILS
+    const fetchEmails = useCallback(async () => {
+        if (!currentAccount || !currentAccount.nylasConfig) return;
+        
+        setIsNylasLoading(true);
+        setNylasError(null);
+        
+        try {
+            const { grantId, apiKey } = currentAccount.nylasConfig;
+            const cleanGrant = grantId.trim();
+            const cleanKey = apiKey.trim();
+            
+            // 1. Fetch Messages from Nylas
+            const response = await fetch(`https://api.us.nylas.com/v3/grants/${cleanGrant}/messages?limit=50`, {
+                headers: { 'Authorization': `Bearer ${cleanKey}`, 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) throw new Error("Error de autenticación con Nylas (401). Verifica las credenciales.");
+                throw new Error(`Error conectando con Nylas (${response.status})`);
+            }
+            
+            const nylasData = await response.json();
+            const messages = nylasData.data || [];
+
+            // 2. Fetch Metadata from Firebase
+            const metadataSnapshot = await api.getCollection('email_metadata');
+            const metadataMap = new Map(metadataSnapshot.map(m => [m.id, m]));
+
+            // 3. Merge Data
+            const mapped: Email[] = messages.map((msg: any) => {
+                const folders = msg.folders || [];
+                const metadata = metadataMap.get(msg.id) || {};
+
+                let folder: EmailFolder = 'inbox';
+                if (metadata.isArchived) folder = 'archived'; // Local override
+                else if (folders.some((f: string) => f.toLowerCase().includes('sent'))) folder = 'sent';
+                else if (folders.some((f: string) => f.toLowerCase().includes('draft'))) folder = 'drafts';
+                else if (folders.some((f: string) => f.toLowerCase().includes('trash'))) folder = 'trash';
+                else if (folders.some((f: string) => f.toLowerCase().includes('archive'))) folder = 'archived';
+
+                // Prioritize local metadata for read status and star if exists
+                const isRead = metadata.unread !== undefined ? !metadata.unread : !msg.unread;
+                const isStarred = metadata.starred !== undefined ? metadata.starred : msg.starred;
+
+                return {
+                    id: msg.id,
+                    threadId: msg.thread_id || msg.subject,
+                    subject: msg.subject || '(Sin asunto)',
+                    body: msg.body || '',
+                    snippet: msg.snippet || '',
+                    from: msg.from?.[0] || { name: 'Desconocido', email: '' },
+                    to: msg.to || [],
+                    cc: msg.cc || [],
+                    bcc: msg.bcc || [],
+                    timestamp: new Date(msg.date * 1000).toISOString(),
+                    status: isRead ? 'read' : 'unread',
+                    folder: folder, 
+                    attachments: (msg.attachments || []).map((a: any) => ({ id: a.id, name: a.filename || 'File', size: a.size || 0, url: '#' })),
+                    isStarred: isStarred || false,
+                    isArchived: metadata.isArchived || false, 
+                    tags: metadata.tags || [] 
+                };
+            });
+            
+            setNylasEmails(mapped);
+        } catch (e: any) {
+            console.error(e);
+            setNylasError(e.message);
+        } finally {
+            setIsNylasLoading(false);
+        }
+    }, [currentAccount]);
+
+    // Re-fetch when account changes.
+    useEffect(() => {
+        if (selectedAccountId) fetchEmails();
+    }, [fetchEmails, selectedAccountId]);
+
+    // --- THREADING & FILTER LOGIC ---
+    const groupedThreads = useMemo(() => {
+        const threads: Record<string, Email[]> = {};
+        
+        const filtered = nylasEmails.filter(e => {
+            // 1. Archive Filter (Respect local override)
+            if (selectedFolder === 'archived') {
+                if (!e.isArchived && e.folder !== 'archived') return false;
+            } else if (selectedFolder === 'inbox') {
+                if (e.isArchived || e.folder === 'archived' || e.folder === 'trash') return false; 
+                 if (e.folder !== 'inbox' && e.folder !== 'sent') return false;
+            } else {
+                 if (e.folder !== selectedFolder) return false;
+            }
+            
+            // 2. Search Filter
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                if (!(e.subject.toLowerCase().includes(q) || getSafeContactName(e.from).toLowerCase().includes(q))) return false;
+            }
+
+            // 3. Tag Filter
+            if (selectedTagFilter) {
+                if (!e.tags || !e.tags.includes(selectedTagFilter)) return false;
+            }
+
+            return true;
+        });
+
+        filtered.forEach(email => {
+            const key = email.threadId || email.subject; 
+            if (!threads[key]) threads[key] = [];
+            threads[key].push(email);
+        });
+
+        return Object.entries(threads)
+            .map(([id, msgs]) => ({
+                id,
+                messages: msgs.sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
+                latestMessage: msgs[msgs.length - 1]
+            }))
+            .sort((a, b) => new Date(b.latestMessage.timestamp).getTime() - new Date(a.latestMessage.timestamp).getTime());
+    }, [nylasEmails, selectedFolder, searchQuery, selectedTagFilter]);
+
+    const activeThread = useMemo(() => {
+        if (!selectedThreadId) return null;
+        return groupedThreads.find(t => t.id === selectedThreadId);
+    }, [selectedThreadId, groupedThreads]);
+
+    // Reset image block when thread changes
+    useEffect(() => {
+        setShowImages(false);
+    }, [selectedThreadId]);
+
+
+    // --- ACTIONS ---
+    const handleSendEmail = async (data: any) => {
+        if (!currentAccount || !currentUser) return;
+        
+        const toRecipients = stringToRecipients(data.to);
+        const ccRecipients = stringToRecipients(data.cc || '');
+        const bccRecipients = stringToRecipients(data.bcc || '');
+
+        const payload = {
+            subject: data.subject,
+            body: data.body,
+            to: toRecipients,
+            cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+            bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+        };
+        
+        try {
+            if (currentAccount.provider === 'nylas' && currentAccount.nylasConfig) {
+                 const { grantId, apiKey } = currentAccount.nylasConfig;
+                 const res = await fetch(`https://api.us.nylas.com/v3/grants/${grantId.trim()}/messages/send`, {
+                     method: 'POST',
+                     headers: { 'Authorization': `Bearer ${apiKey.trim()}`, 'Content-Type': 'application/json' },
+                     body: JSON.stringify(payload)
+                 });
+                 
+                 if (!res.ok) {
+                     const err = await res.json();
+                     throw new Error(err.message || 'Error enviando correo');
+                 }
+            } else {
+                // Mock send
+                await api.addDoc('emails', { ...payload, from: {name: currentUser.name, email: currentAccount.email}, folder: 'sent', timestamp: new Date().toISOString(), status: 'read' });
+            }
+            
+            showToast('success', 'Correo enviado exitosamente.');
+            setComposeMode(null);
+
+        } catch (e: any) {
+            console.error(e);
+            showToast('error', `No se pudo enviar el correo: ${e.message}`);
+        }
+    };
+
+    const toggleThreadStar = async (threadId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        
+        // Optimistic Update
+        const targetEmail = nylasEmails.find(email => email.threadId === threadId || email.subject === threadId);
+        if (!targetEmail) return;
+        const newStatus = !targetEmail.isStarred;
+
+        setNylasEmails(prev => prev.map(email => 
+            (email.threadId === threadId || email.subject === threadId) ? { ...email, isStarred: newStatus } : email
+        ));
+
+        // API Call
+        const threadEmails = nylasEmails.filter(email => email.threadId === threadId || email.subject === threadId);
+        for (const email of threadEmails) {
+             try {
+                 await updateNylasMessage(email.id, { starred: newStatus });
+                 // Also save to Firebase for persistence
+                 await updateLocalMetadata(email.id, { starred: newStatus });
+             } catch (err) {
+                 console.error("Failed to sync star status");
+             }
+        }
+    };
+
+    const archiveThread = async (threadId: string, e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        
+        // Optimistic Update
+        setNylasEmails(prev => prev.map(email => 
+            (email.threadId === threadId || email.subject === threadId) ? { ...email, isArchived: true, folder: 'archived' } : email
+        ));
+        
+        if (selectedThreadId === threadId) setSelectedThreadId(null);
+        showToast('success', 'Conversación archivada');
+
+        // Persist to Firebase
+        const threadEmails = nylasEmails.filter(email => email.threadId === threadId || email.subject === threadId);
+        for (const email of threadEmails) {
+            await updateLocalMetadata(email.id, { isArchived: true, tags: email.tags });
+        }
+    };
+    
+    const markThreadReadStatus = async (threadId: string, status: 'read' | 'unread') => {
+        // Optimistic Update
+        setNylasEmails(prev => prev.map(email => 
+             (email.threadId === threadId || email.subject === threadId) ? { ...email, status: status } : email
+        ));
+        showToast('info', `Marcado como ${status === 'read' ? 'leído' : 'no leído'}`);
+
+        // API Sync & Persistence
+        const isUnread = status === 'unread';
+        const threadEmails = nylasEmails.filter(email => email.threadId === threadId || email.subject === threadId);
+        for (const email of threadEmails) {
+            try {
+                await updateNylasMessage(email.id, { unread: isUnread });
+                // Save local override to ensure persistence across reloads even if API is slow
+                await updateLocalMetadata(email.id, { unread: isUnread });
+            } catch (err) {
+                console.error("Failed to sync read status");
+            }
+        }
+    };
+    
+    const addTagToThread = async (tag: string) => {
+        if (!selectedThreadId) return;
+
+        // Optimistic Update
+        const threadEmails = nylasEmails.filter(email => email.threadId === selectedThreadId || email.subject === selectedThreadId);
+        
+        setNylasEmails(prev => prev.map(email => 
+             (email.threadId === selectedThreadId || email.subject === selectedThreadId) 
+             ? { ...email, tags: [...(new Set([...(email.tags || []), tag]))] } 
+             : email
+        ));
+        setIsTagMenuOpen(false);
+        showToast('success', `Etiqueta "${tag}" añadida`);
+
+        // Persist to Firebase
+        for (const email of threadEmails) {
+            const newTags = [...(new Set([...(email.tags || []), tag]))];
+            // Preserve existing metadata fields
+            await updateLocalMetadata(email.id, { tags: newTags });
+        }
+    };
+    
+    const deleteTagFromEmail = async (emailId: string, tagToRemove: string) => {
+         // Optimistic Update
+         const targetEmail = nylasEmails.find(e => e.id === emailId);
+         if (!targetEmail) return;
+         const newTags = targetEmail.tags?.filter(t => t !== tagToRemove) || [];
+
+         setNylasEmails(prev => prev.map(e => 
+             e.id === emailId ? { ...e, tags: newTags } : e
+         ));
+         showToast('info', 'Etiqueta eliminada');
+
+         // Persist to Firebase
+         await updateLocalMetadata(emailId, { tags: newTags });
+    }
+
+    // Custom Dropdown for Accounts
+    const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
+
+    return (
+        <div className="flex h-[calc(100vh-100px)] bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            
+            {/* 1. SIDEBAR */}
+            <div className="w-64 bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex flex-col">
+                <div className="p-4">
+                    <button 
+                        onClick={() => { setComposeMode('new'); setComposeData({}); }} 
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02]"
+                    >
+                        <span className="material-symbols-outlined">edit_square</span> Redactar
+                    </button>
                 </div>
-                <div className="flex-1 overflow-y-auto">
-                    {emailsLoading ? (
-                        <div className="flex justify-center py-10"><Spinner /></div>
-                    ) : displayedEmails.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400 px-6">
-                            <p className="font-medium text-slate-600 dark:text-slate-300">Carpeta vacía</p>
+                
+                <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+                    {FOLDER_CONFIG.map(folder => (
+                        <button
+                            key={folder.id}
+                            onClick={() => { setSelectedFolder(folder.id); setSelectedThreadId(null); setSelectedTagFilter(null); }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedFolder === folder.id && !selectedTagFilter ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <span className="material-symbols-outlined text-xl">{folder.icon}</span>
+                                {folder.name}
+                            </div>
+                            {/* Unread Count (Mock for inbox) */}
+                            {folder.id === 'inbox' && (
+                                <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-1.5 rounded-md">
+                                    {nylasEmails.filter(e => e.status === 'unread' && e.folder === 'inbox' && !e.isArchived).length || ''}
+                                </span>
+                            )}
+                        </button>
+                    ))}
+                    
+                    <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <p className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Etiquetas</p>
+                        {Object.keys(BUSINESS_TAGS).map(tag => (
+                            <button 
+                                key={tag} 
+                                onClick={() => { setSelectedTagFilter(tag); setSelectedThreadId(null); }}
+                                className={`w-full flex items-center gap-3 px-3 py-1.5 text-sm transition-colors rounded-lg ${selectedTagFilter === tag ? 'bg-white dark:bg-slate-800 font-semibold shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
+                            >
+                                <span className={`w-2.5 h-2.5 rounded-full ${BUSINESS_TAGS[tag].split(' ')[0].replace('bg-', 'bg-')}`}></span>
+                                {tag}
+                            </button>
+                        ))}
+                    </div>
+                </nav>
+                
+                {/* Account Selector */}
+                <div className="p-4 border-t border-slate-200 dark:border-slate-700 relative">
+                     <button 
+                        onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
+                        className="w-full flex items-center justify-between px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                     >
+                         <span className="truncate flex-1 text-left">{currentAccount?.email || 'Seleccionar cuenta'}</span>
+                         <span className="material-symbols-outlined text-slate-400">unfold_more</span>
+                     </button>
+
+                     {isAccountDropdownOpen && (
+                         <div className="absolute bottom-full left-4 right-4 mb-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                             {userAccounts.map(acc => (
+                                 <button 
+                                    key={acc.id}
+                                    onClick={() => { setSelectedAccountId(acc.id); setIsAccountDropdownOpen(false); }}
+                                    className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 ${selectedAccountId === acc.id ? 'bg-indigo-50 text-indigo-600 font-medium' : 'text-slate-700 dark:text-slate-300'}`}
+                                 >
+                                     {acc.email}
+                                 </button>
+                             ))}
+                         </div>
+                     )}
+                </div>
+            </div>
+
+            {/* 2. THREAD LIST (Middle) */}
+            <div className="w-80 lg:w-96 border-r border-slate-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-800 transition-all">
+                <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+                    <div className="relative flex-1">
+                        <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                        <input 
+                            type="text" 
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder="Buscar..." 
+                            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                    </div>
+                    <button onClick={() => fetchEmails()} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Actualizar"><span className="material-symbols-outlined text-lg">refresh</span></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    {isNylasLoading ? (
+                        <div className="py-12 flex justify-center"><Spinner /></div>
+                    ) : nylasError ? (
+                         <div className="p-6 text-center">
+                             <p className="text-red-500 text-sm mb-2">Error de conexión</p>
+                             <p className="text-xs text-slate-400">{nylasError}</p>
+                             <button onClick={() => fetchEmails()} className="mt-4 text-xs text-indigo-600 underline">Reintentar</button>
+                         </div>
+                    ) : groupedThreads.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+                            <span className="material-symbols-outlined text-4xl mb-2">inbox</span>
+                            <p className="text-sm">No hay conversaciones</p>
                         </div>
                     ) : (
-                        <ul className="divide-y divide-slate-100 dark:divide-slate-700">
-                            {displayedEmails.map(msg => (
-                                <li 
-                                    key={msg.id} 
-                                    onClick={() => setSelectedMessage(msg)}
-                                    className={`p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors ${selectedMessage?.id === msg.id ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500' : 'border-l-4 border-transparent'}`}
-                                >
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className={`text-sm truncate max-w-[70%] ${msg.status === 'unread' ? 'font-bold text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
-                                            {msg.from.name || msg.from.email}
-                                        </span>
-                                        <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                                            {new Date(msg.timestamp).toLocaleDateString(undefined, {month: 'short', day:'numeric'})}
-                                        </span>
-                                    </div>
-                                    <p className={`text-sm truncate mb-1 ${msg.status === 'unread' ? 'font-semibold text-indigo-700 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{msg.subject || '(Sin asunto)'}</p>
-                                    <p className="text-xs text-slate-400 line-clamp-1">{msg.snippet}</p>
-                                    {msg.deliveryStatus === 'pending' && <span className="text-[10px] text-amber-500 mt-1 block animate-pulse">Enviando...</span>}
-                                    {msg.deliveryStatus === 'sent' && view === 'sent' && <span className="text-[10px] text-green-500 mt-1 block">Enviado</span>}
-                                </li>
-                            ))}
+                        <ul>
+                            {groupedThreads.map(thread => {
+                                const msg = thread.latestMessage;
+                                const isSelected = selectedThreadId === thread.id;
+                                
+                                return (
+                                    <li key={thread.id}>
+                                        <EmailListItem 
+                                            email={msg}
+                                            isSelected={isSelected}
+                                            onSelect={() => setSelectedThreadId(thread.id)}
+                                            onToggleStar={(e) => toggleThreadStar(thread.id, e)}
+                                            onArchive={(e) => archiveThread(thread.id, e)}
+                                            onDeleteTag={(tag, e) => { e.stopPropagation(); deleteTagFromEmail(msg.id, tag); }}
+                                        />
+                                    </li>
+                                );
+                            })}
                         </ul>
                     )}
                 </div>
             </div>
 
-            {/* Visor del Correo */}
-            <div className={`flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-900/50 ${selectedMessage ? 'flex' : 'hidden lg:flex'}`}>
-                {selectedMessage ? (
+            {/* 3. READING PANE (Right) */}
+            <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 min-w-0 relative">
+                {activeThread ? (
                     <>
-                        <div className="p-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex-shrink-0 shadow-sm z-10">
-                            <div className="flex justify-between items-start mb-4">
-                                <button onClick={() => setSelectedMessage(null)} className="lg:hidden mr-2 text-slate-500"><span className="material-symbols-outlined">arrow_back</span></button>
-                                <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1 leading-snug">{selectedMessage.subject}</h2>
-                            </div>
-                            
-                            <div className="flex justify-between items-end">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300 flex items-center justify-center font-bold text-lg">
-                                        {(selectedMessage.from.name || selectedMessage.from.email || '?').charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                            {selectedMessage.from.name} <span className="font-normal text-slate-500 dark:text-slate-400 text-xs">&lt;{selectedMessage.from.email}&gt;</span>
-                                        </p>
-                                        <p className="text-xs text-slate-500">Para: {selectedMessage.to.map(t => t.email).join(', ')}</p>
-                                    </div>
-                                </div>
-                                <span className="text-xs text-slate-500">{new Date(selectedMessage.timestamp).toLocaleString()}</span>
-                            </div>
-
-                            {selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
-                                <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 dark:border-slate-700 pt-3">
-                                    {selectedMessage.attachments.map((att) => (
-                                        <button 
-                                            key={att.id} 
-                                            onClick={() => handleDownloadAttachment(att, selectedMessage)}
-                                            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-xs font-medium text-slate-700 dark:text-slate-300"
-                                        >
-                                            <span className="material-symbols-outlined text-sm">attach_file</span>
-                                            <span className="truncate max-w-[150px]">{att.name}</span>
-                                            <span className="text-slate-400 text-[10px] ml-1">{(att.size / 1024).toFixed(0)}KB</span>
-                                        </button>
+                        {/* Thread Header */}
+                        <div className="h-16 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-6 bg-white dark:bg-slate-800 sticky top-0 z-10">
+                            <div className="flex-1 min-w-0 mr-4">
+                                <h2 className="text-lg font-bold text-slate-800 dark:text-white truncate" title={activeThread.latestMessage.subject}>
+                                    {activeThread.latestMessage.subject}
+                                </h2>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    {activeThread.latestMessage.tags?.map(t => (
+                                        <span key={t} className={`text-[10px] px-2 py-0.5 rounded-full border font-medium flex items-center gap-1 ${BUSINESS_TAGS[t] || 'bg-slate-100 border-slate-200'}`}>
+                                            {t}
+                                            <button onClick={() => deleteTagFromEmail(activeThread.latestMessage.id, t)} className="hover:opacity-70"><span className="material-symbols-outlined !text-[10px]">close</span></button>
+                                        </span>
                                     ))}
                                 </div>
-                            )}
+                            </div>
+                            <div className="flex items-center gap-1 text-slate-500">
+                                <div className="relative">
+                                    <button onClick={() => setIsTagMenuOpen(!isTagMenuOpen)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title="Añadir Etiqueta">
+                                        <span className="material-symbols-outlined">label</span>
+                                    </button>
+                                    {isTagMenuOpen && (
+                                        <div className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-slate-800 shadow-xl rounded-lg border border-slate-200 dark:border-slate-700 z-50 py-1">
+                                            {Object.keys(BUSINESS_TAGS).map(tag => (
+                                                <button key={tag} onClick={() => addTagToThread(tag)} className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
+                                                    <span className={`w-2 h-2 rounded-full ${BUSINESS_TAGS[tag].split(' ')[0].replace('bg-','bg-')}`}></span>
+                                                    {tag}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <button onClick={(e) => toggleThreadStar(activeThread.id, e)} className={`p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded ${activeThread.latestMessage.isStarred ? 'text-amber-400' : ''}`} title="Destacar">
+                                    <span className="material-symbols-outlined" style={{fontVariationSettings: `'FILL' ${activeThread.latestMessage.isStarred ? 1 : 0}`}}>star</span>
+                                </button>
+                                <button 
+                                    onClick={() => markThreadReadStatus(activeThread.id, activeThread.latestMessage.status === 'read' ? 'unread' : 'read')} 
+                                    className={`p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded ${activeThread.latestMessage.status === 'unread' ? 'text-indigo-600' : ''}`} 
+                                    title={activeThread.latestMessage.status === 'read' ? 'Marcar como no leído' : 'Marcar como leído'}
+                                >
+                                    <span className="material-symbols-outlined" style={{fontVariationSettings: `'FILL' ${activeThread.latestMessage.status === 'unread' ? 1 : 0}`}}>
+                                        mark_email_unread
+                                    </span>
+                                </button>
+                                <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                                <button onClick={() => archiveThread(activeThread.id)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-slate-700" title="Archivar">
+                                    <span className="material-symbols-outlined">archive</span>
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="flex-1 p-6 overflow-hidden bg-white dark:bg-slate-800 relative">
-                             {isProcessingBody ? (
-                                <div className="absolute inset-0 flex flex-col justify-center items-center bg-white/80 dark:bg-slate-800/80 z-20">
-                                    <Spinner />
-                                    <span className="mt-3 text-slate-500 text-sm font-medium">Procesando contenido...</span>
+                        {/* Image Warning Banner */}
+                        {!showImages && activeThread.messages.some(m => m.body.includes('<img')) && (
+                            <div className="bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 px-6 py-2 flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-200">
+                                    <span className="material-symbols-outlined !text-sm">image_not_supported</span>
+                                    Las imágenes se han ocultado para proteger tu privacidad.
                                 </div>
-                            ) : (
-                                <EmailBodyViewer htmlContent={processedBody} />
-                            )}
+                                <button 
+                                    onClick={() => setShowImages(true)}
+                                    className="text-xs font-bold text-amber-700 dark:text-amber-300 hover:underline"
+                                >
+                                    Mostrar imágenes
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Messages Stream */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-slate-900/50">
+                            {activeThread.messages.map((msg, index) => {
+                                const isLast = index === activeThread.messages.length - 1;
+                                const contactName = getSafeContactName(msg.from);
+                                const initial = contactName.charAt(0).toUpperCase();
+                                
+                                return (
+                                    <div key={msg.id} className={`bg-white dark:bg-slate-800 rounded-xl border shadow-sm ${isLast ? 'border-slate-200 dark:border-slate-700' : 'border-transparent opacity-90'}`}>
+                                        <div className="p-4 flex gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm shrink-0">
+                                                {initial}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-baseline mb-1">
+                                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                                                        {contactName} <span className="font-normal text-slate-500 text-xs">&lt;{getSafeContactEmail(msg.from)}&gt;</span>
+                                                    </h4>
+                                                    <span className="text-xs text-slate-400">{new Date(msg.timestamp).toLocaleString()}</span>
+                                                </div>
+                                                <div className="text-xs text-slate-500 mb-3">Para: {getSafeContactName(msg.to[0])}</div>
+                                                
+                                                {/* Safe Iframe for HTML Email */}
+                                                <div className="relative w-full text-sm text-slate-700 dark:text-slate-300">
+                                                    <SafeEmailFrame htmlContent={msg.body} showImages={showImages} />
+                                                </div>
+
+                                                {/* Attachments */}
+                                                {msg.attachments.length > 0 && (
+                                                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-2">
+                                                        {msg.attachments.map(att => (
+                                                            <button key={att.id} onClick={() => setPreviewAttachment(att)} className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 transition-colors text-xs font-medium">
+                                                                <span className="material-symbols-outlined text-sm text-slate-400">attachment</span>
+                                                                <span className="max-w-[150px] truncate">{att.name}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Reply Box (Fixed at Bottom) */}
+                        <div className="p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-up">
+                            <div 
+                                onClick={() => { setComposeMode('reply'); setComposeData({ to: [activeThread.latestMessage.from], subject: `Re: ${activeThread.latestMessage.subject}` }); }}
+                                className="flex items-center gap-3 p-3 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 cursor-text hover:border-indigo-400 transition-colors bg-slate-50 dark:bg-slate-900/50"
+                            >
+                                <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-lg">reply</span>
+                                </div>
+                                <span className="text-sm">Responder a {getSafeContactName(activeThread.latestMessage.from)}...</span>
+                            </div>
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-slate-300 dark:text-slate-600">
-                        <span className="material-symbols-outlined text-8xl opacity-20">email</span>
-                        <p className="mt-4 text-lg">Selecciona un correo para leerlo</p>
+                    <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/30 text-slate-400">
+                        <div className="w-24 h-24 rounded-full bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center mb-4">
+                            <span className="material-symbols-outlined text-4xl opacity-50">mark_email_unread</span>
+                        </div>
+                        <p className="text-sm font-medium">Selecciona una conversación para leer</p>
                     </div>
                 )}
             </div>
 
-            {/* Modal de Redacción */}
-            <Drawer isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} title="Redactar Correo" size="lg">
-                <div className="space-y-4 flex flex-col h-full">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Para:</label>
-                        <input 
-                            type="email" 
-                            value={composeTo}
-                            onChange={e => setComposeTo(e.target.value)}
-                            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                            placeholder="destinatario@ejemplo.com"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Asunto:</label>
-                        <input 
-                            type="text" 
-                            value={composeSubject}
-                            onChange={e => setComposeSubject(e.target.value)}
-                            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                            placeholder="Asunto..."
-                        />
-                    </div>
-                    <div className="flex-1 flex flex-col">
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Mensaje:</label>
-                        <textarea 
-                            value={composeBody}
-                            onChange={e => setComposeBody(e.target.value)}
-                            className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 resize-none focus:ring-2 focus:ring-indigo-500 outline-none font-sans min-h-[300px]"
-                            placeholder="Escribe tu mensaje aquí..."
-                        />
-                    </div>
-                    
-                    <div className="pt-4 flex justify-between items-center border-t border-slate-100 dark:border-slate-700">
-                         <button onClick={handleSaveDraft} className="px-4 py-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1">
-                             <span className="material-symbols-outlined text-base">save</span> Guardar Borrador
-                         </button>
-                        <div className="flex gap-3">
-                            <button onClick={() => setIsComposeOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors">Cancelar</button>
-                            <button 
-                                onClick={handleSend} 
-                                disabled={isSending}
-                                className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 transition-colors shadow-lg"
-                            >
-                                {isSending ? <Spinner /> : <span className="material-symbols-outlined">send</span>}
-                                {isSending ? 'Encolando...' : 'Enviar'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </Drawer>
+            {/* Modals */}
+            {composeMode && (
+                <ComposeEmailModal 
+                    mode={composeMode} 
+                    initialData={composeData} 
+                    isOpen={!!composeMode} 
+                    onClose={() => setComposeMode(null)} 
+                    onSend={handleSendEmail} 
+                    defaultSignature={currentSignature}
+                />
+            )}
+            <AttachmentModal isOpen={!!previewAttachment} onClose={() => setPreviewAttachment(null)} attachment={previewAttachment} />
         </div>
     );
 };

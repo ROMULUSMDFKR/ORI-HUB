@@ -7,15 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "serve -s dist -l 8080",
-    "email-server": "node email-server.js"
+    "start": "serve -s dist -l 8080"
   },
   "dependencies": {
     "firebase": "^10.12.2",
-    "firebase-admin": "^12.0.0",
     "gsap": "^3.12.5",
-    "node-fetch": "^3.3.2",
-    "nodemailer": "^6.9.13",
     "ogl": "^1.0.11",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -38,7 +38,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 // Prospecting
 const ProspectingDashboardPage = lazy(() => import('./pages/prospecting/ProspectingDashboardPage'));
 const CandidatesPage = lazy(() => import('./pages/CandidatesPage'));
-const MapPage = lazy(() => import('./pages/prospecting/MapPage'));
+const MapPage = lazy(() => import('./pages/prospecting/MapPage')); // New Page
 const CandidateDetailPage = lazy(() => import('./pages/CandidateDetailPage'));
 const UploadCandidatesPage = lazy(() => import('./pages/UploadCandidatesPage'));
 const ImportHistoryPage = lazy(() => import('./pages/prospecting/ImportHistoryPage'));
@@ -82,7 +82,7 @@ const ProductCategoriesPage = lazy(() => import('./pages/ProductCategoriesPage')
 // Purchases
 const PurchasesDashboardPage = lazy(() => import('./pages/purchase/PurchasesDashboardPage'));
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPipelinePage'));
-const PurchaseOrderListPage = lazy(() => import('./pages/purchase/PurchaseOrderListPage'));
+const PurchaseOrderListPage = lazy(() => import('./pages/purchase/PurchaseOrderListPage')); // New List Page
 const NewPurchaseOrderPage = lazy(() => import('./pages/purchase/NewPurchaseOrderPage'));
 const PurchaseOrderDetailPage = lazy(() => import('./pages/purchase/PurchaseOrderDetailPage'));
 const SuppliersPage = lazy(() => import('./pages/purchase/SuppliersPage'));
@@ -118,9 +118,6 @@ const InternalChatPage = lazy(() => import('./pages/InternalChatPage'));
 const AiAssistantPage = lazy(() => import('./pages/AiAssistantPage'));
 const AllNotificationsPage = lazy(() => import('./pages/AllNotificationsPage'));
 const ChatInboxPage = lazy(() => import('./pages/communication/ChatInboxPage'));
-const EmailsPage = lazy(() => import('./pages/EmailsPage'));
-const EmailAppearancePage = lazy(() => import('./pages/settings/EmailAppearancePage'));
-const EditSignaturePage = lazy(() => import('./pages/settings/EditSignaturePage'));
 
 // Finance
 const BillingPage = lazy(() => import('./pages/BillingPage'));
@@ -144,6 +141,8 @@ const UserManagementPage = lazy(() => import('./pages/settings/UserManagement'))
 const EditUserPage = lazy(() => import('./pages/EditUserPage'));
 const TeamManagement = lazy(() => import('./pages/settings/TeamManagement'));
 const SecuritySettingsPage = lazy(() => import('./pages/settings/SecuritySettings'));
+const EmailSettingsPage = lazy(() => import('./pages/settings/EmailSettings'));
+const EmailAppearancePage = lazy(() => import('./pages/settings/EmailAppearancePage'));
 const IndustryManagementPage = lazy(() => import('./pages/settings/IndustryManagement'));
 const PipelineManagementPage = lazy(() => import('./pages/settings/PipelineManagement'));
 const AiAccessSettingsPage = lazy(() => import('./pages/settings/AiAccessSettings'));
@@ -152,8 +151,6 @@ const EditRolePage = lazy(() => import('./pages/settings/EditRolePage'));
 const InternalCompaniesSettings = lazy(() => import('./pages/settings/InternalCompaniesSettings'));
 const SalesGoalsPage = lazy(() => import('./pages/settings/SalesGoalsPage'));
 const ChatWidgetsPage = lazy(() => import('./pages/settings/ChatWidgetsPage'));
-const EmailSettings = lazy(() => import('./pages/settings/EmailSettings'));
-const ImportSourcesPage = lazy(() => import('./pages/prospecting/ImportSourcesPage'));
 
 // Auth & Onboarding
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -208,7 +205,7 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
         <div className="flex h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden">
             <PrimarySidebar user={user} />
             
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 <Header user={user} onLogout={onLogout} pageTitle={headerTitle} />
                 <ContentLayout>
                     <Suspense fallback={<PageLoader />}>
@@ -224,7 +221,6 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/prospecting/upload" element={<UploadCandidatesPage />} />
                             <Route path="/prospecting/history" element={<ImportHistoryPage />} />
                             <Route path="/prospecting/brands" element={<BrandsPage />} />
-                            <Route path="/prospecting/sources" element={<ImportSourcesPage />} />
 
                             {/* Hubs */}
                             <Route path="/hubs/prospects" element={<CrmPipelinePage />} />
@@ -301,7 +297,6 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/communication/chat" element={<InternalChatPage />} />
                             <Route path="/communication/chat/:type/:id" element={<InternalChatPage />} />
                             <Route path="/communication/ai-assistant" element={<AiAssistantPage />} />
-                            <Route path="/communication/mailbox" element={<EmailsPage />} />
                             <Route path="/notifications" element={<AllNotificationsPage />} />
 
                             {/* Finance */}
@@ -329,11 +324,9 @@ const AppContent: React.FC<{ user: User, onLogout: () => void, refreshUser: () =
                             <Route path="/settings/teams" element={<TeamManagement />} />
                             <Route path="/settings/internal-companies" element={<InternalCompaniesSettings />} />
                             <Route path="/settings/security" element={<SecuritySettingsPage />} />
-                            <Route path="/settings/chat-widgets" element={<ChatWidgetsPage />} />
+                            <Route path="/settings/email-accounts" element={<EmailSettingsPage />} />
                             <Route path="/settings/email-appearance" element={<EmailAppearancePage />} />
-                            <Route path="/settings/signature-templates" element={<EmailAppearancePage />} />
-                            <Route path="/settings/signature-templates/:templateId" element={<EditSignaturePage />} />
-                            <Route path="/settings/email-accounts" element={<EmailSettings />} />
+                            <Route path="/settings/chat-widgets" element={<ChatWidgetsPage />} />
                             <Route path="/settings/industries" element={<IndustryManagementPage />} />
                             <Route path="/settings/pipelines" element={<PipelineManagementPage />} />
                             <Route path="/settings/ai-access" element={<AiAccessSettingsPage />} />
